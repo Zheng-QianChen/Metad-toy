@@ -257,8 +257,8 @@ void FixMetadynamics::post_force(int) {
   if (cv_dim==1){
     all_reduce_cv(cv, cv_history, lmp, this);        // 归约
     if ((update->ntimestep % pace == 0)&&(pace!=0)) {
-      cv_history[0] = cv[0];
-      // cv_history[0] = cv_history[0]/pace;
+      // cv_history[0] = cv[0];
+      cv_history[0] = cv_history[0]/pace;
       int i = static_cast<int>((cv_history[0]-cv_bound[0])/(cv_bound[1]-cv_bound[0])*nbin[0]);
       i = (i<1)?1:(i>=nbin[0]-1)?nbin[0]-2:i;
       // double Vbias = bias_grid[i];
