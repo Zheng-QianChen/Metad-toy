@@ -11,36 +11,26 @@
 
 namespace MetaD_zqc {
   class CV {
-  public:
-      virtual ~CV() {}
+    protected:
+      FILE* f_check;
+      LAMMPS_NS::LAMMPS *lmp;
+      double cv_value;
+      double *dcvdx;
+      double dVdcv;
+    public:
+      CV(LAMMPS_NS::LAMMPS *lmp, FILE* f_check) 
+          : lmp(lmp), f_check(f_check) {}
+      virtual ~CV() {
+          if (dcvdx != nullptr) {
+              delete[] dcvdx; 
+              dcvdx = nullptr;
+          }
+      }
       virtual double compute_cv() = 0; // 计算 CV 值
       virtual void compute_grad(double dVdcv) = 0; // 计算梯度
       virtual void summary(FILE* f) = 0;
       virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
   };
-}
-
-namespace MetaD_zqc {
-    class Distance : public CV {
-    private:
-        FILE* f_check;
-        LAMMPS_NS::bigint atom_id1, atom_id2;
-        LAMMPS_NS::LAMMPS *lmp;
-        double cv_value;
-        double *dcvdx;
-        double dVdcv;
-        bool pbc_x, pbc_y, pbc_z;
-        double box_x, box_y, box_z;
-        double dx, dy, dz;
-    public:
-        Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2, FILE *f_check);
-        ~Distance() override;
-        double compute_cv() override;
-        void compute_grad(double dVdcv) override;
-        void summary(FILE* f) override;
-        void get_dcvdx(double cv_value, double *dcvdx) override;
-        void delta_x();
-    };
 }
 
 namespace LAMMPS_NS {
@@ -50,6 +40,7 @@ namespace LAMMPS_NS {
     ~FixMetadynamics() override;
     int setmask() override;
     void init() override;
+    void init_list(int id, NeighList *ptr) override;
     void post_force(int) override;
     void post_force_cus(double cv, double dVdcv);
     void post_force_r(double cv,double dVdcv);
@@ -58,8 +49,9 @@ namespace LAMMPS_NS {
     void checkmax(double *cv, double *cv_max);
     void get_dcvdx(double cv, double *dcvdx);
     int get_cv_dim() const;
-    double get_cvspace_loc(double* , int* );
+    void get_cvspace_loc(double* , int* );
     double get_total_bias(int* );
+    NeighList *listhalf, *listfull;
   private:
     double sigma, height0, biasf, kBT;
     int pace;

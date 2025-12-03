@@ -1,48 +1,27 @@
 
 
 #include "fix_crystallize.h"
-#include "lammpsplugin.h"  // 解决 lammpsplugin_t / LAMMPS_VERSION
+#include "lammpsplugin.h"
 #include "atom.h"
-#include "comm.h"          // 解决 “incomplete type Comm”
+#include "comm.h"
 #include "update.h"
 #include "domain.h"
 #include "memory.h"
 #include "error.h"
 #include "force.h"
+#include "group.h"
+#include "neighbor.h"
+#include "neigh_list.h"
+#include "neigh_request.h"
 // #include "compute.h"
 #include <cmath>
 #include <cstdio>
+#include "zqc_CVs.h"
 #include "zqc_debug.h"
-
-// #include "MetaD_zqc.h"
 
 #include <cuda_runtime.h>
 using namespace LAMMPS_NS;
 
-static void all_reduce_cv(double *cv_values, double *cv_history, LAMMPS *lmp, FixMetadynamics *metad);
-// LAMMPS_NS::Compute *compute_temp;
-
-MetaD_zqc::Distance::~Distance(){
-  delete[] dcvdx;
-  // delete[] dVdcv;
-}
-
-MetaD_zqc::Distance::Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2, FILE* f_check) : lmp(lmp), atom_id1(id1), atom_id2(id2), f_check(f_check) {
-    // DEBUG_COND_LOG(lmp->domain == nullptr, "Domain not initialized when creating Distance CV.");
-    LAMMPS_NS::Domain *domain = lmp->domain;
-    // double **x = lmp->atom->x;
-    // DEBUG_LOG("Debug: Distance for lmp-> x[0][0]: %f",x[0][0]);
-    pbc_x = (domain->xperiodic == 1);
-    pbc_y = (domain->yperiodic == 1);
-    pbc_z = (domain->zperiodic == 1);
-    DEBUG_LOG("Debug:The pbc settings in 3 axis is (0 for non-p, 1 for periodic): x-%d y-%d z-%d",pbc_x, pbc_y, pbc_z);
-    dcvdx = new double[3];
-}
-
-void MetaD_zqc::Distance::summary(FILE *f){
-  fprintf(f, "CV summary: %d, %d\n", this->atom_id1, this->atom_id2);
-  fflush(f);
-}
 
 FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     : Fix(lmp, narg, arg),
@@ -64,7 +43,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
-            LOG_COND(i + 3 >= narg, "Error: GAUSSIAN command requires 3 arguments: sigma, height, biasf.");
+            ERR_COND(i + 3 >= narg, "Error: GAUSSIAN command requires 3 arguments: sigma, height, biasf.");
             sigma   = utils::numeric(FLERR, arg[i+1], false, lmp);
             height0 = utils::numeric(FLERR, arg[i+2], false, lmp);
             biasf   = utils::numeric(FLERR, arg[i+3], false, lmp);
@@ -77,12 +56,13 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             LOG("Logging: attention, we use Joules/moles as the height's units, so if the lammps settings is not real, there will be a units transform.\n\
              If you set CV's bounds in physicals, this units will follows your lammps units settings.");
         } else if (strcmp(arg[i], "PACE") == 0) {
-            LOG_COND(i + 1 >= narg, "PACE command requires 1 argument: integer timesteps.");
+            ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             pace = utils::inumeric(FLERR, arg[i+1], false, lmp);
             i += 2;
             LOG("Logging: pace = %d.",pace);
         } else if (strcmp(arg[i], "CV_dim") == 0) {
-            LOG_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
+            DEBUG_LOG("In CV_dim settings");
+            ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
             memory->create(nbin, cv_dim, "metad:nbin_size");
             memory->create(cvspace_loc, cv_dim, "metad:cvspace_loc");
@@ -90,24 +70,72 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             memory->create(cv_bound, cv_dim*2, "metad:cv_bound");
             i += 2;
         } else if (strcmp(arg[i], "DISTANCE") == 0) {
+            DEBUG_LOG("In DISTANCE settings");
             // DISTANCE 1 2 -> cv_values: 1-2 距离
-            LOG_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
+            ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
             int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
             int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
             cv.push_back(new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check));
             cv_count++;
-            LOG_COND(cv_count>cv_dim, "Error: cv_count > cv_dim.");
+            ERR_COND(cv_count>cv_dim, "Error: cv_count > cv_dim.");
             DEBUG_LOG("debug: %d %d", id1, id2);
             DEBUG_RUN(cv[0]->summary(f_check));
             i += 3;
         } else if (strcmp(arg[i], "STEINH") == 0) {
-            // 相分析
-            LOG_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
+            DEBUG_LOG("In STEINH settings");
+            // 原子环境分析-初始设置
+            // Usage: STEINH <Q/L> <4/6/8/12> <group>
+            ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
+            char *Q_type_str   = arg[i+1];
+            int Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+            char *group_name = arg[i+3];
+            int group_id = lmp->group->find(group_name);
+            ERR_COND(group_id == -1, "Error: Steinhardt group name %s not found.", group_name);
+            //参数有效性
+            ERR_COND((Q_num != 4 && Q_num != 6 && Q_num != 8 && Q_num != 12),"Error: Steinhardt order L must be 4, 6, 8, or 12.");
+            ERR_COND((strcmp(Q_type_str, "Q") != 0 && strcmp(Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
+            // 进阶设置
+            // default values
+            double cutoff_r = 4.0;
+            int cutoff_Natoms = 12;
+            int d_block_size = 128;
+            int iarg=4 + i;
+            while (iarg < narg) {
+                if (strcmp(arg[iarg], "cutoff_r") == 0) {
+                    ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
+                    cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                }
+                else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
+                    cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                }
+                else if (strcmp(arg[iarg], "d_block_size") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
+                    d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                    ERR_COND(d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
+                    iarg += 2;
+                }
+                else {
+                  break;
+                }
+            }
+            LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
+                              Q_type_str, Q_num, group_name, cutoff_r, cutoff_Natoms, d_block_size);
+            NeighRequest *full_request;
+            full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
+            full_request->set_id(2);
+            // 创建 CV 对象
+            cv.push_back(MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, group_id, Q_num, Q_type_str, cutoff_r, cutoff_Natoms, d_block_size)); 
+            cv_count++;
+            ERR_COND(cv_count > cv_dim, "Error: cv_count > cv_dim.");
+            i = iarg;
         } else if (strcmp(arg[i], "DIM") == 0) {
             // DIM 1 0 40 1600 -> DIM index, lower_bound, upper_bound, bins
-            LOG_COND(i + 4 >= narg, "Error: DIM command requires 4 arguments: index, lower, upper, bins.");
+            ERR_COND(i + 4 >= narg, "Error: DIM command requires 4 arguments: index, lower, upper, bins.");
             int dim_index = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
-            LOG_COND(dim_index >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
+            ERR_COND(dim_index >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
             cv_bound[dim_index * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
             cv_bound[dim_index * 2 + 1] = utils::numeric(FLERR, arg[i+3], false, lmp); // upper
             int nbin_num = utils::inumeric(FLERR, arg[i+4], false, lmp); // 将 bins 数量赋给 nbin_num (仅用于单维度)
@@ -115,18 +143,51 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             LOG("Logging: cv=%d bound set at [%g,%g], total grid is %d.",dim_index+1, cv_bound[dim_index * 2], cv_bound[dim_index * 2 +1], nbin_num);
             i += 5;
         } else if (strcmp(arg[i], "METAD_RESTART") == 0) {
-            LOG_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
+            ERR_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
             continue_from_file = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
             i += 2;
         } else if (strcmp(arg[i], "WT") == 0) {
             WellT_bool = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
             i += 2;
         } else {
-            LOG("Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
-            // error->all(FLERR, str);
+            ERR_COND(1, "Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
             break;
         }
     }
+    
+    // 输出文件
+    first_run = true;
+    DEBUG_LOG("Fix init end.");
+    
+    // // 设置执行时机
+    // force_integrate = 1;
+    // vflag = 1;
+    // extscalar = 0;
+    // extvector = 0;
+}
+
+FixMetadynamics::~FixMetadynamics() {
+  memory->destroy(bias_grid);
+  memory->destroy(nbin);
+  memory->destroy(cvspace_loc);
+  memory->destroy(cv_bound);
+  memory->destroy(cv_values);
+  memory->destroy(cv_history);
+  memory->destroy(dVdcvs);
+  if (comm->me==0 && f_hills) {
+    fclose(f_hills);
+    fclose(f_check);
+  }
+}
+
+int FixMetadynamics::setmask() {
+  return FixConst::POST_FORCE;
+}
+
+void FixMetadynamics::init() {
+//   if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
+  if (first_run) {
+    // 配置邻居
     
     // 分配网格
     grid_size = 1;
@@ -142,6 +203,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         dcv[k] = (cv_bound[2*k+1]-cv_bound[2*k])/nbin[k];
         LOG("dcv[k] = %g", dcv[k]);
     }
+    DEBUG_LOG("Fix init end.");
 
     memory->create(cv_values, cv_dim, "metad:cv_values");
     memory->create(cv_history, cv_dim, "metad:cv_history");
@@ -151,40 +213,17 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         cv_history[k] = 0.0;
         dVdcvs[k] = 0.0;
     }
-
-    // 输出文件
-    first_run = true;
-    
-    // // 设置执行时机
-    // force_integrate = 1;
-    // vflag = 1;
-    // extscalar = 0;
-    // extvector = 0;
-}
-
-FixMetadynamics::~FixMetadynamics() {
-  memory->destroy(bias_grid);
-  if (comm->me==0 && f_hills) {
-    fclose(f_hills);
-    fclose(f_check);
-  }
-}
-
-int FixMetadynamics::setmask() {
-  return FixConst::POST_FORCE;
-}
-
-void FixMetadynamics::init() {
-//   if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
-  if (first_run) {
     if (cv_dim == 1){
       // double *cv_values[2]={0,0};
-      cv_values[0] = cv[0]->compute_cv();
+      // cv_values[0] = cv[0]->compute_cv();
+      cv_values[0] = 0.0;
       first_run = false;}
     if (cv_dim == 2){
       // double *cv_values[2]={0,0};
-      cv_values[0] = cv[0]->compute_cv();
-      cv_values[1] = cv[1]->compute_cv();
+      // cv_values[0] = cv[0]->compute_cv();
+      // cv_values[1] = cv[1]->compute_cv();
+      cv_values[0] = 0.0;
+      cv_values[1] = 0.0;
       first_run = false;}
     // 续算
     if (continue_from_file){
@@ -240,107 +279,7 @@ void FixMetadynamics::init() {
     }
     MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   }
-}
 
-void MetaD_zqc::Distance::delta_x(){
-  double **x = lmp->atom->x;
-  double xbox,ybox,zbox;
-  dx = x[atom_id2][0] - x[atom_id1][0];
-  dy = x[atom_id2][1] - x[atom_id1][1];
-  dz = x[atom_id2][2] - x[atom_id1][2];
-  if(pbc_x){
-    xbox = lmp->domain->xprd;
-    if (dx > xbox/2) {
-        dx -= xbox;
-    } else if (dx < -xbox/2) {
-        dx += xbox;
-    }
-  }
-  if(pbc_y){
-    ybox = lmp->domain->yprd;
-    if (dy > ybox/2) {
-        dy -= ybox;
-    } else if (dy < -ybox/2) {
-        dy += ybox;
-    }
-  }
-  if(pbc_z){
-    zbox = lmp->domain->zprd;
-    if (dz > zbox/2) {
-        dz -= zbox;
-    } else if (dz < -zbox/2) {
-        dz += zbox;
-    }
-  }
-  // DEBUG_LOG("xbox: %g, %g, %g",xbox,ybox,zbox);
-  DEBUG_LOG("atom[0]: %g, %g, %g",x[atom_id1][0],x[atom_id1][1],x[atom_id1][2]);
-  DEBUG_LOG("atom[1]: %g, %g, %g",x[atom_id2][0],x[atom_id2][1],x[atom_id2][2]);
-  DEBUG_LOG("PBC dx, dy, dz  = %.6f, %.6f, %.6f", dx, dy, dz);
-}
-
-// 归约 cv_values 到所有节点
-double MetaD_zqc::Distance::compute_cv() {
-    this->delta_x();
-    cv_value = sqrt(dx*dx + dy*dy + dz*dz);
-    return cv_value;
-}
-
-void MetaD_zqc::Distance::compute_grad(double dVdcv) {
-    DEBUG_LOG("MetaD_zqc::Distance::compute_grad");
-    double **f = lmp->atom->f;
-    double **x = lmp->atom->x;
-    this->get_dcvdx(cv_value, dcvdx);
-    DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
-    DEBUG_LOG("dx, dy, dz  = %.6f, %.6f, %.6f", x[atom_id2][0]-x[atom_id1][0], x[atom_id2][1]-x[atom_id1][1], x[atom_id2][2]-x[atom_id1][2]);
-    DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
-    if ((f[atom_id1][0] + f[atom_id1][1] + f[atom_id1][2]) > 1e-12) {
-      f[atom_id1][0] += dVdcv*dcvdx[0];
-      f[atom_id1][1] += dVdcv*dcvdx[1];
-      f[atom_id1][2] += dVdcv*dcvdx[2];
-      f[atom_id2][0] -= dVdcv*dcvdx[0];
-      f[atom_id2][1] -= dVdcv*dcvdx[1];
-      f[atom_id2][2] -= dVdcv*dcvdx[2];
-    }
-    DEBUG_LOG("fx,fy,fz  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
-    DEBUG_LOG("post_force_r_end");
-}
-
-void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
-  DEBUG_LOG("get_dcvdx");
-  double **x = lmp->atom->x;
-  // double dx,dy,dz,xbox,ybox,zbox;
-  // dx = x[atom_id2][0] - x[atom_id1][0];
-  // dy = x[atom_id2][1] - x[atom_id1][1];
-  // dz = x[atom_id2][2] - x[atom_id1][2];
-  // if(pbc_x){
-  //   xbox = lmp->domain->xprd;
-  //   if (dx > xbox/2) {
-  //       dx -= xbox;
-  //   } else if (dx < -xbox/2) {
-  //       dx += xbox;
-  //   }
-  // }
-  // if(pbc_y){
-  //   ybox = lmp->domain->yprd;
-  //   if (dy > ybox/2) {
-  //       dy -= ybox;
-  //   } else if (dy < -ybox/2) {
-  //       dy += ybox;
-  //   }
-  // }
-  // if(pbc_z){
-  //   zbox = lmp->domain->zprd;
-  //   if (dz > zbox/2) {
-  //       dz -= zbox;
-  //   } else if (dz < -zbox/2) {
-  //       dz += zbox;
-  //   }
-  // }
-  // dcvdx = dr/dx = dx/r
-  dcvdx[0] = dx/value;
-  dcvdx[1] = dy/value;
-  dcvdx[2] = dz/value;
-  DEBUG_LOG("get_dcvdx_end");
 }
 
 /* helper: 计算高斯 */
@@ -359,9 +298,16 @@ static inline double gauss(int dim, double* dx, double s) {
 }
 
 
+void FixMetadynamics::init_list(int id, NeighList *ptr)
+{
+  if (id == 1)
+    listhalf = ptr;
+  else if (id == 2)
+    listfull = ptr;
+}
+
 // 3. 真正偏置力（解析梯度，比数值差分快）
 void FixMetadynamics::post_force(int) {
-  DEBUG_LOG("post_force");
   // -----calculate cv and add cv_history-----
   for(int ii=0; ii<cv_dim; ii++){
     cv_values[ii] = cv[ii]->compute_cv();
@@ -407,12 +353,12 @@ void FixMetadynamics::post_force(int) {
   DEBUG_LOG("post_force_end");
 }
 
-double FixMetadynamics::get_cvspace_loc(double* cv_values, int* cvspace_loc){
+void FixMetadynamics::get_cvspace_loc(double* cv_values, int* cvspace_loc){
   for(int ii=0; ii<cv_dim; ii++){
-    DEBUG_LOG("cv_values[%d] = %g, cvbound=[%g,%g], grid=%d",ii,cv_values[ii],cv_bound[ii*2+1],cv_bound[ii*2], nbin[ii]);
+    // DEBUG_LOG("cv_values[%d] = %g, cvbound=[%g,%g], grid=%d",ii,cv_values[ii],cv_bound[ii*2+1],cv_bound[ii*2], nbin[ii]);
     cvspace_loc[ii] = static_cast<int>(((cv_values[ii]-cv_bound[ii*2])/(cv_bound[ii*2+1]-cv_bound[ii*2]))*nbin[ii]);
     cvspace_loc[ii] = (cvspace_loc[ii]<1)?1:(cvspace_loc[ii]>=nbin[ii]-1)?nbin[ii]-2:cvspace_loc[ii];
-    DEBUG_LOG("cvspace_loc[%d] = %d",ii,cvspace_loc[ii]);
+    // DEBUG_LOG("cvspace_loc[%d] = %d",ii,cvspace_loc[ii]);
   }
 }
 
@@ -431,26 +377,6 @@ double FixMetadynamics::get_total_bias(int* cvspace_loc){
     return bias_grid[index];
   }
 }
-
-// void FixMetadynamics::post_force_r(double cv_values, double dVdcv) {
-//     // fprintf(f_check, "post_force_r\n");fflush(f_check);
-//     double **f = atom->f;
-//     int nlocal = atom->nlocal;
-//     double **x = lmp->atom->x;
-//     double *dcvdx = cv->dcvdx;
-//     fprintf(f_check, "dx, dy, dz  = %.6f, %.6f, %.6f \n", x[1][0]-x[0][0], x[1][1]-x[0][1], x[1][2]-x[0][2]);
-//     fprintf(f_check, "fx0,fy0,fz0  = %.6f, %.6f, %.6f \n", f[0][0], f[0][1], f[0][2]);
-//     f[0][0] += dVdcv*dcvdx[0];
-//     f[0][1] += dVdcv*dcvdx[1];
-//     f[0][2] += dVdcv*dcvdx[2];
-//     f[1][0] -= dVdcv*dcvdx[0];
-//     f[1][1] -= dVdcv*dcvdx[1];
-//     f[1][2] -= dVdcv*dcvdx[2];
-//     fprintf(f_check, "fx,fy,fz  = %.6f, %.6f, %.6f \n", f[0][0], f[0][1], f[0][2]);
-//     fflush(f_check);
-//     delete[] dcv;
-//     DEBUG_LOG("post_force_r_end\n");
-// }
 
 // 4. 把高斯累加到网格
 void FixMetadynamics::add_hill(double *cv_values, double w) {
