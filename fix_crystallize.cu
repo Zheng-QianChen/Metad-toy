@@ -347,7 +347,7 @@ void FixMetadynamics::post_force(int) {
   DEBUG_LOG("cv_value = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
     DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
-    cv[ii]->compute_grad(dVdcvs[ii]);
+    cv[ii]->bias_force(dVdcvs[ii]);
   }
   // post_force_r(cv_values[0], dVdcvs[0]);
   DEBUG_LOG("post_force_end");

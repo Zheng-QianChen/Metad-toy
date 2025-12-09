@@ -80,8 +80,8 @@ double MetaD_zqc::Distance::compute_cv() {
     return cv_value;
 }
 
-void MetaD_zqc::Distance::compute_grad(double dVdcv) {
-    DEBUG_LOG("MetaD_zqc::Distance::compute_grad");
+void MetaD_zqc::Distance::bias_force(double dVdcv) {
+    DEBUG_LOG("MetaD_zqc::Distance::bias_force");
     double **f = lmp->atom->f;
     double **x = lmp->atom->x;
     this->get_dcvdx(cv_value, dcvdx);

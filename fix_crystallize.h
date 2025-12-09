@@ -27,7 +27,7 @@ namespace MetaD_zqc {
           }
       }
       virtual double compute_cv() = 0; // 计算 CV 值
-      virtual void compute_grad(double dVdcv) = 0; // 计算梯度
+      virtual void bias_force(double dVdcv) = 0; // 计算梯度
       virtual void summary(FILE* f) = 0;
       virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
   };

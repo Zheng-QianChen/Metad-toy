@@ -9,11 +9,14 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
 set(CMAKE_C_COMPILER   /home/excelsior/apps/deepmd/3.0.0/bin/mpicc)
 set(CMAKE_CXX_COMPILER /home/excelsior/apps/deepmd/3.0.0/bin/mpicxx)
+set(CLEAN_HOST_COMPILER "/home/excelsior/apps/gcc/9.5.0/bin/g++")
 
 # ABI=1
-#set(_GLIBCXX_USE_CXX11_ABI 1)
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=-D_GLIBCXX_USE_CXX11_ABI=1")
-#target_compile_definitions(fix_crystallize_plugin PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
+set(ABI_DEFINITION -D_GLIBCXX_USE_CXX11_ABI=1)
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --host-compiler=${CLEAN_HOST_COMPILER}")
+#target_compile_options(fix_crystallize_plugin PRIVATE ${ABI_DEFINITION})
+#set(CMAKE_CUDA_HOST_COMPILER "${CLEAN_HOST_COMPILER} -ccbin ${CLEAN_HOST_COMPILER}")
+set(CUDA_NVCC_FLAGS -ccbin ${CLEAN_HOST_COMPILER})
 
 # 设置LAMMPS源码路径（需修改为实际路径）
 set(MPI_CXX_INCLUDE_PATH /home/excelsior/apps/deepmd/3.0.0/include)
@@ -26,11 +29,15 @@ link_directories(/home/excelsior/apps/deepmd/3.0.0/lib/)
 # link_directories(/home/excelsior/apps/lammps/29Aug2024/lib64/)
 
 # 编译插件为动态库
-add_library(fix_crystallize_plugin MODULE fix_crystallize.cu)
-target_compile_definitions(fix_crystallize_plugin PRIVATE _GLIBCXX_USE_CXX11_ABI=1)
+add_library(fix_crystallize_plugin MODULE 
+                                         fix_crystallize.cu
+                                         CVs_DISTANCE.cu
+                                         CVs_Steinhardt.cu)
+target_compile_options(fix_crystallize_plugin PRIVATE ${ABI_DEFINITION})
+#target_link_libraries(fix_crystallize_plugin PRIVATE lammps)
 target_link_libraries(fix_crystallize_plugin PRIVATE lammps)
 
 # 设置输出文件名格式（避免前缀）
 set_target_properties(fix_crystallize_plugin PROPERTIES 
-CUDA_ARCHITECTURES "89"
-PREFIX "" SUFFIX ".so")
+                         CUDA_ARCHITECTURES "89"
+                         PREFIX "" SUFFIX ".so")

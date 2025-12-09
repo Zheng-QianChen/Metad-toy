@@ -1,6 +1,8 @@
 source ~/zqc/.bashrc
 module purge
 module load cmake/3.31.8
-cmake -DMPI_CXX_COMPILER=$(which mpicxx)\
-      -DCMAKE_VERBOSE_MAKEFILE=ON
+module load gcc/9.5.0
+#cmake -DMPI_CXX_COMPILER=$(which mpicxx)\
+#      -DCMAKE_VERBOSE_MAKEFILE=ON
+cmake
 make && cd test/ && sh run.sh
