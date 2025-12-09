@@ -1,5 +1,9 @@
+#define POW2(a) ((a) * (a))
+#define POW3(a) ((a) * (a) * (a))
+#define POW4(a) ((a) * (a) * (a) * (a))
+#define PI 3.1415926535897932385
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
         if (f_check != NULL) { \
@@ -22,6 +26,25 @@
     } while(0)
 #else
     #define DEBUG_LOG_COND(cond, format, ...) ((void)0)  // 替换为空操作
+#endif
+
+#ifdef DEBUG
+    #define ERR_COND(cond, format, ...) do { \
+        if (cond) { \
+                        if (f_check != NULL) { \
+                fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+                fflush(f_check); \
+            } \
+        } \
+    } while(0)
+#else
+    #define ERR_COND(cond, format, ...) do { \
+        if (cond) { \
+            char msg_buf[512]; \
+            snprintf(msg_buf, sizeof(msg_buf), "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__); \
+            error->all(FLERR,msg_buf); \
+        } \
+    } while(0)
 #endif
 
 #ifdef DEBUG
@@ -61,6 +84,7 @@
 #ifdef DEBUG
     #define SAFE_CUDA_FREE(ptr) do { \
         cudaError_t err = cudaFree(ptr);\
+        ptr = nullptr; \
         if (err != cudaSuccess) { \
             fprintf(f_check, "CUDA Error at %s:%d\n", __FILE__, __LINE__); \
             fprintf(f_check, "  Code: %d, Reason: %s\n", err,\
