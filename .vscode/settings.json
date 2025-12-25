@@ -1,4 +1,0 @@
-{
-  // 强制 VS Code 使用远程服务器上的指定 CMake
-     "cmake.cmakePath": "/home/excelsior/apps/cmake/3.31.8/bin/cmake"
-}

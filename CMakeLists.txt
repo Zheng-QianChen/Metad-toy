@@ -5,12 +5,12 @@ project(fix_crystallize_plugin LANGUAGES CXX CUDA)
 # 1. 路径配置（通过环境变量获取，不再硬编码）
 # -------------------------------------------------------------------
 # 使用 "$ENV{变量名}" 获取本地环境，如果环境没设置则报错
-if(NOT DEFINED ENV{LAMMPS_SOURCE_DIR})
-    message(FATAL_ERROR "请先设置环境变量: export LAMMPS_SOURCE_DIR=/path/to/lammps/src")
+if(NOT LAMMPS_SOURCE_DIR AND NOT DEFINED ENV{LAMMPS_SOURCE_DIR})
+    message(FATAL_ERROR "please set the ENV: export LAMMPS_SOURCE_DIR=/path/to/lammps/src")
 endif()
 
-set(LAMMPS_SOURCE_DIR $ENV{LAMMPS_SOURCE_DIR})
-set(MPI_INCLUDE_PATH  $ENV{MPI_HOME}/include) 
+set(LAMMPS_SOURCE_DIR ${LAMMPS_SOURCE_DIR})
+set(MPI_INCLUDE_PATH  ${MPI_HOME}/include) 
 
 # -------------------------------------------------------------------
 # 2. 编译器与标准设置
@@ -19,7 +19,13 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-# ABI 设置
+set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
+set(CMAKE_C_COMPILER   ${MPI_HOME}/bin/mpicc)
+set(CMAKE_CXX_COMPILER ${MPI_HOME}/bin/mpicxx)
+
+set(CMAKE_CUDA_HOST_COMPILER ${CLEAN_HOST_COMPILER})
+set(CUDA_NVCC_FLAGS -ccbin ${CLEAN_HOST_COMPILER})
+
 set(ABI_DEFINITION -D_GLIBCXX_USE_CXX11_ABI=1)
 
 # -------------------------------------------------------------------

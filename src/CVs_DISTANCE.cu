@@ -32,7 +32,7 @@ MetaD_zqc::Distance::Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAM
 }
 
 void MetaD_zqc::Distance::summary(FILE *f){
-  fprintf(f, "CV summary: %d, %d\n", this->atom_id1, this->atom_id2);
+  fprintf(f, "CV summary: " BIGINT_FORMAT ", " BIGINT_FORMAT "\n", this->atom_id1, this->atom_id2);
   fflush(f);
 }
 
