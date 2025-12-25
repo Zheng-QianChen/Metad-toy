@@ -3,7 +3,7 @@
 #define POW4(a) ((a) * (a) * (a) * (a))
 #define PI 3.1415926535897932385
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
         if (f_check != NULL) { \

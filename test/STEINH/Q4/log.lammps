@@ -1,0 +1,100 @@
+LAMMPS (29 Aug 2024)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+Loaded 1 plugins from /home/excelsior/apps/deepmd/3.0.0/lib/deepmd_lmp
+#variable seed equal 12345
+variable temp equal 10
+# 简单 2-D 玩具体系，用 Lennard-Jones
+units metal
+atom_style atomic
+boundary p p p
+#newton off
+
+lattice fcc 3.26
+Lattice spacing in x,y,z = 3.26 3.26 3.26
+region box block 0 20 0 20 0 20
+create_box 1 box
+Created orthogonal box = (0 0 0) to (65.2 65.2 65.2)
+  1 by 1 by 1 MPI processor grid
+create_atoms 1 box
+Created 32000 atoms
+  using lattice units in orthogonal box = (0 0 0) to (65.2 65.2 65.2)
+  create_atoms CPU = 0.004 seconds
+
+mass 1 39.95
+pair_style lj/cut 10.0
+pair_coeff 1 1 0.0104 3.405
+
+#group zero_group id 34 56 256
+group zero_group region box
+32000 atoms in group zero_group
+timestep 0.001
+velocity all create ${temp} ${seed}
+velocity all create 10 ${seed}
+velocity all create 10 30252817
+# 加载插件
+plugin load /home/excelsior/zqc/work/lammps-metad-toy/fix_crystallize_plugin.so
+
+# 调用 metad fix：fix ID group metad sigma height biasf pace cv_dim nbin_num continue(bool)
+fix metad all metad GAUSSIAN 0.2 0.01 10.0                     PACE 1                     CV_dim 1                     STEINH Q 4 zero_group cutoff_Natoms 12 cutoff_r 6.0                    DIM 1 0 40 400                     METAD_RESTART 1                     WT 1
+fix             1 all nvt  temp ${temp} ${temp} 100.0
+fix             1 all nvt  temp 10 ${temp} 100.0
+fix             1 all nvt  temp 10 10 100.0
+
+
+thermo 1000
+thermo_style custom step temp epair etotal press
+dump 1 all atom 100 dump.metad.lammpstrj
+
+run 300
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 12
+  ghost atom cutoff = 12
+  binsize = 6, bins = 11 11 11
+  2 neighbor lists, perpetual/occasional/extra = 2 0 0
+  (1) fix metad, perpetual
+      attributes: full, newton on
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+  (2) pair lj/cut, perpetual, half/full from (1)
+      attributes: half, newton on
+      pair build: halffull/newton
+      stencil: none
+      bin: none
+Per MPI rank memory allocation (min/avg/max) = 182.9 | 182.9 | 182.9 Mbytes
+   Step          Temp          E_pair         TotEng         Press     
+         0   10             771797.61      771838.98      18994893     
+       300   4.9940975      771818.89      771839.54      18995311     
+Loop time of 50.9551 on 1 procs for 300 steps with 32000 atoms
+
+Performance: 0.509 ns/day, 47.181 hours/ns, 5.888 timesteps/s, 188.401 katom-step/s
+94.4% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 41.423     | 41.423     | 41.423     |   0.0 | 81.29
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.090386   | 0.090386   | 0.090386   |   0.0 |  0.18
+Output  | 0.094933   | 0.094933   | 0.094933   |   0.0 |  0.19
+Modify  | 9.2812     | 9.2812     | 9.2812     |   0.0 | 18.21
+Other   |            | 0.06556    |            |       |  0.13
+
+Nlocal:          32000 ave       32000 max       32000 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:          51187 ave       51187 max       51187 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:     1.4176e+07 ave  1.4176e+07 max  1.4176e+07 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:   2.8352e+07 ave  2.8352e+07 max  2.8352e+07 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 28352000
+Ave neighs/atom = 886
+Neighbor list builds = 0
+Dangerous builds = 0
+Total wall time: 0:00:53

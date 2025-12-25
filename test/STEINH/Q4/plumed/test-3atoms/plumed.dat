@@ -1,0 +1,13 @@
+# plumed.dat
+
+# 1. 定义 Collective Variable (CV)
+# DISTANCE: 计算原子 1 和原子 2 之间的距离。
+# 周期性边界条件 (PBC) 由 LAMMPS 自动处理。
+cg: GROUP ATOMS=1-40
+q4: Q4 SPECIES=cg R_0=3.5 D_0=0.2 MEAN
+
+
+# 3. 输出设置
+# PRINT: 输出 CV 和偏置势 V_bias (每 1000 步)
+PRINT ARG=q4.mean FILE=colvar 
+#PRINT FILE=COLVAR STRIDE=100 ARG=d,mtd.bias

@@ -1,8 +1,24 @@
-source ~/zqc/.bashrc
-module purge
-module load cmake/3.31.8
-module load gcc/9.5.0
-#cmake -DMPI_CXX_COMPILER=$(which mpicxx)\
-#      -DCMAKE_VERBOSE_MAKEFILE=ON
-cmake
-make && cd test/ && sh run.sh
+#!/bin/bash
+
+
+export LAMMPS_SOURCE_DIR=/path/to/lammps-29Aug2024/src/
+export LAMMPS_LIB_DIR=/path/to/lammps/lib
+export MPI_HOME=/path/to/mpi
+export CLEAN_HOST_COMPILER=/path/to/gcc/bin/g++
+
+
+mkdir -p build && cd build
+
+cmake .. \
+    -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+    -DCMAKE_CXX_COMPILER=$MPI_HOME/bin/mpicxx \
+    -DCMAKE_C_COMPILER=$MPI_HOME/bin/mpicc \
+    -DCMAKE_CUDA_HOST_COMPILER=$CLEAN_HOST_COMPILER \
+    -DLAMMPS_SOURCE_DIR=$LAMMPS_SOURCE_DIR \
+    -DLAMMPS_LIB_DIR=$LAMMPS_LIB_DIR
+
+make -j$(nproc)
+
+
+mkdir -p build && cd build && cmake .. && make && cp fix_crystallize_plugin.so .. && cd ..
+cd test/ && sh run.sh

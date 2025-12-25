@@ -237,13 +237,14 @@ void MetaD_zqc::STEIN_Q4::bias_force(double dVdcv)
     // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
     // DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
     for (int c_atom=0; c_atom<group_count; c_atom++){
-        DEBUG_LOG("dcvdx, dcvdy, dcvdz  = %g, %g, %g", h_dcvdx[c_atom + 0], h_dcvdx[c_atom + 1], h_dcvdx[c_atom + 2]);
-        DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_atom][0], f[c_atom][1], f[c_atom][2]);
+        DEBUG_LOG("dcvdx, dcvdy, dcvdz  = %g, %g, %g", h_dcvdx[c_atom*3 + 0], h_dcvdx[c_atom*3 + 1], h_dcvdx[c_atom*3 + 2]);
+        DEBUG_LOG("dVdcv  = %g", dVdcv);
         c_tag = h_group_indices[c_atom];
-        f[c_tag][0] += dVdcv*h_dcvdx[c_atom + 0];
-        f[c_tag][1] += dVdcv*h_dcvdx[c_atom + 1];
-        f[c_tag][2] += dVdcv*h_dcvdx[c_atom + 2];
-        DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_atom][0], f[c_atom][1], f[c_atom][2]);
+        DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
+        f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
+        f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
+        f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
+        DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
     }
     DEBUG_LOG("post_force_r_end");
 }
@@ -274,9 +275,6 @@ void MetaD_zqc::STEIN_Q4::get_dcvdx(double cv_value, double *dcvdx)
     SAFE_CUDA_MALLOC(&d_dYlm_dr, (group_count)*3*2*sizeof(double), file);
     // SAFE_CUDA_MEMCPY(d_dYlm_dr,h_dYlm_dr,(group_count)*3*2*sizeof(double),cudaMemcpyHostToDevice,file);
 
-    // for (int i=0; i<group_count; i++){
-    //     DEBUG_LOG("d_group_indices[%d]=%d",i,h_group_indices[i]);
-    // }
 
     // dcv_steinhardt_param_calc_kernel_q4(
     //     file, cutoff_Natoms, group_count, groupbit,
@@ -515,89 +513,6 @@ void MetaD_zqc::STEIN_Q4::envioronment()
 }
 
 
-void MetaD_zqc::STEIN_Q4::get_numneigh_full_pair_ABANDON_()
-{
-    // 2. creating number array of start num in different c_atom's neighbor
-    LAMMPS_NS::tagint *h_group_numneigh = new LAMMPS_NS::tagint[group_count + 1];
-    LAMMPS_NS::tagint *d_group_numneigh;
-    SAFE_CUDA_MALLOC(&d_group_numneigh, (group_count + 1) * sizeof(LAMMPS_NS::tagint), file); // 分配设备端邻居数目数组
-    DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
-
-    // generate full neigh from half
-    std::vector<std::vector<int>> full_neigh_temp(atom->nlocal+atom->nghost); 
-    for (int i_local_tag = 0; i_local_tag < atom->nlocal; ++i_local_tag) {
-        int jnum = numneigh[i_local_tag];
-        for (int m = 0; m < jnum; m++) {
-            int j_local_tag = firstneigh[i_local_tag][m];
-            // if (j_local_tag < 0 || i_local_tag == j_local_tag) continue; 
-            if (i_local_tag == j_local_tag) continue; 
-            // i -> j
-            full_neigh_temp[i_local_tag].push_back(j_local_tag);
-            // j -> i
-            full_neigh_temp[j_local_tag].push_back(i_local_tag);
-        }
-    }
-    // 3. 对所有被修改的列表进行去重和排序
-    for (int i = 0; i < atom->nlocal; ++i) {
-        if (!full_neigh_temp[i].empty()) {
-            std::sort(full_neigh_temp[i].begin(), full_neigh_temp[i].end());
-            // 去重 (std::unique 要求列表已排序)
-            full_neigh_temp[i].erase(
-                std::unique(full_neigh_temp[i].begin(), full_neigh_temp[i].end()),
-                full_neigh_temp[i].end()
-            );
-        }
-    }
-
-    // a. 计算目标原子组的 Full 邻居总数
-    size_t total_full_size = 0;
-    for (int gr_i = 0; gr_i < group_count; gr_i++) {
-        int i_local_tag = h_group_indices[gr_i];
-        total_full_size += full_neigh_temp[i_local_tag].size();
-    }
-    // b. 分配 Host 数组：大小恰好是 group_count
-    int *h_firstneigh_ptrs = new int [total_full_size]; // Full 列表的扁平化数组
-    // h_full_group_numneigh 大小为 group_count + 1 (用于存储 group_count 个原子的前缀和)
-    size_t write_idx = 0;
-    h_group_numneigh[0] = 0;
-    // c. 填充 Host 数组（只遍历 group_count 个目标原子）
-    for (int gr_i = 0; gr_i < group_count; gr_i++) {
-        // 关键：i_local_tag 从 h_group_indices 中取出
-        int i_local_tag = h_group_indices[gr_i]; 
-        const auto& list_i = full_neigh_temp[i_local_tag]; // 从全局临时容器中取出目标列表
-        // 拷贝邻居索引到扁平数组
-        memcpy(&(h_firstneigh_ptrs[write_idx]), list_i.data(), list_i.size() * sizeof(int));
-        // 更新前缀和： h_group_numneigh 只需要 group_count 个条目
-        h_group_numneigh[gr_i + 1] = h_group_numneigh[gr_i] + list_i.size();
-        write_idx += list_i.size();
-        DEBUG_LOG("Full List: gr_i=%d, Full_jnum=%d, Full_sum=%d", 
-                gr_i, (int)list_i.size(), h_group_numneigh[gr_i+1]);
-    }
-    int *d_firstneigh_ptrs; // 设备端二级指针
-    SAFE_CUDA_MALLOC(&d_firstneigh_ptrs, (h_group_numneigh[group_count]) * sizeof(int),file); // 分配设备端指针数组
-    DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[group_count + 1]=%d",h_group_numneigh[group_count]);
-    DEBUG_RUN(for (int gr_i = 0; gr_i < group_count; gr_i++) {
-        int i_local_tag = h_group_indices[gr_i]; 
-        int full_jnum = h_group_numneigh[gr_i+1] - h_group_numneigh[gr_i];
-        int half_jnum = numneigh[i_local_tag]; 
-        DEBUG_LOG("Comparison for gr_i=%d (Local Tag %d): Half Count=%d, Full Count=%d", 
-                gr_i, i_local_tag, half_jnum, full_jnum);
-        DEBUG_LOG("d_firstneigh_ptrs list %d" ,h_firstneigh_ptrs[gr_i]);
-    });
-    SAFE_CUDA_MEMCPY(d_group_numneigh,h_group_numneigh,(group_count + 1)*sizeof(LAMMPS_NS::tagint),cudaMemcpyHostToDevice,file);
-    SAFE_CUDA_MEMCPY(d_firstneigh_ptrs,h_firstneigh_ptrs,
-        (h_group_numneigh[group_count]) * sizeof(int),cudaMemcpyHostToDevice,file);
-    DEBUG_LOG_COND((d_firstneigh_ptrs == NULL),"d_firstneigh_ptrs list not initialized");
-    DEBUG_LOG("d_firstneigh_ptrs list %d %d %d" ,h_firstneigh_ptrs[1],h_firstneigh_ptrs[2],h_firstneigh_ptrs[3]);
-    DEBUG_LOG("generate end d_firstneigh_ptrs");
-    delete[] h_firstneigh_ptrs;
-    h_firstneigh_ptrs = nullptr;
-    DEBUG_LOG("free h_firstneigh_ptrs");
-    delete[] h_group_numneigh;
-    h_group_numneigh = nullptr;
-    DEBUG_LOG("free h_group_numneigh");
-}
-
 void MetaD_zqc::STEIN_Q4::steinhardt_param_calc(double *stein_ql){
     // steinhardt_param_calc_kernel_q4
     int stein_l=4;
@@ -660,94 +575,6 @@ void MetaD_zqc::STEIN_Q4::steinhardt_param_calc(double *stein_ql){
 
 
 void MetaD_zqc::STEIN_Q4::summary(FILE* f){}
-
-// void MetaD_zqc::STEIN_Q4::fix_crystallizes_kernel_temp
-// (
-//     int cutoff_Natoms, double cutoff_rsq, double box_x, double box_y, double box_z,
-//     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
-//     int *d_firstneigh_ptrs, double *d_x_flat,
-//     double *d_group_dminneigh, int *d_neigh_in_cutoff_r, int *d_neigh_both_in_r_N,
-//     int atomsnumber
-// )
-// {
-// for(int c_atom=0; c_atom<group_count; ++c_atom){
-//     // int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-//     if(c_atom<group_count){
-//         double r2,temp_r2,temp_x,temp_y,temp_z,neigh_x,neigh_y,neigh_z;
-//         double delt_x,delt_y,delt_z;
-//         int c_atom_tag = d_group_indices[c_atom];
-//         d_neigh_in_cutoff_r[c_atom] = 0;
-//         // c_glob_tag = h_tag[c_atom_tag];
-//         double c_x = d_x_flat[c_atom_tag*3];
-//         double c_y = d_x_flat[c_atom_tag*3+1];
-//         double c_z = d_x_flat[c_atom_tag*3+2];
-//         double max_r2 = (box_x+box_y+box_z)*(box_x+box_y+box_z);
-//         DEBUG_LOG("now im in %d, c_atom_tag=%d, cx,cy,cz:%f,%f,%f",c_atom,c_atom_tag,c_x,c_y,c_z);
-//         for (int i=0;i<cutoff_Natoms;i++){
-//             d_group_dminneigh[c_atom*4*cutoff_Natoms +i*4 + 3]=max_r2;
-//         }
-//         //find curtoff_Natoms neigh
-//         for (int neigh_atom=d_group_numneigh[c_atom]; neigh_atom<d_group_numneigh[c_atom+1]; neigh_atom++){
-//             int n_local_tag = d_firstneigh_ptrs[neigh_atom];
-
-//         // DEBUG_LOG("all_atoms = %d",atomsnumber);
-//         // for (int neigh_atom=0; neigh_atom<atomsnumber; neigh_atom++){
-//         //     int n_local_tag = neigh_atom;
-
-//             // if (n_local_tag < 0 ) continue;
-//             // int n_glob_tag = h_tag[n_local_tag];
-//             neigh_x = d_x_flat[n_local_tag*3+0];
-//             neigh_y = d_x_flat[n_local_tag*3+1];
-//             neigh_z = d_x_flat[n_local_tag*3+2];
-//             delt_x = (neigh_x - c_x);
-//             delt_y = (neigh_y - c_y);
-//             delt_z = (neigh_z - c_z);
-//             // if (delt_x > box_x/2) {
-//             //     delt_x -= box_x;
-//             // } else if (delt_x < -box_x/2) {
-//             //     delt_x += box_x;
-//             // }
-//             // if (delt_y > box_y/2) {
-//             //     delt_y -= box_y;
-//             // } else if (delt_y < -box_y/2) {
-//             //     delt_y += box_y;
-//             // }
-//             // if (delt_z > box_z/2) {
-//             //     delt_z -= box_z;
-//             // } else if (delt_z < -box_z/2) {
-//             //     delt_z += box_z;
-//             // }
-//             lmp->domain->minimum_image(dx, dy, dz);
-//             r2 = delt_x*delt_x + delt_y*delt_y + delt_z*delt_z;
-//             DEBUG_LOG_COND((r2<10),"c_atom_tag=%d, n_local_tag=%d, nx,ny,nz:%f,%f,%f, r2:%g",c_atom_tag,n_local_tag,delt_x,delt_y,delt_z,r2);
-//             if ((r2 > cutoff_rsq )||(r2<1e-12)) continue;
-//             d_neigh_in_cutoff_r[c_atom]++;
-//             for (int ii=0; ii<cutoff_Natoms; ii++){
-//                 if (d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 3]>r2){
-//                     temp_x = d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 0];
-//                     temp_y = d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 1];
-//                     temp_z = d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 2];
-//                     temp_r2 = d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 3];
-//                     d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 0] = delt_x;
-//                     d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 1] = delt_y;
-//                     d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 2] = delt_z;
-//                     d_group_dminneigh[c_atom*4*cutoff_Natoms + ii*4 + 3] = r2;
-//                     delt_x = temp_x;
-//                     delt_y = temp_y;
-//                     delt_z = temp_z;
-//                     r2 = temp_r2;
-//                 }
-//             }
-//         }
-//         if (d_neigh_in_cutoff_r[c_atom]>=cutoff_Natoms){
-//             d_neigh_both_in_r_N[c_atom]=cutoff_Natoms;
-//         }
-//         else{
-//             d_neigh_both_in_r_N[c_atom]=d_neigh_in_cutoff_r[c_atom];
-//         }
-//     }
-// }
-// }
 
 __global__ void fix_crystallizes_kernel
 (
@@ -865,7 +692,7 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
         catom_q4_timesN = 1/(d_stein_ql[c_atom]*neigh_num);
         for(int i=0; i<3; i++){
             // from 0 to l, both re_part and im_part
-            d_dcvdx[c_atom + i] = 0;
+            d_dcvdx[c_atom*3 + i] = 0;
             d_dYlm_dr[c_atom*3*2 + i*2 + 0] = 0;
             d_dYlm_dr[c_atom*3*2 + i*2 + 1] = 0;
             // DEBUG_LOG("d_stein_qlm[%d] = %f + i* %f", stein_qlm_base_id + i + 1,d_stein_qlm[stein_qlm_base_id + i + 0],d_stein_qlm[stein_qlm_base_id + i + 1]);
@@ -919,13 +746,13 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             // 3/(16 Sqrt[\[Pi]])=0.10578554691520430380
             tempDtheta= 0.10578554691520430380*(60*cos(theta)*sin(theta)-140*sin(theta)*POW3(cos(theta)));
             tempDphi= 0 ;
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta*DthetaDx + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta*DthetaDx + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
             // d Y,4,0 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta*DthetaDy + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta*DthetaDy + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
             // d Y,4,0 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta*DthetaDz + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta*DthetaDz + 0)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
             // Y,4,+-1
             // 3/32 Sqrt[5/\[Pi]] = 0.11827183696969500226
@@ -936,23 +763,23 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tempDphi_r = tempDphi*sin(phi);
             tempDphi_i = -tempDphi*cos(phi);
             // d Y,4,1 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx + tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx + tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy + tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy + tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz + tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz + tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (-tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (-tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (-tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (-tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (-tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (-tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // Y,4,+-2
             // 3/8 Sqrt[5/(2 \[Pi])] = 0.33452327177864458398
             tempDtheta= 0.33452327177864458398*(-1 + 7*cos(2*theta))*sin(2*theta);
@@ -962,23 +789,23 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tempDphi_r = tempDphi*sin(2*phi);
             tempDphi_i = tempDphi*cos(2*phi);
             // d Y,4,2 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,2 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,2 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // Y,4,+-3
             // 3/8 Sqrt[35/\[Pi]] = 1.2516714708983522692
             tempDtheta= 1.2516714708983522692*(1 + 2*cos(2*theta))*POW2(sin(theta));
@@ -988,23 +815,23 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tempDphi_r = tempDphi*sin(3*phi);
             tempDphi_i = tempDphi*cos(3*phi);
             // d Y,4,3 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (-tempDtheta_r*DthetaDx + tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (-tempDtheta_r*DthetaDx + tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (-tempDtheta_r*DthetaDy + tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (-tempDtheta_r*DthetaDy + tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (-tempDtheta_r*DthetaDz + tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (-tempDtheta_r*DthetaDz + tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx  -tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx  -tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx - tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy  -tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy  -tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy - tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz  -tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz  -tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz - tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // Y,4,+-4
             // 3/4 Sqrt[35/(2 \[Pi])] = 1.7701307697799305310
             tempDtheta= 1.7701307697799305310*(cos(theta))*POW3(sin(theta));
@@ -1014,28 +841,28 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tempDphi_r = tempDphi*sin(4*phi);
             tempDphi_i = tempDphi*cos(4*phi);
             // d Y,4,4 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (tempDtheta_i*DthetaDx + tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,4 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (tempDtheta_i*DthetaDy + tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,4 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (tempDtheta_i*DthetaDz + tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx  -tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tempDtheta_r*DthetaDx - tempDphi_r*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= (-tempDtheta_i*DthetaDx  -tempDphi_i*DphiDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy  -tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tempDtheta_r*DthetaDy - tempDphi_r*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= (-tempDtheta_i*DthetaDy  -tempDphi_i*DphiDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz  -tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tempDtheta_r*DthetaDz - tempDphi_r*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= (-tempDtheta_i*DthetaDz  -tempDphi_i*DphiDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // DEBUG_LOG("the neighbor has tag=%d is in c_atom=%d, group_indices[%d]=%d, the stein_q4=%g",neigh_tag,mid,mid,d_group_indices[mid],d_stein_ql[mid]);            
         }
         for (int i=0;i<3;i++){
             d_dcvdx[c_atom*3+i] = d_dYlm_dr[c_atom*3*2 + i*2 + 0] + d_dYlm_dr[c_atom*3*2 + i*2 + 1];
-            d_dcvdx[c_atom*3+i] = (d_dcvdx[c_atom+i]*2*PI)/(group_count*(2*stein_l+1));
+            d_dcvdx[c_atom*3+i] = -(d_dcvdx[c_atom*3+i]*2*PI)/(group_count*(2*stein_l+1));
         }
         // DEBUG_LOG("catom=%d, d_dcvdx[%d] dx, dy, dz = %g, %g, %g", c_atom, c_atom*3, d_dcvdx[c_atom*3+0], d_dcvdx[c_atom*3+1], d_dcvdx[c_atom*3+2]);
     }

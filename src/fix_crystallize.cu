@@ -49,8 +49,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             biasf   = utils::numeric(FLERR, arg[i+3], false, lmp);
             i += 4;
 
-            double R_SI = 8.314462618;
-            height0 = KB*height0/R_SI;
+            // double R_SI = 8.314462618;
+            // height0 = KB*height0/R_SI;
 
             LOG("Logging: set GAUSSIAN sigma, height, biasf: %g %g %g.", sigma, height0, biasf);
             LOG("Logging: attention, we use Joules/moles as the height's units, so if the lammps settings is not real, there will be a units transform.\n\
@@ -241,16 +241,29 @@ void FixMetadynamics::init() {
                 if (fgets(line, sizeof(line), f_read) == NULL) {
                     // 如果文件为空，则视为新文件
                 } else {
+                  if (cv_dim == 1){
                     // 循环读取每一行数据
-                    while (fscanf(f_read, "%lld %lf %lf %lf %lf\n", 
-                                  &step, &cv_values[0], &cv_values[1], &h, &s)==5) {
-                      fprintf(f_check, "%lld %lf %lf %lf %lf\n",step, cv_values[0], cv_values[1],h,s);
+                    while (fscanf(f_read, "%lld %lf %lf %lf\n", 
+                                  &step, &cv_values[0], &h, &s)==4) {
+                        LOG("%lld %lf %lf %lf %lf\n",step, cv_values[0],h,s);
                         get_cvspace_loc(cv_values, cvspace_loc);
                         add_hill(cv_values, h);
                         // current_timestep = step;
                     }
-                    fprintf(f_check, "%lld %lf %lf %lf %lf\n", step, cv_values[0], cv_values[1], h, s);
-                    fflush(f_check);
+                    LOG("%lld %lf %lf %lf %lf\n", step, cv_values[0], h, s);
+                  } else if (cv_dim == 2){
+                    // 循环读取每一行数据
+                    while (fscanf(f_read, "%lld %lf %lf %lf %lf\n", 
+                                  &step, &cv_values[0], &cv_values[1], &h, &s)==5) {
+                        LOG("%lld %lf %lf %lf %lf\n",step, cv_values[0], cv_values[1],h,s);
+                        get_cvspace_loc(cv_values, cvspace_loc);
+                        add_hill(cv_values, h);
+                        // current_timestep = step;
+                    }
+                    LOG("%lld %lf %lf %lf %lf\n", step, cv_values[0], cv_values[1], h, s);
+                  } else {
+                    ERR_COND(1,"Error: There are too many CVs that more than this program can handel.");
+                  }
                 }
                 fclose(f_read);
                 DEBUG_LOG("restart hills end");
@@ -327,6 +340,7 @@ void FixMetadynamics::post_force(int) {
     double current_temp;
     current_temp = 300.0;
     double w = height0 * exp(-(Vbias)/(current_temp*KB*(biasf-1.0)));
+    // double w = height0;
     if (comm->me==0) {
       fprintf(f_hills, "%ld", update->ntimestep);
       for (int ii = 0; ii < cv_dim; ii++) {
@@ -342,22 +356,22 @@ void FixMetadynamics::post_force(int) {
     }
   }
   // calculate grad of grid
-  get_cvspace_loc(cv_values, cvspace_loc);
-  grid_gradient(cvspace_loc, dVdcvs);
+  grid_gradient(cv_values, dVdcvs);
   DEBUG_LOG("cv_value = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
     DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
     cv[ii]->bias_force(dVdcvs[ii]);
   }
-  // post_force_r(cv_values[0], dVdcvs[0]);
   DEBUG_LOG("post_force_end");
 }
 
 void FixMetadynamics::get_cvspace_loc(double* cv_values, int* cvspace_loc){
   for(int ii=0; ii<cv_dim; ii++){
     // DEBUG_LOG("cv_values[%d] = %g, cvbound=[%g,%g], grid=%d",ii,cv_values[ii],cv_bound[ii*2+1],cv_bound[ii*2], nbin[ii]);
-    cvspace_loc[ii] = static_cast<int>(((cv_values[ii]-cv_bound[ii*2])/(cv_bound[ii*2+1]-cv_bound[ii*2]))*nbin[ii]);
-    cvspace_loc[ii] = (cvspace_loc[ii]<1)?1:(cvspace_loc[ii]>=nbin[ii]-1)?nbin[ii]-2:cvspace_loc[ii];
+    int loc = static_cast<int>(((cv_values[ii]-cv_bound[ii*2])/(cv_bound[ii*2+1]-cv_bound[ii*2]))*nbin[ii]);
+    if (loc < 1) loc = 1;
+    if (loc > nbin[ii] - 3) loc = nbin[ii] - 3;
+    cvspace_loc[ii] = (loc<1)?1:(loc>=nbin[ii]-1)?nbin[ii]-2:loc;
     // DEBUG_LOG("cvspace_loc[%d] = %d",ii,cvspace_loc[ii]);
   }
 }
@@ -382,13 +396,22 @@ double FixMetadynamics::get_total_bias(int* cvspace_loc){
 void FixMetadynamics::add_hill(double *cv_values, double w) {
   double* delta_x=new double[cv_dim];
   if (cv_dim==1){
-    for(long long g=0; g<grid_size;g++){
+    int lower,upper;
+    double *cv_values_lower=new double[cv_dim];
+    double *cv_values_upper=new double[cv_dim];
+    cv_values_lower[0] = cv_values[0] - 4.0*sigma;
+    cv_values_upper[0] = cv_values[0] + 4.0*sigma;
+    get_cvspace_loc(cv_values_lower, &lower);
+    get_cvspace_loc(cv_values_upper, &upper);
+    for(long long g=std::max(0, lower); g<std::min((int)nbin[0]-1, upper);g++){
       // delta_x[0] =(cvspace_loc[0]- g)*dcv[0];
       delta_x[0] = cv_bound[0] + (g+0.5)*(cv_bound[1]-cv_bound[0])/nbin[0];
       delta_x[0] = cv_values[0]-delta_x[0];
-      bias_grid[g] += w * gauss(1, delta_x,sigma);
+      bias_grid[g] += w * gauss(1, delta_x, sigma);
       // DEBUG_LOG_COND((bias_grid[g]>1e-6),"init cvspace_loc=%d, bias_grid[%d]=%g",cvspace_loc[0],g,bias_grid[g]);
     }
+    delete[] cv_values_lower;
+    delete[] cv_values_upper;
   } else if (cv_dim==2){
     double xc, yc;
     int i,j;
@@ -422,33 +445,50 @@ void FixMetadynamics::add_hill(double *cv_values, double w) {
 }
 
 // 5. 网格梯度（中心差分）
-void FixMetadynamics::grid_gradient(int *cvspace_loc,
+void FixMetadynamics::grid_gradient(double *cv_values,
                                     double *dVdcvs) {
   DEBUG_LOG("grid_gradient");
-  int *cvspace_loc_p = new int[cv_dim];
-  int *cvspace_loc_m = new int[cv_dim];
+  // int *cvspace_loc_p = new int[cv_dim];
+  // int *cvspace_loc_m = new int[cv_dim];
+  int *cvspace_loc = new int[cv_dim];
   if (cv_dim==1){
-    cvspace_loc_p[0] = cvspace_loc[0]+1;
-    cvspace_loc_m[0] = cvspace_loc[0]-1;
-    DEBUG_LOG("cvspace_loc_id p,m ; dcv = %d, %d; %lf",cvspace_loc_p[0],cvspace_loc_m[0],dcv[0]);
-    DEBUG_LOG("cvspace_loc p, m = %g %g",get_total_bias(cvspace_loc_p), get_total_bias(cvspace_loc_m));
-    dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
-    DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
+    get_cvspace_loc(cv_values, cvspace_loc);
+    int i = cvspace_loc[0];
+    // 计算原子相对于网格点 i 的偏移量 [0, 1]
+    double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+    // 确保 x 在插值公式中不因边界截断而产生错误的斜率
+    if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
+    double p0 = bias_grid[i - 1];
+    double p1 = bias_grid[i];
+    double p2 = bias_grid[i + 1];
+    double p3 = bias_grid[i + 2];
+    // Cubic 插值导数：这是翻过 14 处势垒的关键，因为它让受力连续化
+    dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
+                 x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
+                 1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];
+    // cvspace_loc_p[0] = cvspace_loc[0]+1;
+    // cvspace_loc_m[0] = cvspace_loc[0]-1;
+    // DEBUG_LOG("cvspace_loc_id p,m ; dcv = %d, %d; %lf",cvspace_loc_p[0],cvspace_loc_m[0],dcv[0]);
+    // DEBUG_LOG("cvspace_loc p, m = %g %g",get_total_bias(cvspace_loc_p), get_total_bias(cvspace_loc_m));
+    // dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
+    // DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
+
   } else if (cv_dim==2){
-    cvspace_loc_p[0] = cvspace_loc[0]+1;
-    cvspace_loc_m[0] = cvspace_loc[0]-1;
-    cvspace_loc_p[1] = cvspace_loc[1];
-    cvspace_loc_m[1] = cvspace_loc[1];
-    dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
-    cvspace_loc_p[0] = cvspace_loc[0];
-    cvspace_loc_m[0] = cvspace_loc[0];
-    cvspace_loc_p[1] = cvspace_loc[1]+1;
-    cvspace_loc_m[1] = cvspace_loc[1]-1;
-    dVdcvs[1] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[1]);
-    // DEBUG_LOG("%f %f %f %f %f %f\n",bias_grid[(i+1)*nbin[0] + j], bias_grid[(i-1)*nbin[0] + j],bias_grid[i*nbin[0] + j+1],bias_grid[i*nbin[0] + j-1], dVdcv[0], dVdcv[1]);
+    // cvspace_loc_p[0] = cvspace_loc[0]+1;
+    // cvspace_loc_m[0] = cvspace_loc[0]-1;
+    // cvspace_loc_p[1] = cvspace_loc[1];
+    // cvspace_loc_m[1] = cvspace_loc[1];
+    // dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
+    // cvspace_loc_p[0] = cvspace_loc[0];
+    // cvspace_loc_m[0] = cvspace_loc[0];
+    // cvspace_loc_p[1] = cvspace_loc[1]+1;
+    // cvspace_loc_m[1] = cvspace_loc[1]-1;
+    // dVdcvs[1] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[1]);
+    // // DEBUG_LOG("%f %f %f %f %f %f\n",bias_grid[(i+1)*nbin[0] + j], bias_grid[(i-1)*nbin[0] + j],bias_grid[i*nbin[0] + j+1],bias_grid[i*nbin[0] + j-1], dVdcv[0], dVdcv[1]);
   }
-  delete[] cvspace_loc_p;
-  delete[] cvspace_loc_m;
+  // delete[] cvspace_loc_p;
+  // delete[] cvspace_loc_m;
+  delete[] cvspace_loc;
   DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
   DEBUG_LOG("grid_gradient_end");
 }

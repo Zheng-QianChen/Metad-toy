@@ -1,0 +1,6 @@
+build/
+*.so
+test/a.txt
+slurm*
+makecommand2
+log.lammps

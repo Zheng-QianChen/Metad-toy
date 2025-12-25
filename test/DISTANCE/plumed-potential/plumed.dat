@@ -1,0 +1,29 @@
+# plumed.dat
+
+# 1. 定义 Collective Variable (CV)
+# DISTANCE: 计算原子 1 和原子 2 之间的距离。
+# 周期性边界条件 (PBC) 由 LAMMPS 自动处理。
+d: DISTANCE ATOMS=1,2
+
+# 2. 定义 Metadynamics 偏置
+# METAD: 应用偏置势
+mtd: METAD ...
+  # CV: 施加偏置势的 CV (这里是 d)
+  ARG=d
+  # HEIGHT: 高斯势的高度 W (0.05 eV)
+  HEIGHT=0.05
+  # SIGMA: 高斯势的宽度 sigma (0.2 Å)
+  SIGMA=0.2
+  # PACE: 每 100 步沉积一个高斯势
+  PACE=1
+  # FILE: 写入势能网格的文件名
+  FILE=HILLS
+  # GRID: 网格设置
+  GRID_MIN=0.0    # 距离的最小值 (0 Å)
+  GRID_MAX=10.0   # 距离的最大值 (假设 10 Å)
+  GRID_BIN=1600   # 网格点数
+...
+
+# 3. 输出设置
+# PRINT: 输出 CV 和偏置势 V_bias (每 1000 步)
+PRINT FILE=COLVAR STRIDE=100 ARG=d,mtd.bias

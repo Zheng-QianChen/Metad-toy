@@ -1,0 +1,37 @@
+#variable seed equal 12345
+variable temp equal 1000
+# 简单 2-D 玩具体系，用 Lennard-Jones
+units metal
+atom_style atomic
+boundary p p p
+
+region box block -20 20 -20 20 -20 20
+create_box 1 box
+#create_atoms 1 random 2 12345 box
+create_atoms 1 single 0.0 0.0 0.0
+create_atoms 1 single 4.0 0.0 0.0
+#create_atoms 1 single 12.0 10.0 0.0
+#create_atoms 1 single 8.0 10.0 0.0
+
+mass 1 16
+pair_style lj/cut 10.0
+pair_coeff 1 1 0.1947 3.541
+
+
+timestep 0.001
+#velocity all create 1.0 12345
+#velocity all create 1.0 0.0 0.0
+#velocity all create ${temp} ${seed}
+# 加载插件
+plugin load /home/excelsior/zqc/work/lammps-metad-toy/fix_crystallize_plugin.so
+
+# 调用 metad fix：fix ID group metad sigma height biasf pace cv_dim nbin_num continue(bool)
+fix metad all metad GAUSSIAN 0.2 0.01 10.0 PACE 10 CV_dim 1 DISTANCE 1 2 DIM 1 0 40 400 METAD_RESTART 1 WT 1
+fix             1 all nvt  temp ${temp} ${temp} 100.0
+
+
+thermo 1000
+thermo_style custom step temp epair etotal press
+dump 1 all atom 100 dump.metad.lammpstrj
+
+run 1000000

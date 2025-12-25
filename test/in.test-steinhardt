@@ -1,0 +1,48 @@
+#variable seed equal 42
+variable temp equal 300
+# 简单 2-D 玩具体系，用 Lennard-Jones
+units metal
+atom_style atomic
+boundary p p p
+#newton off
+
+lattice fcc 3.26
+region box block 0 10 0 10 0 10
+#region box block 0 5 0 5 0 5
+create_box 1 box
+create_atoms 1 box
+
+mass 1 39.95
+pair_style lj/cut 10.0
+pair_coeff 1 1 0.0104 3.405
+
+#region center_sphere sphere 5.0 5.0 5.0 3.0
+#group zero_group region center_sphere
+group zero_group region box
+#group zero_group id 1 1000 5000
+
+timestep 0.001
+velocity all create ${temp} 42
+#velocity all create 0 42
+
+#fix             1 all nvt  temp ${temp} ${temp} 100.0
+#run 5000
+
+# 加载插件
+plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
+
+# 调用 metad fix：fix ID group metad sigma height biasf pace cv_dim nbin_num continue(bool)
+fix metad all metad GAUSSIAN 0.05 10 10.0 &
+                    PACE 1 &
+                    CV_dim 1 &
+                    STEINH Q 4 zero_group cutoff_Natoms 12 &
+                    DIM 1 0 1 10000 &
+                    METAD_RESTART 1 &
+                    WT 1
+fix             1 all nvt  temp ${temp} ${temp} 0.1
+
+thermo 1
+thermo_style custom step temp epair etotal press
+dump 1 all atom 100 dump.metad.lammpstrj
+
+run 300000

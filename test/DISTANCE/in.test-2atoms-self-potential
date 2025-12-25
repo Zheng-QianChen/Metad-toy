@@ -1,0 +1,55 @@
+variable METAD_PLUGIN_PATH getenv METAD_PLUGIN_PATH
+variable metadtest equal 0
+
+# 基本设置
+units           metal
+atom_style      atomic
+atom_modify map yes
+
+# 定义原子（示例：创建两个原子）
+region          box block 0 1000 0 1000 0 1000
+create_box      1 box
+create_atoms    1 single 500 500 500
+create_atoms    1 single 510 500 500 # 初始距离设为10
+
+mass            1 1.0
+
+# --- 调用自定义势能表 ---
+# pair_style table 线性插值, 采样点数
+pair_style      table linear 2500
+# pair_coeff 类型I 类型J 文件名 关键词 截断半径
+pair_coeff      1 1 ./potential/potential.table MY_W_POTENTIAL 25.0
+
+# 能量最小化或动力学
+neighbor        2.0 bin
+neigh_modify    delay 0 every 1 check yes
+
+thermo          100
+dump            1 all custom 10 dump.lammpstrj id type x y z
+
+variable x1 equal x[1]
+variable y1 equal y[1]
+variable z1 equal z[1]
+variable x2 equal x[2]
+variable y2 equal y[2]
+variable z2 equal z[2]
+variable atom_dist equal sqrt((v_x1-v_x2)^2+(v_y1-v_y2)^2+(v_z1-v_z2)^2)
+fix 3 all ave/time 1 1 100 v_atom_dist file distance_over_time_1.dat
+
+# 运行动力学查看原子如何在三个势阱间跳变
+# fix             1 all nve
+# fix             2 all langevin 1.0 1.0 100.0 48279 # 加入恒温器模拟热震荡
+velocity all create 1.0 42
+fix 1 all nvt temp 1.0 1.0 0.5
+
+plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
+fix metad all metad GAUSSIAN 0.4 0.002 10.0 &
+                    PACE 100 &
+                    CV_dim 1 &
+                    DISTANCE 1 2 &
+                    DIM 1 0 50 500 &
+                    METAD_RESTART 1 &
+                    WT 1
+
+timestep        0.005
+run             200000

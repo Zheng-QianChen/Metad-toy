@@ -88,14 +88,12 @@ void MetaD_zqc::Distance::bias_force(double dVdcv) {
     DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
     DEBUG_LOG("dx, dy, dz  = %.6f, %.6f, %.6f", x[atom_id2][0]-x[atom_id1][0], x[atom_id2][1]-x[atom_id1][1], x[atom_id2][2]-x[atom_id1][2]);
     DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
-    if ((f[atom_id1][0] + f[atom_id1][1] + f[atom_id1][2]) > 1e-12) {
-      f[atom_id1][0] += dVdcv*dcvdx[0];
-      f[atom_id1][1] += dVdcv*dcvdx[1];
-      f[atom_id1][2] += dVdcv*dcvdx[2];
-      f[atom_id2][0] -= dVdcv*dcvdx[0];
-      f[atom_id2][1] -= dVdcv*dcvdx[1];
-      f[atom_id2][2] -= dVdcv*dcvdx[2];
-    }
+    f[atom_id1][0] -= dVdcv*dcvdx[0];
+    f[atom_id1][1] -= dVdcv*dcvdx[1];
+    f[atom_id1][2] -= dVdcv*dcvdx[2];
+    f[atom_id2][0] += dVdcv*dcvdx[0];
+    f[atom_id2][1] += dVdcv*dcvdx[1];
+    f[atom_id2][2] += dVdcv*dcvdx[2];
     DEBUG_LOG("fx,fy,fz  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
     DEBUG_LOG("post_force_r_end");
 }
@@ -103,8 +101,8 @@ void MetaD_zqc::Distance::bias_force(double dVdcv) {
 void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
   DEBUG_LOG("get_dcvdx");
   double **x = lmp->atom->x;
-  dcvdx[0] = dx/value;
-  dcvdx[1] = dy/value;
-  dcvdx[2] = dz/value;
+  dcvdx[0] = -dx/value;
+  dcvdx[1] = -dy/value;
+  dcvdx[2] = -dz/value;
   DEBUG_LOG("get_dcvdx_end");
 }

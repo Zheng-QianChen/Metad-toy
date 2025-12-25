@@ -45,7 +45,7 @@ namespace LAMMPS_NS {
     void post_force_cus(double cv, double dVdcv);
     void post_force_r(double cv,double dVdcv);
     void add_hill(double *, double);
-    void grid_gradient(int *, double *);
+    void grid_gradient(double *, double *);
     void checkmax(double *cv, double *cv_max);
     void get_dcvdx(double cv, double *dcvdx);
     int get_cv_dim() const;
