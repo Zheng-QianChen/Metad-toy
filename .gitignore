@@ -5,3 +5,4 @@ slurm*
 makecommand2
 log.lammps
 .vscode/
+dump*

@@ -1,3 +1,4 @@
+#pragma once  // 必须添加这一行
 #ifndef LMP_FIX_METADYNAMICS_H
 #define LMP_FIX_METADYNAMICS_H
 // #ifndef _GLIBCXX_USE_CXX11_ABI

@@ -1,5 +1,6 @@
 #variable seed equal 42
-variable temp equal 300
+variable temp_eq equal 2000
+variable temp equal 600
 # 简单 2-D 玩具体系，用 Lennard-Jones
 units metal
 atom_style atomic
@@ -7,14 +8,14 @@ boundary p p p
 #newton off
 
 lattice fcc 3.26
-region box block 0 10 0 10 0 10
+region box block 0 5 0 5 0 5
 #region box block 0 5 0 5 0 5
 create_box 1 box
 create_atoms 1 box
 
 mass 1 39.95
-pair_style lj/cut 10.0
-pair_coeff 1 1 0.0104 3.405
+pair_style meam
+pair_coeff * * potential_testlib/library.meam Al potential_testlib/Al.meam Al
 
 #region center_sphere sphere 5.0 5.0 5.0 3.0
 #group zero_group region center_sphere
@@ -22,11 +23,13 @@ group zero_group region box
 #group zero_group id 1 1000 5000
 
 timestep 0.001
-velocity all create ${temp} 42
+velocity all create ${temp_eq} 42
 #velocity all create 0 42
 
-#fix             1 all nvt  temp ${temp} ${temp} 100.0
-#run 5000
+fix             1 all nvt  temp ${temp_eq} ${temp_eq} 100.0
+dump liquidus all atom 10 dump.liquidus.lammpstrj
+run 50000
+unfix     1
 
 # 加载插件
 plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
@@ -41,7 +44,7 @@ fix metad all metad GAUSSIAN 0.05 10 10.0 &
                     WT 1
 fix             1 all nvt  temp ${temp} ${temp} 0.1
 
-thermo 1
+thermo 10
 thermo_style custom step temp epair etotal press
 dump 1 all atom 100 dump.metad.lammpstrj
 

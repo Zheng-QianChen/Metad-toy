@@ -1,6 +1,9 @@
+#pragma once  // 必须添加这一行
+
 #define POW2(a) ((a) * (a))
 #define POW3(a) ((a) * (a) * (a))
 #define POW4(a) ((a) * (a) * (a) * (a))
+#define POW5(a) ((a) * (a) * (a) * (a) * (a))
 #define PI 3.1415926535897932385
 
 //#define DEBUG

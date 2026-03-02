@@ -1,0 +1,11 @@
+# Citation: H. Sharifi, and C.D. Wick (2025), "Developing interatomic potentials for complex concentrated alloys of Cu, Ti, Ni, Cr, Co, Al, Fe, and Mn", Computational Materials Science 248, 113595. DOI: 10.1016/j.commatsci.2024.113595.
+Cmin(1,1,1) = 0.435 
+Cmax(1,1,1) = 2.2624 
+nn2(1,1) = 1 
+rc = 5.0 
+ialloy = 2 
+erose_form = 0 
+augt1 = 0 
+attrac(1,1) = 0.39558 
+repuls(1,1) = 0.0271 
+
