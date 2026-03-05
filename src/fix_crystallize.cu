@@ -213,11 +213,13 @@ void FixMetadynamics::init() {
         cv_history[k] = 0.0;
         dVdcvs[k] = 0.0;
     }
+    DEBUG_LOG("1");
     if (cv_dim == 1){
       // double *cv_values[2]={0,0};
       // cv_values[0] = cv[0]->compute_cv();
       cv_values[0] = 0.0;
       first_run = false;}
+    DEBUG_LOG("1");
     if (cv_dim == 2){
       // double *cv_values[2]={0,0};
       // cv_values[0] = cv[0]->compute_cv();
@@ -226,6 +228,7 @@ void FixMetadynamics::init() {
       cv_values[1] = 0.0;
       first_run = false;}
     // 续算
+    DEBUG_LOG("1");
     if (continue_from_file){
       if (comm->me == 0) {
           // 尝试打开 HILLS 文件进行读取
@@ -290,7 +293,9 @@ void FixMetadynamics::init() {
       if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
       if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
     }
+    DEBUG_LOG("1");
     MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
+    DEBUG_LOG("1");
   }
 
 }
@@ -325,6 +330,7 @@ void FixMetadynamics::post_force(int) {
   for(int ii=0; ii<cv_dim; ii++){
     cv_values[ii] = cv[ii]->compute_cv();
     cv_history[ii] += cv_values[ii];
+    DEBUG_LOG("cv[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
   }
   // -----if pace, then add_hill-----
   if ((update->ntimestep % pace == 0)&&(pace!=0)) {
@@ -349,12 +355,18 @@ void FixMetadynamics::post_force(int) {
       fprintf(f_hills, " %.16g %.16g\n", w, sigma);
       fflush(f_hills);
     }
+    DEBUG_LOG("enter add_hill");
     add_hill(cv_values, w);
+    DEBUG_LOG("coming out from add_hill");
+    // DEBUG_LOG("bias_grid[0] = %g, grid_size=%d", bias_grid[900], grid_size);
     MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
+    DEBUG_LOG("1");
     for(int ii=0; ii<cv_dim; ii++){
       cv_history[ii] = 0.0;
     }
+    DEBUG_LOG("1");
   }
+  DEBUG_LOG("1");
   // calculate grad of grid
   grid_gradient(cv_values, dVdcvs);
   DEBUG_LOG("cv_value = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
@@ -441,7 +453,7 @@ void FixMetadynamics::add_hill(double *cv_values, double w) {
     }
   }
   delete[] delta_x;
-  DEBUG_LOG("add_hill_end\n");
+  DEBUG_LOG("add_hill_end");
 }
 
 // 5. 网格梯度（中心差分）
@@ -462,7 +474,7 @@ void FixMetadynamics::grid_gradient(double *cv_values,
     double p1 = bias_grid[i];
     double p2 = bias_grid[i + 1];
     double p3 = bias_grid[i + 2];
-    // Cubic 插值导数：这是翻过 14 处势垒的关键，因为它让受力连续化
+    DEBUG_LOG("i,p0,p1,p2,p3 = %d %g %g %g %g", i, p0, p1, p2, p3);
     dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
                  x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
                  1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];

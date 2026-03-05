@@ -100,7 +100,7 @@ void MetaD_zqc::Distance::bias_force(double dVdcv) {
 
 void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
   DEBUG_LOG("get_dcvdx");
-  double **x = lmp->atom->x;
+  // double **x = lmp->atom->x;
   dcvdx[0] = -dx/value;
   dcvdx[1] = -dy/value;
   dcvdx[2] = -dz/value;

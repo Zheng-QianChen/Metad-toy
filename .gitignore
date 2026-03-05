@@ -6,3 +6,11 @@ makecommand2
 log.lammps
 .vscode/
 dump*
+test/cv_plot_kongbaiduizhao.png
+test/cv_plot_with_1.png
+test/cv_plot.png
+test/FES.dat
+test/FES.png
+test/HILLS
+test/HILLS_kongbaiduizhao
+test/HILLS_with_1

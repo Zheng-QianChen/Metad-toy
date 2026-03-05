@@ -67,7 +67,8 @@ namespace LAMMPS_NS {
     std::vector<MetaD_zqc::CV*> cv;
     int continue_from_file, WellT_bool;
     // FILE *file;
-    FILE *f_hills, *f_check;
+    FILE *f_hills;
+    FILE *f_check=NULL;
   };
 }
 

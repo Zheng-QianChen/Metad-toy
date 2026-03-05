@@ -1,6 +1,7 @@
 #include <cub/cub.cuh>
 #include <cuda_runtime.h>
 #include "zqc_CVs_tools.h"
+#include "zqc_debug.h"
 
 void MetaD_zqc::KahanAverager::compute(int n, double* arr, double &ave) {
     double sum = 0.0;
@@ -35,7 +36,7 @@ void MetaD_zqc::CUBAverager::compute(int n, double* d_arr, double &ave) {// d_ar
     // 4. 将结果拷回 Host
     double h_sum;
     cudaMemcpy(&h_sum, this->d_sum, sizeof(double), cudaMemcpyDeviceToHost);
-    ave = h_sum / static_cast<double>(n);
+    ave = h_sum / n;
     // 5. 释放资源 (在生产环境中，建议将 temp_storage 缓存起来避免重复 malloc)
     if (d_temp_storage) {
         cudaFree(d_temp_storage);

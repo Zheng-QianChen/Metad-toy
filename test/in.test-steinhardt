@@ -1,4 +1,5 @@
 #variable seed equal 42
+#variable METAD_PLUGIN_PATH getenv METAD_PLUGIN_PATH
 variable temp_eq equal 2000
 variable temp equal 600
 # 简单 2-D 玩具体系，用 Lennard-Jones
@@ -7,9 +8,13 @@ atom_style atomic
 boundary p p p
 #newton off
 
-lattice fcc 3.26
-region box block 0 5 0 5 0 5
-#region box block 0 5 0 5 0 5
+# 加载插件
+plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
+
+lattice fcc 3.85
+#region box block 0 10 0 10 0 10
+#region box block 0 20 0 20 0 20
+region box block 0 3 0 3 0 3
 create_box 1 box
 create_atoms 1 box
 
@@ -20,32 +25,51 @@ pair_coeff * * potential_testlib/library.meam Al potential_testlib/Al.meam Al
 #region center_sphere sphere 5.0 5.0 5.0 3.0
 #group zero_group region center_sphere
 group zero_group region box
-#group zero_group id 1 1000 5000
+# group zero_group id 1 1000 5000
 
 timestep 0.001
 velocity all create ${temp_eq} 42
 #velocity all create 0 42
 
-fix             1 all nvt  temp ${temp_eq} ${temp_eq} 100.0
-dump liquidus all atom 10 dump.liquidus.lammpstrj
+fix             1 all npt  temp ${temp} ${temp} 0.1 iso 1 1 1
+thermo 10
+thermo_style custom step temp epair etotal press
+dump normal all atom 10 dump.normal.lammpstrj
 run 50000
 unfix     1
+undump normal
+
+# fix             1 all npt  temp ${temp_eq} ${temp_eq} 0.1 iso 1 1 1
+fix             1 all nvt  temp ${temp_eq} ${temp_eq} 0.1
+thermo 10
+thermo_style custom step temp epair etotal press
+dump liquidus all atom 10 dump.liquidus.lammpstrj
+run 5000
+unfix     1
+
+# fix             1 all npt  temp ${temp} ${temp} 0.1 iso 1 1 1
+fix             1 all nvt  temp ${temp} ${temp} 0.1
+run 5000
+unfix     1
+undump liquidus
 
 # 加载插件
-plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
+# plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
 
+variable group_atoms equal count(zero_group)
+variable actual_height equal "0.01 * v_group_atoms"
 # 调用 metad fix：fix ID group metad sigma height biasf pace cv_dim nbin_num continue(bool)
-fix metad all metad GAUSSIAN 0.05 10 10.0 &
-                    PACE 1 &
+fix metad all metad GAUSSIAN 0.005 0.01 10.0 &
+                    PACE 10 &
                     CV_dim 1 &
-                    STEINH Q 4 zero_group cutoff_Natoms 12 &
-                    DIM 1 0 1 10000 &
+                    STEINH Q 6 zero_group cutoff_Natoms 12 &
+                    DIM 1 0 1 1000 &
                     METAD_RESTART 1 &
-                    WT 1
+                    WT 0
 fix             1 all nvt  temp ${temp} ${temp} 0.1
 
 thermo 10
 thermo_style custom step temp epair etotal press
 dump 1 all atom 100 dump.metad.lammpstrj
 
-run 300000
+run 3000000

@@ -11,10 +11,14 @@
 #module load plumed/2.9.3-for-dpmd-excelsior
 
 RANDOM_SEED=$(date +%s%N | cut -b 11-18) 
-METAD_PLUGIN_PATH="~/work/Metad-toy/build"
+METAD_PLUGIN_PATH=~/work/Metad-toy/build
 
 
-mpirun -np 20 lmp -var seed ${RANDOM_SEED} -in in.test-steinhardt
+#mpirun -np 8 lmp -var seed ${RANDOM_SEED} -in in.test-steinhardt
+mpirun -np 1 lmp \
+    -var seed ${RANDOM_SEED} \
+    -var METAD_PLUGIN_PATH ${METAD_PLUGIN_PATH} \
+    -in in.test-steinhardt
 python plot_hills.py in.test-steinhardt HILLS
 #mpirun -np 1 lmp -var seed ${RANDOM_SEED} -in in.test-2atoms-toys
 #python plot_hills.py in.test-2atoms-toys HILLS
