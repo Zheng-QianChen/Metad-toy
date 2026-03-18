@@ -10,6 +10,10 @@
 
 #include "fix.h"
 
+#include <map> 
+#include <string>
+#include <vector>
+
 namespace MetaD_zqc {
   class CV {
     protected:
@@ -27,10 +31,15 @@ namespace MetaD_zqc {
               dcvdx = nullptr;
           }
       }
-      virtual double compute_cv() = 0; // 计算 CV 值
-      virtual void bias_force(double dVdcv) = 0; // 计算梯度
+      typedef double (CV::*CV_Calculation)();
+      typedef void (CV::*CV_BiasForce)(double);
+      virtual CV_Calculation set_CV_calculate(std::string func_name) = 0;
+      virtual CV_BiasForce set_CV_bias_force(std::string func_name) = 0;
+      virtual void base_calc() = 0; // 计算 CV 值
+      // virtual double compute_cv() = 0; // 计算 CV 值
+      // virtual void bias_force(double dVdcv) = 0; // 计算梯度
       virtual void summary(FILE* f) = 0;
-      virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
+      // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
   };
 }
 
@@ -64,7 +73,15 @@ namespace LAMMPS_NS {
     int cv_dim,grid_size,nbin_num;
     int *nbin, *cvspace_loc;
     double *bias_grid, *cv_bound, *cv_values, *cv_history, *dVdcvs, *dcv;
-    std::vector<MetaD_zqc::CV*> cv;
+    struct DimConfig {
+      std::string name;
+      std::string func;
+    };
+    std::vector<DimConfig> dim_configs;
+    std::map<std::string, MetaD_zqc::CV*> cal_registry;
+    std::vector<MetaD_zqc::CV*> base_cv;
+    std::vector<MetaD_zqc::CV::CV_Calculation> cv_compute;
+    std::vector<MetaD_zqc::CV::CV_BiasForce> cv_biasforce;
     int continue_from_file, WellT_bool;
     // FILE *file;
     FILE *f_hills;

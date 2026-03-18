@@ -29,17 +29,25 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
       cv_dim(1), nbin_num(100), continue_from_file(false), WellT_bool(false),
       bias_grid(nullptr), f_hills(nullptr)
 {
-    if (comm->me==0) {
-        f_check = fopen("a.txt","w");
+    if (comm->me==0){
+        f_check = fopen("metad_debug_logging.txt","w");
+        LOG("New JOB STARTING WITH DEBUG MOD!");
+        fclose(f_check);
     }
+    MPI_Barrier(world);
+    f_check = fopen("metad_debug_logging.txt","a");
+    LOG("MPI_COMM_WORLD size: %d", comm->nprocs);
+    pthread_t tid = pthread_self();
+    LOG("Process Rank: %d | Total Processes: %d | Thread ID: %lu",
+            comm->me, comm->nprocs, (unsigned long)tid);
     // Fix 构造函数的基本参数检查： fix ID group style args...
     // arg[0]=fix, arg[1]=ID, arg[2]=group, arg[3]=style (metad)
     // if (narg < 4) error->all(FLERR, "Fix metadynamics requires at least 1 argument after style name.");
     LOG("There are %d args", narg);
     // --- 核心参数解析：循环读取关键词/数值对 ---
     int i = 3; // 从第 4 个参数开始，即 style 名之后
-    int cv_count = 0; // 用于检查 DISTANCE/ANGLE 等 cv_values 的定义数量
     KB = lmp->force->boltz;
+    std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
@@ -64,84 +72,107 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             DEBUG_LOG("In CV_dim settings");
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
+            dim_configs = std::vector<DimConfig>(cv_dim);
             memory->create(nbin, cv_dim, "metad:nbin_size");
             memory->create(cvspace_loc, cv_dim, "metad:cvspace_loc");
-            // memory->create(cv, cv_dim, "metad:cv");
+            // memory->create(cv_compute, cv_dim, "metad:cv_compute");
             memory->create(cv_bound, cv_dim*2, "metad:cv_bound");
             i += 2;
-        } else if (strcmp(arg[i], "DISTANCE") == 0) {
-            DEBUG_LOG("In DISTANCE settings");
-            // DISTANCE 1 2 -> cv_values: 1-2 距离
-            ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
-            int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
-            int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-            cv.push_back(new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check));
-            cv_count++;
-            ERR_COND(cv_count>cv_dim, "Error: cv_count > cv_dim.");
-            DEBUG_LOG("debug: %d %d", id1, id2);
-            DEBUG_RUN(cv[0]->summary(f_check));
-            i += 3;
-        } else if (strcmp(arg[i], "STEINH") == 0) {
-            DEBUG_LOG("In STEINH settings");
-            // 原子环境分析-初始设置
-            // Usage: STEINH <Q/L> <4/6/8/12> <group>
-            ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
-            char *Q_type_str   = arg[i+1];
-            int Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-            char *group_name = arg[i+3];
-            int group_id = lmp->group->find(group_name);
-            ERR_COND(group_id == -1, "Error: Steinhardt group name %s not found.", group_name);
-            //参数有效性
-            ERR_COND((Q_num != 4 && Q_num != 6 && Q_num != 8 && Q_num != 12),"Error: Steinhardt order L must be 4, 6, 8, or 12.");
-            ERR_COND((strcmp(Q_type_str, "Q") != 0 && strcmp(Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
-            // 进阶设置
-            // default values
-            double cutoff_r = 4.0;
-            int cutoff_Natoms = 12;
-            int d_block_size = 128;
-            int iarg=4 + i;
-            while (iarg < narg) {
-                if (strcmp(arg[iarg], "cutoff_r") == 0) {
-                    ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
-                    cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                }
-                else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
-                    cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                }
-                else if (strcmp(arg[iarg], "d_block_size") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
-                    d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    ERR_COND(d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
-                    iarg += 2;
-                }
-                else {
-                  break;
-                }
-            }
-            LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
-                              Q_type_str, Q_num, group_name, cutoff_r, cutoff_Natoms, d_block_size);
-            NeighRequest *full_request;
-            full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
-            full_request->set_id(2);
-            // 创建 CV 对象
-            cv.push_back(MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, group_id, Q_num, Q_type_str, cutoff_r, cutoff_Natoms, d_block_size)); 
-            cv_count++;
-            ERR_COND(cv_count > cv_dim, "Error: cv_count > cv_dim.");
-            i = iarg;
-        } else if (strcmp(arg[i], "DIM") == 0) {
-            // DIM 1 0 40 1600 -> DIM index, lower_bound, upper_bound, bins
-            ERR_COND(i + 4 >= narg, "Error: DIM command requires 4 arguments: index, lower, upper, bins.");
-            int dim_index = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
-            ERR_COND(dim_index >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
-            cv_bound[dim_index * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
-            cv_bound[dim_index * 2 + 1] = utils::numeric(FLERR, arg[i+3], false, lmp); // upper
+        } else if (strcmp(arg[i], "CAL") == 0){
+          ERR_COND(strcmp(arg[i+1], "NAME") != 0, "Error: CAL requires NAME keyword.");
+          std::string cal_name = arg[i+2];
+          LOG("Dueling with %s",cal_name.c_str());
+          i += 3;
+          if (strcmp(arg[i], "DISTANCE") == 0) {
+              DEBUG_LOG("In DISTANCE settings");
+              // DISTANCE 1 2 -> cv_values: 1-2 距离
+              ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
+              int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
+              int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+              cal_registry[cal_name] = new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
+              // DEBUG_LOG("debug: %d %d", id1, id2);
+              i += 3;
+          } else if (strcmp(arg[i], "STEINH") == 0) {
+              DEBUG_LOG("In STEINH settings");
+              MetaD_zqc::SteinhardtRequest req;
+              req.cal_name = cal_name;
+              // 原子环境分析-初始设置
+              // Usage: STEINH <Q/L> <4/6/8/12> <group>
+              ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
+              req.Q_type_str = arg[i+1];
+              req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+              req.group_name = arg[i+3];
+              req.group_id = lmp->group->find(req.group_name);
+              ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
+              //参数有效性
+              ERR_COND((req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 4, 6, 8, or 12.");
+              ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
+              // 进阶设置
+              // default values
+              req.cutoff_r = 4.0;
+              req.cutoff_Natoms = 12;
+              req.d_block_size = 128;
+              int iarg=4 + i;
+              while (iarg < narg) {
+                  if (strcmp(arg[iarg], "cutoff_r") == 0) {
+                      ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
+                      req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+                      iarg += 2;
+                  }
+                  else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
+                      ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
+                      req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                      iarg += 2;
+                  }
+                  else if (strcmp(arg[iarg], "d_block_size") == 0) {
+                      ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
+                      req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                      ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
+                      iarg += 2;
+                  }
+                  else {
+                    break;
+                  }
+              }
+              LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
+                                req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+              NeighRequest *full_request;
+              full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
+              full_request->set_id(2);
+              steinh_requests.push_back(req);
+              // // 创建 CV 对象
+              int env_setNum=0;
+              // TODO: 需要处理相同envs的合并问题
+              MetaD_zqc::Steinhardt_env *temp_env = new MetaD_zqc::Steinhardt_env(lmp, 
+                                    f_check, this, req.group_id, req.cutoff_r, req.cutoff_Natoms);
+              cal_registry[cal_name]= MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, 
+                                    env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
+                                    req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+              i = iarg;
+          }
+      } else if (strcmp(arg[i], "DIM") == 0) {
+            // DIM 1 0 40 1600 Q4.mean -> DIM index, lower_bound, upper_bound, bins, cv_method
+            ERR_COND(i + 5 >= narg, "Error: DIM command requires 5 arguments: index, lower, upper, bins, cv_method.");
+            int dim_idx = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
+            ERR_COND(dim_idx >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
+            cv_bound[dim_idx * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
+            cv_bound[dim_idx * 2 + 1] = utils::numeric(FLERR, arg[i+3], false, lmp); // upper
             int nbin_num = utils::inumeric(FLERR, arg[i+4], false, lmp); // 将 bins 数量赋给 nbin_num (仅用于单维度)
-            nbin[dim_index] = nbin_num;
-            LOG("Logging: cv=%d bound set at [%g,%g], total grid is %d.",dim_index+1, cv_bound[dim_index * 2], cv_bound[dim_index * 2 +1], nbin_num);
-            i += 5;
+            nbin[dim_idx] = nbin_num;
+            LOG("Logging: cv_compute=%d bound set at [%g,%g], total grid is %d.",dim_idx+1, cv_bound[dim_idx * 2], cv_bound[dim_idx * 2 +1], nbin_num);
+            // "Q4.mean"
+            DEBUG_LOG("168L:%s", arg[i+5]);
+            std::string target = arg[i+5];
+            size_t dot_pos = target.find(".");
+            if (dot_pos != std::string::npos) {
+                dim_configs[dim_idx].name = target.substr(0, dot_pos);
+                dim_configs[dim_idx].func = target.substr(dot_pos + 1);
+            } else {
+                dim_configs[dim_idx].name = target;
+                dim_configs[dim_idx].func = "value"; 
+            }
+            DEBUG_LOG("VAL=%s, METHODS=%s",dim_configs[dim_idx].name.c_str(),dim_configs[dim_idx].func.c_str());
+            i += 6;
         } else if (strcmp(arg[i], "METAD_RESTART") == 0) {
             ERR_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
             continue_from_file = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
@@ -152,6 +183,24 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         } else {
             ERR_COND(1, "Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
             break;
+        }
+    }
+
+    // --- 将 DIM 配置关联到真正的 CV 对象 ---
+    for (int d = 0; d < cv_dim; ++d) {
+        std::string target_name = dim_configs[d].name;
+        std::string target_func = dim_configs[d].func;
+
+        // 1. 检查名字是否存在于注册表中
+        // TODO: 如果不存在则立刻报错！
+        if (cal_registry.count(target_name)) {
+            base_cv.push_back(cal_registry[target_name]);
+            cv_compute.push_back(cal_registry[target_name]->set_CV_calculate(target_func));
+            cv_biasforce.push_back(cal_registry[target_name]->set_CV_bias_force(target_func));
+
+            LOG("Linked DIM %d to CAL %s with function %s", d+1, target_name.c_str(), target_func.c_str());
+        } else {
+            error->all(FLERR, "Error: DIM index %d refers to undefined CAL NAME: %s", d+1, target_name.c_str());
         }
     }
     
@@ -187,17 +236,11 @@ int FixMetadynamics::setmask() {
 void FixMetadynamics::init() {
 //   if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
   if (first_run) {
-    // 配置邻居
-    
     // 分配网格
     grid_size = 1;
-    for (int k = 0; k < cv_dim; ++k) {
-        grid_size *= nbin[k];
-    }
+    for (int k = 0; k < cv_dim; ++k) {grid_size *= nbin[k];}
     memory->create(bias_grid, grid_size, "metad:bias_grid");
-    for (bigint k = 0; k < grid_size; ++k) {
-        bias_grid[k] = 0.0;
-    }
+    for (bigint k = 0; k < grid_size; ++k) {bias_grid[k] = 0.0;}
     memory->create(dcv, cv_dim, "metad:dcv");
     for (int k = 0; k < cv_dim; ++k) {
         dcv[k] = (cv_bound[2*k+1]-cv_bound[2*k])/nbin[k];
@@ -213,60 +256,85 @@ void FixMetadynamics::init() {
         cv_history[k] = 0.0;
         dVdcvs[k] = 0.0;
     }
-    DEBUG_LOG("1");
     if (cv_dim == 1){
       // double *cv_values[2]={0,0};
-      // cv_values[0] = cv[0]->compute_cv();
+      // cv_values[0] = cv_compute[0]->compute_cv();
       cv_values[0] = 0.0;
       first_run = false;}
-    DEBUG_LOG("1");
     if (cv_dim == 2){
       // double *cv_values[2]={0,0};
-      // cv_values[0] = cv[0]->compute_cv();
-      // cv_values[1] = cv[1]->compute_cv();
+      // cv_values[0] = cv_compute[0]->compute_cv();
+      // cv_values[1] = cv_compute[1]->compute_cv();
       cv_values[0] = 0.0;
       cv_values[1] = 0.0;
       first_run = false;}
     // 续算
-    DEBUG_LOG("1");
-    if (continue_from_file){
-      if (comm->me == 0) {
+    // TODO:可以使用MPI的规约通信改进当前文件存取
+    if (comm->me == 0) {
+      if (continue_from_file){
           // 尝试打开 HILLS 文件进行读取
           FILE *f_read = fopen("HILLS", "r");
             if (f_read) {
                 // 1. 读取 HILLS 文件并重建 bias_grid
                 char line[1024];
-                long long step;
-                double h, s;
-                long long current_timestep = 0;
-                // 跳过头文件
+                std::string format = "%lld";
+                for (int d = 0; d < cv_dim; ++d) format += " %lf";
+                format += " %lf %lf\n";
+                std::vector<double> current_cvs(cv_dim);
                 DEBUG_LOG("restart hills");
-                if (fgets(line, sizeof(line), f_read) == NULL) {
-                    // 如果文件为空，则视为新文件
-                } else {
-                  if (cv_dim == 1){
-                    // 循环读取每一行数据
-                    while (fscanf(f_read, "%lld %lf %lf %lf\n", 
-                                  &step, &cv_values[0], &h, &s)==4) {
-                        LOG("%lld %lf %lf %lf %lf\n",step, cv_values[0],h,s);
-                        get_cvspace_loc(cv_values, cvspace_loc);
-                        add_hill(cv_values, h);
-                        // current_timestep = step;
-                    }
-                    LOG("%lld %lf %lf %lf %lf\n", step, cv_values[0], h, s);
-                  } else if (cv_dim == 2){
-                    // 循环读取每一行数据
-                    while (fscanf(f_read, "%lld %lf %lf %lf %lf\n", 
-                                  &step, &cv_values[0], &cv_values[1], &h, &s)==5) {
-                        LOG("%lld %lf %lf %lf %lf\n",step, cv_values[0], cv_values[1],h,s);
-                        get_cvspace_loc(cv_values, cvspace_loc);
-                        add_hill(cv_values, h);
-                        // current_timestep = step;
-                    }
-                    LOG("%lld %lf %lf %lf %lf\n", step, cv_values[0], cv_values[1], h, s);
-                  } else {
-                    ERR_COND(1,"Error: There are too many CVs that more than this program can handel.");
+                if (fgets(line, sizeof(line), f_read)){
+                  double h, s;
+                  long long current_timestep = 0;
+                  long long step;
+                  while (fgets(line, sizeof(line), f_read)) {
+                      // fscanf 的参数需要手动根据指针位置传入，这里利用数组地址特性
+                      // 我们需要：&step, &cv[0], &cv[1]... , &h, &s
+                      // 由于 fscanf 不直接支持数组指针展开，这里建议使用通用解析逻辑：
+                      if (line[0] == '#' || line[0] == '\n') continue; // 跳过注释或空行
+                      char *ptr = line;
+                      char *next_ptr;
+                      // 解析 Step
+                      step = strtoll(ptr, &next_ptr, 10);
+                      ptr = next_ptr;
+                      // 解析 CVs
+                      for (int d = 0; d < cv_dim; ++d) {
+                          current_cvs[d] = strtod(ptr, &next_ptr);
+                          ptr = next_ptr;
+                      }
+                      // 解析 h 和 s
+                      h = strtod(ptr, &next_ptr);
+                      ptr = next_ptr;
+                      s = strtod(ptr, &next_ptr);
+                      // 4. 更新 Grid
+                      // 将读取的 CV 复制到类成员 cv_values 中供 add_hill 使用
+                      for (int d = 0; d < cv_dim; ++d) cv_values[d] = current_cvs[d];
+                      
+                      get_cvspace_loc(cv_values, cvspace_loc);
+                      add_hill(cv_values, h);
                   }
+                  // if (cv_dim == 1){
+                  //   // 循环读取每一行数据
+                  //   while (fscanf(f_read, "%lld %lf %lf %lf\n", 
+                  //                 &step, &cv_values[0], &h, &s)==4) {
+                  //       LOG("%lld %lf %lf %lf",step, cv_values[0],h,s);
+                  //       get_cvspace_loc(cv_values, cvspace_loc);
+                  //       add_hill(cv_values, h);
+                  //       // current_timestep = step;
+                  //   }
+                  //   LOG("%lld %lf %lf %lf", step, cv_values[0], h, s);
+                  // } else if (cv_dim == 2){
+                  //   // 循环读取每一行数据
+                  //   while (fscanf(f_read, "%lld %lf %lf %lf %lf\n", 
+                  //                 &step, &cv_values[0], &cv_values[1], &h, &s)==5) {
+                  //       LOG("%lld %lf %lf %lf %lf",step, cv_values[0], cv_values[1],h,s);
+                  //       get_cvspace_loc(cv_values, cvspace_loc);
+                  //       add_hill(cv_values, h);
+                  //       // current_timestep = step;
+                  //   }
+                  //   LOG("%lld %lf %lf %lf %lf", step, cv_values[0], cv_values[1], h, s);
+                  // } else {
+                  //   ERR_COND(1,"Error: There are too many CVs that more than this program can handel.");
+                  // }
                 }
                 fclose(f_read);
                 DEBUG_LOG("restart hills end");
@@ -275,8 +343,6 @@ void FixMetadynamics::init() {
                 // if (f_hills == NULL) {
                 //     error->all(FLERR, "Cannot open HILLS file for appending.");
                 // }
-                // 3. 将 current_timestep 广播给所有进程 (如果需要)
-                MPI_Bcast(&current_timestep, 1, MPI_LONG_LONG, 0, world); // 如果需要同步 step
           } else {
               // --- 未找到 HILLS 文件，创建新文件 ---
               f_hills = fopen("HILLS", "w");
@@ -286,18 +352,15 @@ void FixMetadynamics::init() {
               if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
               if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
           }
-      } // end if comm->me == 0
-    }
-    else{
-      f_hills = fopen("HILLS", "w");
-      if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
-      if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
-    }
-    DEBUG_LOG("1");
+      } else{
+          f_hills = fopen("HILLS", "w");
+          if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
+          if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
+      } // end of continue_from_file
+    } // end of comm->me==0
+    MPI_Barrier(world);
     MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
-    DEBUG_LOG("1");
   }
-
 }
 
 /* helper: 计算高斯 */
@@ -326,12 +389,22 @@ void FixMetadynamics::init_list(int id, NeighList *ptr)
 
 // 3. 真正偏置力（解析梯度，比数值差分快）
 void FixMetadynamics::post_force(int) {
-  // -----calculate cv and add cv_history-----
-  for(int ii=0; ii<cv_dim; ii++){
-    cv_values[ii] = cv[ii]->compute_cv();
-    cv_history[ii] += cv_values[ii];
-    DEBUG_LOG("cv[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
+  DEBUG_LOG("post_force start");
+  // -----calculate cv_compute and add cv_history-----
+  for (auto const& pair : cal_registry) {
+    const std::string& name = pair.first;
+    MetaD_zqc::CV* obj = pair.second;
+    DEBUG_LOG("base_calc of %s is start", pair.first.c_str());
+    obj->base_calc(); 
   }
+  for (int ii=0; ii<cv_dim; ii++){
+    // check ptrs
+    cv_values[ii] = (base_cv[ii]->*cv_compute[ii])();
+    // cv_values[ii] = (base_cv[ii]->*(base_cv[ii]->set_CV_calculate("AVE")))();
+    cv_history[ii] += cv_values[ii];
+    DEBUG_LOG("cv_compute[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
+  }
+  DEBUG_LOG("1");
   // -----if pace, then add_hill-----
   if ((update->ntimestep % pace == 0)&&(pace!=0)) {
     for(int ii=0; ii<cv_dim; ii++){
@@ -359,20 +432,20 @@ void FixMetadynamics::post_force(int) {
     add_hill(cv_values, w);
     DEBUG_LOG("coming out from add_hill");
     // DEBUG_LOG("bias_grid[0] = %g, grid_size=%d", bias_grid[900], grid_size);
-    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
-    DEBUG_LOG("1");
     for(int ii=0; ii<cv_dim; ii++){
       cv_history[ii] = 0.0;
     }
-    DEBUG_LOG("1");
   }
   DEBUG_LOG("1");
+  MPI_Barrier(world);
+  // Add_Hills 之后所有线程要同步一下
+  MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   // calculate grad of grid
   grid_gradient(cv_values, dVdcvs);
-  DEBUG_LOG("cv_value = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
+  DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
     DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
-    cv[ii]->bias_force(dVdcvs[ii]);
+    (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
   }
   DEBUG_LOG("post_force_end");
 }

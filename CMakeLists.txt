@@ -2,8 +2,16 @@ cmake_minimum_required(VERSION 3.10)
 project(fix_crystallize_plugin LANGUAGES CXX CUDA)
 
 # -------------------------------------------------------------------
+# 模式切换开关：默认关闭调试
+# 使用时：cmake -DENABLE_DEBUG=ON ..
+# -------------------------------------------------------------------
+option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" ON)
+# option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" OFF)
+
+# -------------------------------------------------------------------
 # 1. 路径配置（通过环境变量获取，不再硬编码）
 # -------------------------------------------------------------------
+
 # 使用 "$ENV{变量名}" 获取本地环境，如果环境没设置则报错
 if(NOT LAMMPS_SOURCE_DIR AND NOT DEFINED ENV{LAMMPS_SOURCE_DIR})
     message(FATAL_ERROR "please set the ENV: export LAMMPS_SOURCE_DIR=/path/to/lammps/src")
@@ -44,6 +52,7 @@ file(GLOB_RECURSE SOURCES "src/*.cu")
 # -------------------------------------------------------------------
 # 5. 编译目标
 # -------------------------------------------------------------------
+# 找lammps库文件，路径由环境变量 LAMMPS_LIB_DIR 指定
 find_library(LAMMPS_LIB lammps PATHS ${LAMMPS_LIB_DIR} NO_DEFAULT_PATH)
 add_library(fix_crystallize_plugin MODULE ${SOURCES})
 if(LAMMPS_LIB)
@@ -53,7 +62,30 @@ else()
     message(FATAL_ERROR "cannot find liblammps.so, please check LAMMPS_LIB_DIR")
 endif()
 
+# 注入ABI定义，确保与LAMMPS库兼容
 target_compile_options(fix_crystallize_plugin PRIVATE ${ABI_DEFINITION})
+
+# 调试与优化标志注入
+if(ENABLE_DEBUG)
+    message(STATUS "Build Mode: DEBUG (with Nsight support)")
+    
+    # 1. 给 C++ 代码注入宏定义，相当于在头文件写了 #define PLUGIN_DEBUG
+    target_compile_definitions(fix_crystallize_plugin PRIVATE DEBUG)
+    
+    # 2. 注入调试专用的编译器标志
+    target_compile_options(fix_crystallize_plugin PRIVATE 
+        $<$<COMPILE_LANGUAGE:CUDA>:-g -G --generate-line-info> 
+        $<$<COMPILE_LANGUAGE:CXX>:-g -O0>
+    )
+else()
+    message(STATUS "Build Mode: RELEASE (Optimized)")
+    
+    # 优化标志
+    target_compile_options(fix_crystallize_plugin PRIVATE 
+        $<$<COMPILE_LANGUAGE:CUDA>:-O3 --generate-line-info> 
+        $<$<COMPILE_LANGUAGE:CXX>:-O3>
+    )
+endif()
 
 # 显卡架构配置（建议由用户从命令行传入，如 -DCMAKE_CUDA_ARCHITECTURES=89）
 if(NOT CMAKE_CUDA_ARCHITECTURES)

@@ -36,7 +36,6 @@ void MetaD_zqc::Distance::summary(FILE *f){
   fflush(f);
 }
 
-
 void MetaD_zqc::Distance::delta_x(){
   double **x = lmp->atom->x;
   double xbox,ybox,zbox;
@@ -73,6 +72,7 @@ void MetaD_zqc::Distance::delta_x(){
   DEBUG_LOG("PBC dx, dy, dz  = %.6f, %.6f, %.6f", dx, dy, dz);
 }
 
+
 // 归约 cv_values 到所有节点
 double MetaD_zqc::Distance::compute_cv() {
     this->delta_x();
@@ -105,4 +105,15 @@ void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
   dcvdx[1] = -dy/value;
   dcvdx[2] = -dz/value;
   DEBUG_LOG("get_dcvdx_end");
+}
+
+void MetaD_zqc::Distance::base_calc(){}; // 计算 CV 值
+
+MetaD_zqc::CV::CV_Calculation MetaD_zqc::Distance::set_CV_calculate(std::string func_name){
+  return static_cast<MetaD_zqc::CV::CV_Calculation>(&MetaD_zqc::Distance::compute_cv);
+}
+
+
+MetaD_zqc::CV::CV_BiasForce MetaD_zqc::Distance::set_CV_bias_force(std::string func_name){
+  return static_cast<MetaD_zqc::CV::CV_BiasForce>(&MetaD_zqc::Distance::bias_force);
 }

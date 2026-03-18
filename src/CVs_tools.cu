@@ -3,7 +3,7 @@
 #include "zqc_CVs_tools.h"
 #include "zqc_debug.h"
 
-void MetaD_zqc::KahanAverager::compute(int n, double* arr, double &ave) {
+void MetaD_zqc::KahanAverager::compute(int n, int glob_N, double* arr, double &ave) {
     double sum = 0.0;
     double c = 0.0; 
     for (int i = 0; i < n; i++) {
@@ -12,7 +12,7 @@ void MetaD_zqc::KahanAverager::compute(int n, double* arr, double &ave) {
         c = (t - sum) - y;
         sum = t;
     }
-    ave = sum / n;
+    ave = sum / glob_N;
 }
 
 MetaD_zqc::CUBAverager::CUBAverager() {
@@ -24,7 +24,7 @@ MetaD_zqc::CUBAverager::~CUBAverager() {
     cudaFree(this->d_sum);
 }
 
-void MetaD_zqc::CUBAverager::compute(int n, double* d_arr, double &ave) {// d_arr 是已经在 GPU 显存中的指针
+void MetaD_zqc::CUBAverager::compute(int n, int glob_N, double* d_arr, double &ave) {// d_arr 是已经在 GPU 显存中的指针
     if (n <= 0) { ave = 0.0; return; }
     void *d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
@@ -36,7 +36,7 @@ void MetaD_zqc::CUBAverager::compute(int n, double* d_arr, double &ave) {// d_ar
     // 4. 将结果拷回 Host
     double h_sum;
     cudaMemcpy(&h_sum, this->d_sum, sizeof(double), cudaMemcpyDeviceToHost);
-    ave = h_sum / n;
+    ave = h_sum / glob_N;
     // 5. 释放资源 (在生产环境中，建议将 temp_storage 缓存起来避免重复 malloc)
     if (d_temp_storage) {
         cudaFree(d_temp_storage);

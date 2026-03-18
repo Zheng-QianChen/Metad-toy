@@ -19,6 +19,10 @@ mpirun -np 1 lmp \
     -var seed ${RANDOM_SEED} \
     -var METAD_PLUGIN_PATH ${METAD_PLUGIN_PATH} \
     -in in.test-steinhardt
+# mpirun -np 1 ./wrap.sh lmp \
+#     -var seed ${RANDOM_SEED} \
+#     -var METAD_PLUGIN_PATH ${METAD_PLUGIN_PATH} \
+#     -in in.test-steinhardt
 python plot_hills.py in.test-steinhardt HILLS
 #mpirun -np 1 lmp -var seed ${RANDOM_SEED} -in in.test-2atoms-toys
 #python plot_hills.py in.test-2atoms-toys HILLS

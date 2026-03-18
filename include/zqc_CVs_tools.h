@@ -1,14 +1,15 @@
 #pragma once  // 必须添加这一行
 #include "lammps.h"
 #include "pair.h"
+#include "zqc_debug.h"
 
 namespace MetaD_zqc {
     class Averager {
     public:
-        virtual void compute(int n, double* arr, double &ave) = 0;
+        virtual void compute(int n, int glob_N, double* arr, double &ave) = 0;
     };
     class KahanAverager : public Averager {
-        void compute(int n, double* arr, double &ave) override;
+        void compute(int n, int glob_N, double* arr, double &ave) override;
     };
     class CUBAverager : public Averager {
     public:
@@ -16,9 +17,27 @@ namespace MetaD_zqc {
         ~CUBAverager();
     private:
         double *d_sum;
-        void compute(int n, double* arr, double &ave) override;
+        void compute(int n, int glob_N, double* arr, double &ave) override;
     };
 }
+
+template <typename T>
+struct GpuBuffer {
+    const char* name;
+    T* ptr = nullptr;
+    size_t capacity = 0;
+    void grow_to(size_t needed, FILE* f_check, const char* code_file, int code_line) {
+        // if (true) {
+        if (needed > capacity) {
+            printf("DEBUG: GPU Buffer expanded to %zu\n", capacity);
+            if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, code_file, code_line);
+            // 额外多给 10% 冗余，防止频繁 Malloc
+            capacity = (size_t)(needed * 1.1) + 100;
+            SAFE_CUDA_MALLOC_NOLMP(&ptr, capacity * sizeof(T), f_check);
+        }
+    }
+    ~GpuBuffer() { if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, __FILE__, __LINE__); }
+};
 
 __global__ void get_envioronment
 (

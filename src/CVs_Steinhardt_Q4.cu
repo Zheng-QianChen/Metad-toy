@@ -278,14 +278,12 @@ using namespace LAMMPS_NS;
 // void dcv_steinhardt_param_calc_kernel_q4(
 //     FILE *f_check,
 __global__ void dcv_steinhardt_param_calc_kernel_q4(
-    int cutoff_Natoms, 
-    int group_count, int groupbit, int *d_mask,
-    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr,double *d_dcvdx
-)
-{
+            int cutoff_Natoms, 
+            int group_count, int groupbit, int *d_mask,
+            LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
+            int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+            double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+            double *d_dYlm_dr,double *d_dcvdx){
     // devise version=============
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     if(c_atom<group_count){
@@ -551,12 +549,10 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
 }
 
 
-__global__ void steinhardt_param_calc_kernel_q4(
-    int group_count, int cutoff_Natoms,
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm,
-    double *d_stein_ql
-){
+__global__ void steinhardt_param_calc_kernel_q4(int group_count, int cutoff_Natoms,
+                    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+                    double *d_stein_qlm, double *d_stein_Ylm,
+                    double *d_stein_ql){
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     int neigh_N = 0;
     if(c_atom<group_count){

@@ -11,10 +11,11 @@
 // #define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
+        int _me = lmp->comm->me; \
         if (f_check != NULL) { \
-            fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+            fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
             fflush(f_check); \
-        } \
+    } \
     } while(0)
 #else
     #define DEBUG_LOG(...) do {} while(0)
@@ -22,9 +23,10 @@
 
 #ifdef DEBUG
     #define DEBUG_LOG_COND(cond, format, ...) do { \
+        int _me = lmp->comm->me; \
         if (cond) { \
-                        if (f_check != NULL) { \
-                fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+            if (f_check != NULL) { \
+                fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
                 fflush(f_check); \
             } \
         } \
@@ -35,9 +37,10 @@
 
 #ifdef DEBUG
     #define ERR_COND(cond, format, ...) do { \
+        int _me = lmp->comm->me; \
         if (cond) { \
                         if (f_check != NULL) { \
-                fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+                fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
                 fflush(f_check); \
             } \
         } \
@@ -69,32 +72,31 @@
     #define DEBUG_RUN_COND(cond, code) ((void)0)
 #endif
 
-#ifdef DEBUG
-    #define LOG_COND(cond, format, ...) do { \
-        if (cond) { \
-            if (f_check != NULL) { \
-                fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
-                fflush(f_check); \
-            } \
-        } \
-    } while(0)
-#else
-    #define LOG_COND(cond, format, ...) ((void)0)
-#endif
-
-#ifdef DEBUG
-    #define LOG(format, ...) do { \
+#define LOG_COND(cond, format, ...) do { \
+    if (cond) { \
+        int _me = lmp->comm->me; \
+        if (lmp->screen) fprintf(lmp->screen, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
+        if (lmp->logfile) fprintf(lmp->logfile, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
         if (f_check != NULL) { \
-            fprintf(f_check, "[%s:%d] " format "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+            fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
             fflush(f_check); \
         } \
-    } while(0)
-#else
-    #define LOG(format, ...) ((void)0)
-#endif
+    } \
+} while(0)
+
+#define LOG(format, ...) do { \
+    int _me = lmp->comm->me; \
+    if (lmp->screen) fprintf(lmp->screen, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
+    if (lmp->logfile) fprintf(lmp->logfile, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
+    if (f_check != NULL) { \
+        fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
+        fflush(f_check); \
+    } \
+} while(0)
 
 #ifdef DEBUG
     #define SAFE_CUDA_FREE(ptr) do { \
+        cudaGetLastError(); \
         cudaError_t err = cudaFree(ptr);\
         ptr = nullptr; \
         if (err != cudaSuccess) { \
@@ -105,31 +107,57 @@
             exit(1);\
         } \
     } while(0)
-#else
-    #define SAFE_CUDA_FREE(ptr) do{ \
+    #define SAFE_CUDA_FREE_NOFILE(ptr,caller_file, caller_line) do { \
+        cudaGetLastError(); \
         cudaError_t err = cudaFree(ptr);\
         ptr = nullptr; \
         if (err != cudaSuccess) { \
-            exit(1);\
+            fprintf(stderr, "CUDA Error at %s:%d (Defined at %s:%d)\n", \
+                caller_file, caller_line, __FILE__, __LINE__); \
+            printf("  Code: %d, Reason: %s\n", err,\
+                cudaGetErrorString(err));\
+            fflush(stderr); \
+        } \
+    } while(0)
+#else
+    #define SAFE_CUDA_FREE(ptr) do{ \
+        cudaGetLastError(); \
+        cudaError_t err = cudaFree(ptr);\
+        ptr = nullptr; \
+        if (err != cudaSuccess) { \
             (error)->all(FLERR, "Device memory free failed more information \
                 please check the crystallize fix outputfile\n"); \
+            exit(1);\
+        } \
+    } while(0)
+    #define SAFE_CUDA_FREE_NOFILE(ptr,caller_file, caller_line) do { \
+        cudaGetLastError(); \
+        cudaError_t err = cudaFree(ptr);\
+        ptr = nullptr; \
+        if (err != cudaSuccess) { \
+            fprintf(stderr, "CUDA Error at %s:%d (Defined at %s:%d)\n", \
+                caller_file, caller_line, __FILE__, __LINE__); \
+            printf("  Code: %d, Reason: %s\n", err,\
+                cudaGetErrorString(err));\
+            fflush(stderr); \
         } \
     } while(0)
 #endif
 
 #ifdef DEBUG
     #define SAFE_CUDA_MALLOC(ptr, size, f_check) do { \
+            cudaGetLastError(); \
             size_t free_mem, total_mem; \
             cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
             if (mem_info_err != cudaSuccess) { \
                 fprintf(f_check, "cudaMemGetInfo failed: %s\n", cudaGetErrorString(mem_info_err)); \
                 (error)->all(FLERR, "GPU memory query failed"); \
             } \
-            if ((size) > free_mem) { \
-                fprintf(f_check, "Insufficient GPU memory at %s:%d\n", __FILE__, __LINE__); \
-                fprintf(f_check, "  Requested: %zu MB\n", (size) / (1024 * 1024)); \
-                fprintf(f_check, "  Available: %.2f MB\n", free_mem / (1024.0 * 1024.0)); \
-                (error)->all(FLERR, "Memory allocation aborted"); \
+            if ((size) > free_mem || mem_info_err != cudaSuccess) { \
+                fprintf(f_check, "Memory Check Failed!\n"); \
+                fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
+                fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
+                (error)->all(FLERR, "GPU Memory check failed"); \
             } \
             cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
             if (MallocErr != cudaSuccess) { \
@@ -138,22 +166,59 @@
                 (error)->all(FLERR, "Device memory allocation failed\n"); \
             } \
         } while(0)
-#else
-    #define SAFE_CUDA_MALLOC(ptr, size, f_check) do { \
+    #define SAFE_CUDA_MALLOC_NOLMP(ptr, size, f_check) do { \
+            cudaGetLastError(); \
             size_t free_mem, total_mem; \
             cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
             if (mem_info_err != cudaSuccess) { \
-                exit(1);\
-                (error)->all(FLERR, "GPU memory query failed"); \
+                fprintf(f_check, "cudaMemGetInfo failed: %s\n", cudaGetErrorString(mem_info_err)); \
             } \
-            if ((size) > free_mem) { \
-                exit(1);\
-                (error)->all(FLERR, "Memory allocation aborted"); \
+            if ((size) > free_mem || mem_info_err != cudaSuccess) { \
+                fprintf(f_check, "Memory Check Failed!\n"); \
+                fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
+                fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
             } \
             cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
             if (MallocErr != cudaSuccess) { \
+                fprintf(f_check, "CUDA Malloc failed at %s:%d: %s (Size: %zu bytes)\n", \
+                        __FILE__, __LINE__, cudaGetErrorString(MallocErr), (size_t)(size)); \
+            } \
+        } while(0)
+#else
+    #define SAFE_CUDA_MALLOC(ptr, size, f_check) do { \
+            cudaGetLastError(); \
+            size_t free_mem, total_mem; \
+            cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
+            if (mem_info_err != cudaSuccess) { \
+                (error)->all(FLERR, "GPU memory query failed"); \
                 exit(1);\
+            } \
+            if ((size) > free_mem) { \
+                (error)->all(FLERR, "Memory allocation aborted"); \
+                exit(1);\
+            } \
+            cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
+            if (MallocErr != cudaSuccess) { \
                 (error)->all(FLERR, "Device memory allocation failed\n"); \
+                exit(1);\
+            } \
+        } while(0)
+    #define SAFE_CUDA_MALLOC_NOLMP(ptr, size, f_check) do { \
+            cudaGetLastError(); \
+            size_t free_mem, total_mem; \
+            cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
+            if (mem_info_err != cudaSuccess) { \
+                fprintf(f_check, "cudaMemGetInfo failed: %s\n", cudaGetErrorString(mem_info_err)); \
+            } \
+            if ((size) > free_mem || mem_info_err != cudaSuccess) { \
+                fprintf(f_check, "Memory Check Failed!\n"); \
+                fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
+                fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
+            } \
+            cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
+            if (MallocErr != cudaSuccess) { \
+                fprintf(f_check, "CUDA Malloc failed at %s:%d: %s (Size: %zu bytes)\n", \
+                        __FILE__, __LINE__, cudaGetErrorString(MallocErr), (size_t)(size)); \
             } \
         } while(0)
 #endif
@@ -176,6 +241,7 @@
 
 #ifdef DEBUG
     #define SAFE_CUDA_MEMCPY(dst, src, size_bytes, kind, f_check) do { \
+            cudaGetLastError(); \
             cudaError_t _err = cudaMemcpy((dst), (src), (size_bytes), (kind)); \
             if (_err != cudaSuccess) { \
                 fprintf(f_check, "CUDA Memcpy failed at %s:%d\n", __FILE__, __LINE__); \
@@ -190,6 +256,7 @@
         } while(0)
 #else
     #define SAFE_CUDA_MEMCPY(dst, src, size_bytes, kind, f_check) do { \
+            cudaGetLastError(); \
             cudaError_t _err = cudaMemcpy((dst), (src), (size_bytes), (kind)); \
             if (_err != cudaSuccess) { \
                 exit(1);\
