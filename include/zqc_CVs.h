@@ -132,6 +132,7 @@ namespace MetaD_zqc {
     private:
         FILE *f_check = nullptr;
         LAMMPS_NS::Error *error = nullptr;
+        LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
         int stein_l=0;
         int env_setNum=0;
         MetaD_zqc::Averager* my_averager;
@@ -143,24 +144,23 @@ namespace MetaD_zqc {
         LAMMPS_NS::tagint all_count;
         size_t N;
         double cv_value;
-        double *stein_q = nullptr;
-        LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
+        // stein_ql in host is stored in steinq[i]
+        double                                      *stein_q = nullptr;
+        GpuBuffer<double>                           d_stein_ql;
         // [h_stein_Ylm] : Ylm for each c_atoms
-        double *h_stein_Ylm = nullptr;
+        double                                      *h_stein_Ylm = nullptr;
+        GpuBuffer<double>                           d_stein_Ylm;
         // double *Q_per_atoms_value = nullptr;
         // [dYlm_dr] = dcv/dx (complex add local)
         // [dcvdx] = dcv/dx
-        double *d_stein_Ylm = nullptr;
-        double *d_dYlm_dr = nullptr;
-        double *h_dYlm_dr = nullptr;
-        double *d_dcvdx = nullptr;
-        double *h_dcvdx = nullptr;
+        double                                      *h_dYlm_dr = nullptr;
+        GpuBuffer<double>                           d_dYlm_dr;
+        double                                      *h_dcvdx = nullptr;
+        GpuBuffer<double>                           d_dcvdx;
         // device local
-        // stein_ql in host is stored in steinq[i]
         // stein_qlm stored in 
-        double *d_stein_ql = nullptr;
-        double *d_stein_qlm = nullptr;
-        double *h_stein_qlm = nullptr;
+        double                                      *h_stein_qlm = nullptr;
+        GpuBuffer<double>                           d_stein_qlm;
     public:
         using CV_Calculation = typename CV::CV_Calculation;
         using CV_BiasForce = typename CV::CV_BiasForce;

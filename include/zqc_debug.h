@@ -8,7 +8,7 @@
 #define POW7(a) (POW3(a) * POW4(a))
 
 #define PI 3.1415926535897932385
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
         int _me = lmp->comm->me; \

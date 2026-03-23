@@ -32,13 +32,7 @@ kBT = R * T / 1000.0  # k_B T (kJ/mol)
 print(f"使用的 kBT 值 (边缘积分常数): {kBT:.4f} kJ/mol")
 
 
-def parse_metad_params(input_file_path, fix_id="metad"):
-    """
-    从 LAMMPS 输入文件中查找并解析 Metadynamics fix 命令。
-    使用 C++ 构造函数的逻辑：基于关键字的无序解析。
-    """
-    
-    # 1. 读取并清理文件内容 (处理多行连接符 & 和注释)
+def parse_metad_params(input_file_path):
     try:
         with open(input_file_path, 'r') as f:
             content = f.read()
@@ -46,156 +40,72 @@ def parse_metad_params(input_file_path, fix_id="metad"):
         print(f"错误: 找不到文件 {input_file_path}")
         return None
 
-    # 将多行命令合并为单行，并去除注释行
+    # 清理续行符并分词
+    content = content.replace('&\n', ' ').replace('&', ' ')
+    lines = content.split('\n')
+    
     cleaned_tokens = []
-    found_fix_metad = False
-    content = content.replace('&\n', ' ').replace('&',' ')
-    
-    for line in content.split('\n'):
-        stripped_line = line.strip()
-        
-        # 忽略注释和空行
-        if not stripped_line or stripped_line.startswith('#'):
-            continue
-            
-        # 移除行尾的续行符 & 并用空格代替
-        cleaned_line = stripped_line
-        
-        # 将清理后的行分割成参数
-        tokens = cleaned_line.split()
-        
-        if not tokens:
-            continue
-            
-        # 查找 'fix metad all metad' 这一行，并提取所有后续参数
-        # 注意: 假设 fix metad 命令的格式是: fix ID group style (例如: fix metad all metad ...)
-        if not found_fix_metad:
-            try:
-                # 尝试找到 metad fix的起始位置
-                start_index = tokens.index("metad", 3) # 从第4个参数开始找'metad'
-                if tokens[0] == 'fix' and start_index == 3: # 严格检查
-                    # 找到了 fix metad 命令的开头
-                    cleaned_tokens.extend(tokens[4:]) # 仅保留 fix metad 后的所有参数
-                    found_fix_metad = True
-                else:
-                    # 如果找到了 'metad' 关键字，但不是 fix 命令，则可能存在于其他地方
-                    continue
-            except ValueError:
-                continue # 当前行不包含 metad fix 的开头
-        # else:
-        #     # 如果已经找到 fix metad 的开头，将后续行中的所有 token 都加进来
-        #     cleaned_tokens.extend(tokens)
-    print(cleaned_tokens)
+    found_fix = False
+    for line in lines:
+        line = line.split('#')[0].strip() # 移除注释
+        if not line: continue
+        tokens = line.split()
+        if tokens[0] == 'fix' and 'metad' in tokens:
+            # 找到起始行，从 fix ID group style 之后开始抓取
+            cleaned_tokens.extend(tokens[4:])
+            found_fix = True
+        elif found_fix:
+            # 如果之前的行有续行符，接下来的 token 也会被加入
+            # 注意：这里的逻辑简化了，假设 fix metad 是连续定义的
+            cleaned_tokens.extend(tokens)
 
+    if not found_fix: return None
 
-    if not found_fix_metad:
-        print(f"错误: 未在文件 '{input_file_path}' 中找到 'fix ... metad' 命令。")
-        return None
-
-    # 2. 模仿 C++ 构造函数，迭代解析参数
-    
-    # 初始化变量 (使用 C++ 默认值)
+    # 初始化参数
     params = {
-        'sigma': 0.05, 
-        'height0': 0.1, 
-        'biasf': 10.0,
-        'pace': 100,
-        'cv_dim': 1,
-        'nbin_num': 100,
-        'continue': False,
-        'lower_bound': None, # 确保 DIM 参数被提取
-        'upper_bound': None
-        # 假设 DIM 只针对 cv_dim=1 的情况
+        'sigma': 0.05, 'height0': 0.1, 'biasf': 10.0,
+        'pace': 100, 'cv_dim': 1, 'nbin_num': 100,
+        'continue': False, 'lower_bound': 0.0, 'upper_bound': 1.0
     }
 
-    # 简化 nbin 数组的表示，用一个变量保存
-    # nbin_num = 100 # Default
-    
+    # 模拟 C++ 状态机解析
     i = 0
-    num_args = len(cleaned_tokens)
-    
-    while i < num_args:
+    while i < len(cleaned_tokens):
         arg = cleaned_tokens[i]
-        print(arg)
         
         if arg == "GAUSSIAN":
-            if i + 3 >= num_args: raise ValueError("GAUSSIAN requires 3 arguments.")
             params['sigma'] = float(cleaned_tokens[i+1])
             params['height0'] = float(cleaned_tokens[i+2])
             params['biasf'] = float(cleaned_tokens[i+3])
             i += 4
-        
         elif arg == "PACE":
-            if i + 1 >= num_args: raise ValueError("PACE requires 1 argument.")
             params['pace'] = int(cleaned_tokens[i+1])
             i += 2
-            
         elif arg == "CV_dim":
-            if i + 1 >= num_args: raise ValueError("CV_dim requires 1 argument.")
             params['cv_dim'] = int(cleaned_tokens[i+1])
             i += 2
-            
-        elif arg == "DISTANCE":
-            if i + 2 >= num_args: raise ValueError("DISTANCE requires 2 atom IDs.")
-            # 忽略 CV 定义，只跳过参数
-            i += 3 
-            
-        elif arg == "STEINH":
-            if i + 3 >= num_args: raise ValueError("STEINH requires at least 3 arguments (Q/L, num, group).")
-            # STEINH <Q/L> <4/6/8/12> <group> ... (至少3个参数)
-            
-            # 找到 STEINH 块的结束位置 (即下一个关键字之前)
-            j = i + 4 # 从第4个参数 (i+4) 开始查找可选参数或下一个关键字
-            while j < num_args:
-                next_arg = cleaned_tokens[j]
-                # 检查下一个参数是否是已知的 Metad 关键字
-                if next_arg in ["GAUSSIAN", "PACE", "CV_dim", "DISTANCE", "STEINH", "DIM", "METAD_RESTART", "WT"]:
-                    break # 找到下一个关键字，跳出 STEINH 块
-                # 检查 STEINH 的可选关键字，并跳过对应参数
-                elif next_arg in ["cutoff_r", "cutoff_Natoms", "d_block_size"]:
-                    j += 2 # 跳过关键字和数值
-                else:
-                    break # 遇到未知关键字或 STEINH 块结束
-            
-            i = j # 将 i 设置为 STEINH 块结束后的第一个参数
-            
+        elif arg == "CAL":
+            # 进入 CAL 块，跳过直到遇到 MetaD 的全局关键字
+            i += 1
+            while i < len(cleaned_tokens):
+                if cleaned_tokens[i] in ["GAUSSIAN", "PACE", "CV_dim", "DIM", "METAD_RESTART", "WT", "CAL"]:
+                    break
+                i += 1 # 跳过 NAME, Q6, STEINH, Q, 6 等 CV 定义参数
         elif arg == "DIM":
-            if i + 4 >= num_args: raise ValueError("DIM requires 4 arguments (index, lower, upper, bins).")
-            # DIM 1 0 40 400
-            dim_index = int(cleaned_tokens[i+1]) - 1 # 0-based index
-            # 注意：您的 C++ 代码只解析了一个 nbin_num，我们在这里假设 dim_index == 0
-            if dim_index == 0:
+            # DIM <index> <lower> <upper> <bins> <target_name>
+            dim_idx = int(cleaned_tokens[i+1])
+            if dim_idx == 1:
                 params['lower_bound'] = float(cleaned_tokens[i+2])
                 params['upper_bound'] = float(cleaned_tokens[i+3])
                 params['nbin_num'] = int(cleaned_tokens[i+4])
-            
-            i += 5
-            
+            i += 6 # 注意：现在 DIM 有 5 个后续参数了 (包含最后的 Q6.AVE)
         elif arg == "METAD_RESTART":
-            if i + 1 >= num_args: raise ValueError("METAD_RESTART requires 1 argument (0 or 1).")
             params['continue'] = (int(cleaned_tokens[i+1]) != 0)
             i += 2
-
         elif arg == "WT":
-            # WT 1 (或 0)，您的 C++ 代码只检查了参数数量并跳过了
-            if i + 1 >= num_args: raise ValueError("WT requires 1 argument (0 or 1).")
             i += 2
-        
         else:
-            # 遇到未知关键字
-            # 您的 C++ 代码会抛出错误，这里我们直接返回 None 或抛出异常
-            print(f"错误: 遇到 LAMMPS fix metad 无法识别的关键字: {arg}")
-            return None
-            
-    # 3. 返回解析结果
-    if params['lower_bound'] is None or params['upper_bound'] is None:
-        print("警告: 未找到 DIM 边界设置。将使用默认值。")
-    
-    # 确保在 1D 模拟中 cv_dim 至少被设置过
-    if params['cv_dim'] == 0:
-        print("错误: CV_dim 未设置。")
-        return None
-        
+            i += 1
     return params
 
 

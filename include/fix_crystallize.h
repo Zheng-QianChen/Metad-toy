@@ -64,7 +64,7 @@ namespace LAMMPS_NS {
     NeighList *listhalf, *listfull;
   private:
     double sigma, height0, biasf, kBT;
-    int pace;
+    int pace,rec_pace;
     bool first_run;
     double KB;
     std::vector<double> cv_hist;
@@ -86,6 +86,8 @@ namespace LAMMPS_NS {
     // FILE *file;
     FILE *f_hills;
     FILE *f_check=NULL;
+    std::string rec_file_name;
+    FILE *rec_file=NULL;
   };
 }
 

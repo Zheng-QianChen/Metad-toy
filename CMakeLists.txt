@@ -47,7 +47,7 @@ include_directories(${MPI_INCLUDE_PATH})
 # 4. 自动识别源文件
 # -------------------------------------------------------------------
 # 自动寻找 src 目录下的所有 cu 文件，方便未来扩展 CV
-file(GLOB_RECURSE SOURCES "src/*.cu")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cu")
 
 # -------------------------------------------------------------------
 # 5. 编译目标

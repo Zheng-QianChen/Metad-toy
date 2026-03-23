@@ -68,6 +68,27 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             pace = utils::inumeric(FLERR, arg[i+1], false, lmp);
             i += 2;
             LOG("Logging: pace = %d.",pace);
+        } else if (strcmp(arg[i], "RECORD") == 0) {
+            ERR_COND(i + 1 >= narg, "Error: RECORD command requires 1 argument: integer timesteps.");
+            int iarg=1 + i;
+            while (iarg < narg) {
+                if (strcmp(arg[iarg], "FILE_NAME") == 0) {
+                    ERR_COND((iarg + 1 >= narg) ,"Error: \'FILE_NAME\' keyword requires a value");
+                    rec_file_name = arg[iarg+1];
+                    iarg += 2;
+                }
+                else if (strcmp(arg[iarg], "REC_PACE") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: \'REC_PACE\' keyword requires an integer");
+                    rec_pace = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                }
+                else {
+                  break;
+                }
+            }
+            LOG("Logging: rec_file = %s, rec_pace = %d.",rec_file_name.c_str(), rec_pace);
+            rec_file = fopen(rec_file_name.c_str(),"w+");
+            i = iarg;
         } else if (strcmp(arg[i], "CV_dim") == 0) {
             DEBUG_LOG("In CV_dim settings");
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
@@ -406,7 +427,7 @@ void FixMetadynamics::post_force(int) {
   }
   DEBUG_LOG("1");
   // -----if pace, then add_hill-----
-  if ((update->ntimestep % pace == 0)&&(pace!=0)) {
+  if ((pace!=0)&&(update->ntimestep % pace == 0)) {
     for(int ii=0; ii<cv_dim; ii++){
       // cv_history[ii] = cv_history[ii]/pace;
       cv_history[ii] = cv_values[ii];
@@ -435,11 +456,10 @@ void FixMetadynamics::post_force(int) {
     for(int ii=0; ii<cv_dim; ii++){
       cv_history[ii] = 0.0;
     }
+    MPI_Barrier(world);
+    // Add_Hills 之后所有线程要同步一下
+    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   }
-  DEBUG_LOG("1");
-  MPI_Barrier(world);
-  // Add_Hills 之后所有线程要同步一下
-  MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   // calculate grad of grid
   grid_gradient(cv_values, dVdcvs);
   DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);

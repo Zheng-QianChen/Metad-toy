@@ -28,7 +28,7 @@ stds = reshaped_cv.std(axis=1)
 print(stds)
 
 import matplotlib.pyplot as plt
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(10, 5), dpi=300)
 plt.plot(row_indices, cv, label='CV')
-plt.ylim(0.2,0.6)
+plt.ylim(0,1)
 plt.savefig(f"cv_plot{outer}.png")

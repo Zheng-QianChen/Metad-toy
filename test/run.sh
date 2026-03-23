@@ -15,7 +15,7 @@ METAD_PLUGIN_PATH=~/work/Metad-toy/build
 
 
 #mpirun -np 8 lmp -var seed ${RANDOM_SEED} -in in.test-steinhardt
-mpirun -np 1 lmp \
+mpirun -np 8 lmp \
     -var seed ${RANDOM_SEED} \
     -var METAD_PLUGIN_PATH ${METAD_PLUGIN_PATH} \
     -in in.test-steinhardt
