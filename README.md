@@ -63,25 +63,32 @@ make -j 4
 ### 语法示例
 
 ```lammps
-fix 1 all metad \
-   CV_dim 1 PACE 100 \
-   GAUSSIAN 0.05 0.1 10.0 \
-   DISTANCE 1 2 \
-   DIM 1 2.0 8.0 500 \
-   WT 1
-
+fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
+                    PACE 10 &
+                    RECORD FILE_NAME rec.log REC_PACE 1 &
+                    CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.9 cutoff_Natoms 18 &
+                    CAL NAME Q4 STEINH Q 4 metad_group cutoff_r 3.9 cutoff_Natoms 18 &
+                    CV_dim 1 &
+                    SIMBOL v1 Q6.AVE &
+                    SIMBOL v2 Q4.AVE &
+                    DIM 1 0 1 1000 "v1+v2" &
+                    METAD_RESTART 1 &
+                    WT 0
 ```
 
 ### 参数说明
 
 | 关键字 | 参数 | 描述 |
 | --- | --- | --- |
-| `CV_dim` | `[N]` | 集体变量的总维度。 |
 | `GAUSSIAN` | `[sigma] [height] [biasf]` | 高斯宽度、初始高度和偏置因子。 |
 | `PACE` | `[N]` | 每隔 N 步添加一次高斯函数。 |
-| `DISTANCE` | `[ID1] [ID2]` | 定义两个原子之间的距离作为 CV。 |
-| `STEINH` | `[Q/L] [4/6/8/12] [group]` | 定义 Steinhardt 序参数作为 CV。 |
-| `DIM` | `[idx] [low] [up] [bins]` | 设置特定维度的网格范围和精度。 |
+| `CAL` | `NAME [cv_set_name] [{CV set}] ` | 设置一个CV的计算。 |
+| `{CV set}=DISTANCE` | `[ID1] [ID2]` | 定义两个原子之间的距离作为 CV。 |
+| `{CV set}=STEINH` | `[Q/L] [3/4/6] [group] <cutoff_r [r]> <cutoff_Natoms [N]>` | 定义 Steinhardt 序参数作为 CV。 |
+| `CV_dim` | `[N]` | 集体变量的总维度。 |
+| `SIMBOL` | `[variable name] [cv_set_name].[cv_func]` | 指定cv计算的变量名所对应的cv计算函数方法 |
+| `DIM` | `[idx] [low] [up] [bins] "[expr]"` | 设置特定维度的网格范围和精度以及变量组合的表达式。 |
+| `METAD_RESTART` | `[0/1]` | 是否启用 HILLS 阅读。 |
 | `WT` | `[0/1]` | 是否启用 Well-tempered Metadynamics。 |
 
 ---
@@ -92,6 +99,7 @@ fix 1 all metad \
 .
 ├── src/                # 核心实现 (.cu 和 .cpp)
 ├── include/            # 头文件 (.h)
+├── third_party/            # 头文件 (.h)
 ├── CMakeLists.txt      # 构建脚本
 └── test/               # 测试用例 (DISTANCE/STEINH)
 
