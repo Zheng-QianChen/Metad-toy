@@ -9,10 +9,10 @@
 
 #define PI 3.1415926535897932385
 namespace MetaD_zqc {
-    template <int L> class STEIN_QL;
-    class Steinhardt_env;
     class Distance;
     class Steinhardt;
+    template <int L> class STEIN_QL;
+    class Steinhardt_env;
 
     // atoms distance
     class Distance : public CV {

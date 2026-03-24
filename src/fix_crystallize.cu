@@ -18,6 +18,7 @@
 #include <cstdio>
 #include "zqc_CVs.h"
 #include "zqc_debug.h"
+#include "zqc_DimSet.h"
 
 #include <cuda_runtime.h>
 using namespace LAMMPS_NS;
@@ -48,6 +49,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     int i = 3; // 从第 4 个参数开始，即 style 名之后
     KB = lmp->force->boltz;
     std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
+    cv_configs = new MetaD_zqc::MetaDimensionManager();
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
@@ -93,7 +95,6 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             DEBUG_LOG("In CV_dim settings");
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
-            dim_configs = std::vector<DimConfig>(cv_dim);
             memory->create(nbin, cv_dim, "metad:nbin_size");
             memory->create(cvspace_loc, cv_dim, "metad:cvspace_loc");
             // memory->create(cv_compute, cv_dim, "metad:cv_compute");
@@ -171,9 +172,30 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                                     req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
               i = iarg;
           }
+      } else if (strcmp(arg[i], "SIMBOL") == 0) {
+            // SIMBOL v1 Q6.AVE -> SIMBOL <symbol_name> <cv_method>
+            ERR_COND(i + 2 >= narg, "Error: DIM command requires 2 arguments: SIMBOL <symbol_name> <cv_method>.");
+            // "Q4.mean"
+            DEBUG_LOG("168L:%s", arg[i+2]);
+            std::string target = arg[i+2];
+            std::string target_name;
+            std::string target_func;
+            size_t dot_pos = target.find(".");
+            if (dot_pos != std::string::npos) {
+                target_name = target.substr(0, dot_pos);
+                target_func = target.substr(dot_pos + 1);
+            } else {
+                target_name = target;
+                target_func = "value"; 
+            }
+            DEBUG_LOG("VAL=%s, METHODS=%s",target_name.c_str(),target_func.c_str());
+            // add_symbol(const std::string& name, CV* ptr, const std::string& func_name);
+            cv_configs->add_symbol(arg[i+1], cal_registry[target_name], target_func.c_str());
+            DEBUG_LOG("1");
+            i += 3;
       } else if (strcmp(arg[i], "DIM") == 0) {
-            // DIM 1 0 40 1600 Q4.mean -> DIM index, lower_bound, upper_bound, bins, cv_method
-            ERR_COND(i + 5 >= narg, "Error: DIM command requires 5 arguments: index, lower, upper, bins, cv_method.");
+            // DIM 1 0 40 1600 (v1+v2)/2 -> DIM index, lower_bound, upper_bound, bins, cv_expr
+            ERR_COND(i + 5 >= narg, "Error: DIM command requires 5 arguments: index, lower, upper, bins, cv_expr.");
             int dim_idx = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
             ERR_COND(dim_idx >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
             cv_bound[dim_idx * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
@@ -181,18 +203,9 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             int nbin_num = utils::inumeric(FLERR, arg[i+4], false, lmp); // 将 bins 数量赋给 nbin_num (仅用于单维度)
             nbin[dim_idx] = nbin_num;
             LOG("Logging: cv_compute=%d bound set at [%g,%g], total grid is %d.",dim_idx+1, cv_bound[dim_idx * 2], cv_bound[dim_idx * 2 +1], nbin_num);
-            // "Q4.mean"
-            DEBUG_LOG("168L:%s", arg[i+5]);
-            std::string target = arg[i+5];
-            size_t dot_pos = target.find(".");
-            if (dot_pos != std::string::npos) {
-                dim_configs[dim_idx].name = target.substr(0, dot_pos);
-                dim_configs[dim_idx].func = target.substr(dot_pos + 1);
-            } else {
-                dim_configs[dim_idx].name = target;
-                dim_configs[dim_idx].func = "value"; 
-            }
-            DEBUG_LOG("VAL=%s, METHODS=%s",dim_configs[dim_idx].name.c_str(),dim_configs[dim_idx].func.c_str());
+            LOG("Logging: cv_compute=%d bound set expr as %s", dim_idx+1, arg[i+5]);
+            // reg_expression(int dim_idx, const std::string& expr_str);
+            cv_configs->reg_expression(dim_idx, arg[i+5]);
             i += 6;
         } else if (strcmp(arg[i], "METAD_RESTART") == 0) {
             ERR_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
@@ -204,24 +217,6 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         } else {
             ERR_COND(1, "Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
             break;
-        }
-    }
-
-    // --- 将 DIM 配置关联到真正的 CV 对象 ---
-    for (int d = 0; d < cv_dim; ++d) {
-        std::string target_name = dim_configs[d].name;
-        std::string target_func = dim_configs[d].func;
-
-        // 1. 检查名字是否存在于注册表中
-        // TODO: 如果不存在则立刻报错！
-        if (cal_registry.count(target_name)) {
-            base_cv.push_back(cal_registry[target_name]);
-            cv_compute.push_back(cal_registry[target_name]->set_CV_calculate(target_func));
-            cv_biasforce.push_back(cal_registry[target_name]->set_CV_bias_force(target_func));
-
-            LOG("Linked DIM %d to CAL %s with function %s", d+1, target_name.c_str(), target_func.c_str());
-        } else {
-            error->all(FLERR, "Error: DIM index %d refers to undefined CAL NAME: %s", d+1, target_name.c_str());
         }
     }
     
@@ -417,11 +412,13 @@ void FixMetadynamics::post_force(int) {
     MetaD_zqc::CV* obj = pair.second;
     DEBUG_LOG("base_calc of %s is start", pair.first.c_str());
     obj->base_calc(); 
+    cv_configs->compute_total_cv();
   }
   for (int ii=0; ii<cv_dim; ii++){
     // check ptrs
-    cv_values[ii] = (base_cv[ii]->*cv_compute[ii])();
+    // cv_values[ii] = (base_cv[ii]->*cv_compute[ii])();
     // cv_values[ii] = (base_cv[ii]->*(base_cv[ii]->set_CV_calculate("AVE")))();
+    cv_values[ii] = cv_configs->compute_dim_cv(ii);
     cv_history[ii] += cv_values[ii];
     DEBUG_LOG("cv_compute[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
   }
@@ -465,7 +462,8 @@ void FixMetadynamics::post_force(int) {
   DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
     DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
-    (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
+    // (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
+    cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
   }
   DEBUG_LOG("post_force_end");
 }

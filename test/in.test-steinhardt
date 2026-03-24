@@ -98,11 +98,20 @@ variable actual_height equal "0.01 * v_group_atoms"
 #                     DIM 2 min 0 max 1 bin 1000 expr Q6.mean &
 #                     METAD_RESTART 1 &
 #                     WT 0
+# fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
+#                     PACE 10 &
+#                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.9 cutoff_Natoms 18 &
+#                     CV_dim 1 &
+#                     DIM 1 0 1 1000 Q6.AVE &
+#                     METAD_RESTART 1 &
+#                     WT 0
 fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
                     PACE 10 &
+                    RECORD FILE_NAME rec.log REC_PACE 1 &
                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.9 cutoff_Natoms 18 &
                     CV_dim 1 &
-                    DIM 1 0 1 1000 Q6.AVE &
+                    SIMBOL v1 Q6.AVE &
+                    DIM 1 0 1 1000 "v1" &
                     METAD_RESTART 1 &
                     WT 0
 fix             1 all nvt  temp ${temp} ${temp} 0.1

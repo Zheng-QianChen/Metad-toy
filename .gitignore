@@ -27,4 +27,6 @@ test/templog
 test/testlog_in_times
 test/backoff/
 test/example_333_fcc_1MPI/
+test/example_555_fcc_nMPI/
 test/Q3test/
+test/rec.log

@@ -40,6 +40,7 @@ set(ABI_DEFINITION -D_GLIBCXX_USE_CXX11_ABI=1)
 # 3. 包含路径与库
 # -------------------------------------------------------------------
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 include_directories(${LAMMPS_SOURCE_DIR})
 include_directories(${MPI_INCLUDE_PATH})
 

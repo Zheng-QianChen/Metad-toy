@@ -41,6 +41,8 @@ namespace MetaD_zqc {
       virtual void summary(FILE* f) = 0;
       // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
   };
+
+  class MetaDimensionManager;
 }
 
 namespace LAMMPS_NS {
@@ -77,11 +79,11 @@ namespace LAMMPS_NS {
       std::string name;
       std::string func;
     };
-    std::vector<DimConfig> dim_configs;
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
-    std::vector<MetaD_zqc::CV*> base_cv;
-    std::vector<MetaD_zqc::CV::CV_Calculation> cv_compute;
-    std::vector<MetaD_zqc::CV::CV_BiasForce> cv_biasforce;
+    MetaD_zqc::MetaDimensionManager *cv_configs;
+    // std::vector<MetaD_zqc::CV*> base_cv;
+    // std::vector<MetaD_zqc::CV::CV_Calculation> cv_compute;
+    // std::vector<MetaD_zqc::CV::CV_BiasForce> cv_biasforce;
     int continue_from_file, WellT_bool;
     // FILE *file;
     FILE *f_hills;
