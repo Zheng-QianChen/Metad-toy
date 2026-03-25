@@ -45,7 +45,10 @@ void MetaD_zqc::MetaDimensionManager::add_symbol(const char* name, MetaD_zqc::CV
 
     // 将 exprtk 里的变量名直接链接到 CV 内部的 current_val
     // 这样每次 expression.value() 执行时，都会直接读取这个内存地址
-    st.add_variable(name, var_values[link.var_idx]);
+    st.clear_variables(); // 清除之前的失效绑定
+    for (const auto& link : links) {
+        st.add_variable(link.name, var_values[link.var_idx]);
+    }
 }
 
 void MetaD_zqc::MetaDimensionManager::reg_expression(int dim_idx, const std::string& expr_str) {
@@ -67,6 +70,7 @@ void MetaD_zqc::MetaDimensionManager::compute_total_cv() {
     // 更新所有被绑定的基础 CV 值
     for (auto& link : links) {
         var_values[link.var_idx] = (link.cv_ptr->*(link.compute_func))();
+        // printf("[%d]=%g\n", link.var_idx, var_values[link.var_idx]);
     }
 }
 

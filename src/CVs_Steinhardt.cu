@@ -205,7 +205,7 @@ void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
     // set up nvidia thread number
     block_num = ((group_count) + d_block_size - 1)/d_block_size;
     N = d_block_size*block_num;
-    LOG_COND(((group_count)<(cutoff_Natoms)),"Warning: group_count(%lld) < cutoff_Natoms(%lld), please check your system !",(long long)group_count, (long long)cutoff_Natoms);
+    // LOG_COND(((group_count)<(cutoff_Natoms)),"Warning: group_count(%lld) < cutoff_Natoms(%lld), please check your system !",(long long)group_count, (long long)cutoff_Natoms);
     LOG_COND((((box_x)<2*(cutoff_r))||((box_y)<2*(cutoff_r))||((box_z)<2*(cutoff_r))),"Warning: box < cutoff_r, please check your system !");
 }
 
