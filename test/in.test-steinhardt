@@ -22,9 +22,10 @@ if "${has_restart} == 1" then "jump SELF skip_equilibration"
 
 # ----------------- 正常启动流程 (Normal/Liquidus) -----------------
 lattice fcc 3.85
-# region box block 0 10 0 10 0 10
+# lattice bcc 3.85
+region box block 0 10 0 10 0 10
 # region box block 0 20 0 20 0 20
-region box block 0 3 0 3 0 3
+# region box block 0 5 0 5 0 5
 create_box 1 box
 create_atoms 1 box
 
@@ -100,13 +101,15 @@ variable actual_height equal "0.01 * v_group_atoms"
 #                     DIM 1 0 1 1000 "v1" &
 #                     METAD_RESTART 1 &
 #                     WT 0
-fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
+fix metad all metad GAUSSIAN 0.01 0.5 10.0 &
                     PACE 10 &
                     RECORD FILE_NAME rec.log REC_PACE 1 &
                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.8 cutoff_Natoms 18 &
+                    CAL NAME Q4 STEINH Q 4 metad_group cutoff_r 3.8 cutoff_Natoms 18 &
                     SIMBOL v1 Q6.AVE &
+                    SIMBOL v2 Q4.AVE &
                     CV_dim 1 &
-                    DIM 1 0 1 1000 "v1" &
+                    DIM 1 0 1 1000 "(v1*2+v2)/3" &
                     METAD_RESTART 1 &
                     WT 0
 fix             1 all nvt  temp ${temp} ${temp} 0.1

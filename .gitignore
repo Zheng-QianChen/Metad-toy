@@ -30,3 +30,5 @@ test/example_333_fcc_1MPI/
 test/example_555_fcc_nMPI/
 test/Q3test/
 test/rec.log
+test/example_101010_fcc_nMPI/
+test/example_333_fcc_nMPI/

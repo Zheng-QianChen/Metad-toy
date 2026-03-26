@@ -109,13 +109,13 @@ using namespace LAMMPS_NS;
 //             tDx= temp*(dx*dz);
 //             tDy= temp*(dy*dz);
 //             tDz= temp*(-POW2(dx)-POW2(dy));
-//             d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+//             d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
 //             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
 //             // d Y,4,0 dy
-//             d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+//             d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
 //             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
 //             // d Y,4,0 dz
-//             d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+//             d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
 //             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
             
 //             // Y,4,+-1
@@ -128,32 +128,32 @@ using namespace LAMMPS_NS;
 //             // tDz   = temp*((3*POW2(POW2(dx)+POW2(dy))-21*(POW2(dx)+POW2(dy))*POW2(dz)+4*POW4(dz))*dx);
 //             tDz_i = temp*((3*POW2(POW2(dx)+POW2(dy))-21*(POW2(dx)+POW2(dy))*POW2(dz)+4*POW4(dz))*dy);
 //             // d Y,4,1 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,1 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,1 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,-1 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= -(tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= -(tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,-1 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= -(tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= -(tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,-1 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= -(tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= -(tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,1 dx + d Y,4,-1 dx
 //             d_dYlm_dr[c_atom*3*2+0]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+1]+= 2*(tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             d_dYlm_dr[c_atom*3*2+1]+= 2*(tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,1 dx + d Y,4,-1 dy
 //             d_dYlm_dr[c_atom*3*2+2]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+3]+= 2*(tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             d_dYlm_dr[c_atom*3*2+3]+= 2*(tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 //             // d Y,4,1 dx + d Y,4,-1 dz
 //             d_dYlm_dr[c_atom*3*2+4]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+5]+= 2*(tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+//             d_dYlm_dr[c_atom*3*2+5]+= 2*(tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 
 //             // Y,4,+-2
 //             // 3/2 Sqrt[5/2*\[Pi]] = 0.66904654355728916795211238971191
@@ -165,31 +165,31 @@ using namespace LAMMPS_NS;
 //             tDz   = temp*((4*(POW2(dx)+POW2(dy))-3*POW2(dz))*(dx-dy)*(dx+dy)*dz);
 //             // tDz_i = temp*((4*(POW2(dx)+POW2(dy))-3*POW2(dz))*dx*dy*dz);
 //             // d Y,4,2 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,2 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,2 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,-2 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= -(tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= -(tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,-2 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= -(tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= -(tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,-2 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= -(tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= -(tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
 //             // d Y,4,2 dx + d Y,4,-2 dx
-//             d_dYlm_dr[c_atom*3*2+0]+= 2*(tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             d_dYlm_dr[c_atom*3*2+0]+= 2*(tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
 //             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
 //             // d Y,4,2 dx + d Y,4,-2 dy
-//             d_dYlm_dr[c_atom*3*2+2]+= 2*(tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             d_dYlm_dr[c_atom*3*2+2]+= 2*(tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
 //             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
 //             // d Y,4,2 dx + d Y,4,-2 dz
-//             d_dYlm_dr[c_atom*3*2+4]+= 2*(tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+//             d_dYlm_dr[c_atom*3*2+4]+= 2*(tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
 //             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
 
 //             // Y,4,+-3
@@ -202,32 +202,32 @@ using namespace LAMMPS_NS;
 //             // tDz   = temp*(-((POW2(dx)-3*POW2(dy))*(POW2(dx)+POW2(dy)-3*POW2(dz))*dx));
 //             tDz_i = temp*((-3*POW2(dx)+POW2(dy))*(POW2(dx)+POW2(dy)-3*POW2(dz))*dy);
 //             // d Y,4,3 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,3 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,3 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,-3 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= -(tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= -(tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,-3 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= -(tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= -(tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,-3 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= -(tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= -(tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,3 dx + d Y,4,-3 dx
 //             d_dYlm_dr[c_atom*3*2+0]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+1]+= 2*(tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             d_dYlm_dr[c_atom*3*2+1]+= 2*(tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,3 dx + d Y,4,-3 dy
 //             d_dYlm_dr[c_atom*3*2+2]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+3]+= 2*(tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             d_dYlm_dr[c_atom*3*2+3]+= 2*(tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
 //             // d Y,4,3 dx + d Y,4,-3 dz
 //             d_dYlm_dr[c_atom*3*2+4]+= 0 ;
-//             d_dYlm_dr[c_atom*3*2+5]+= 2*(tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+//             d_dYlm_dr[c_atom*3*2+5]+= 2*(tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             
 //             // Y,4,+-4
 //             // 3/4 Sqrt[35/(2 \[Pi])] = 1.7701307697799305310
@@ -239,31 +239,31 @@ using namespace LAMMPS_NS;
 //             tDz   = temp*(-((-6*POW2(dx)*POW2(dy)+POW4(dx)+POW4(dy))*dz));
 //             // tDz_i = temp*((-POW2(dx)+POW2(dy))*dx*dy*dz);
 //             // d Y,4,2 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= (tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,2 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= (tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,2 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= (tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,-2 dx
-//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+1]+= -(tDx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+0]+= (tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+1]+= -(tDx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,-2 dy
-//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+3]+= -(tDy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+2]+= (tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+3]+= -(tDy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,-2 dz
-//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-//             // d_dYlm_dr[c_atom*3*2+5]+= -(tDz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+//             // d_dYlm_dr[c_atom*3*2+4]+= (tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             // d_dYlm_dr[c_atom*3*2+5]+= -(tDz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
 //             // d Y,4,2 dx + d Y,4,-2 dx
-//             d_dYlm_dr[c_atom*3*2+0]+= 2*(tDx)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             d_dYlm_dr[c_atom*3*2+0]+= 2*(tDx)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
 //             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
 //             // d Y,4,2 dx + d Y,4,-2 dy
-//             d_dYlm_dr[c_atom*3*2+2]+= 2*(tDy)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             d_dYlm_dr[c_atom*3*2+2]+= 2*(tDy)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
 //             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
 //             // d Y,4,2 dx + d Y,4,-2 dz
-//             d_dYlm_dr[c_atom*3*2+4]+= 2*(tDz)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+//             d_dYlm_dr[c_atom*3*2+4]+= 2*(tDz)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q4_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
 //             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
 //         }
 //         for (int i=0;i<3;i++){
@@ -375,13 +375,13 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tdz_r = 1.;
             tdz_i = 0;
             // d Y,4,0 dx
-            d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
             // d Y,4,0 dy
-            d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
             // d Y,4,0 dz
-            d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 0] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 0]) ;
             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
             
             // Y,4,+-1
@@ -396,32 +396,32 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             // tdz_r = cos_phi;
             tdz_i = sin_phi;
             // d Y,4,1 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= -(tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= -(tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= -(tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= -(tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,-1 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= -(tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= -(tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 2] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 2]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dx + d Y,4,-1 dx
             d_dYlm_dr[c_atom*3*2+0]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+1]+= 2*(tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= 2*(tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dx + d Y,4,-1 dy
             d_dYlm_dr[c_atom*3*2+2]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+3]+= 2*(tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= 2*(tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
             // d Y,4,1 dx + d Y,4,-1 dz
             d_dYlm_dr[c_atom*3*2+4]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+5]+= 2*(tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= 2*(tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 3] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 3]) ;
 
             // Y,4,+-2
             Factor_Y = (0.3345232717786446/r);
@@ -435,31 +435,31 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tdz_r = -1.*cos_2phi;
             // tdz_i = -2.*cos_phi*sin_phi;
             // d Y,4,2 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,2 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,2 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= -(tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= -(tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= -(tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= -(tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,-2 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= -(tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= -(tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 5] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 5]) ;
             // d Y,4,2 dx + d Y,4,-2 dx
-            d_dYlm_dr[c_atom*3*2+0]+= 2*(tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= 2*(tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
             // d Y,4,2 dx + d Y,4,-2 dy
-            d_dYlm_dr[c_atom*3*2+2]+= 2*(tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= 2*(tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
             // d Y,4,2 dx + d Y,4,-2 dz
-            d_dYlm_dr[c_atom*3*2+4]+= 2*(tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= 2*(tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 4] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 4]) ;
             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
 
             // Y,4,+-3
@@ -474,32 +474,32 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             // tdz_r = cos_3phi;
             tdz_i = sin_3phi;
             // d Y,4,3 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= -(tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= -(tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= -(tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= -(tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,-3 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= -(tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= -(tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 6] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 6]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dx + d Y,4,-3 dx
             d_dYlm_dr[c_atom*3*2+0]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+1]+= 2*(tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+1]+= 2*(tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dx + d Y,4,-3 dy
             d_dYlm_dr[c_atom*3*2+2]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+3]+= 2*(tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+3]+= 2*(tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             // d Y,4,3 dx + d Y,4,-3 dz
             d_dYlm_dr[c_atom*3*2+4]+= 0 ;
-            d_dYlm_dr[c_atom*3*2+5]+= 2*(tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
+            d_dYlm_dr[c_atom*3*2+5]+= 2*(tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 7] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 7]) ;
             
             // Y,4,+-4
             Factor_Y = ((1.770130769779931*POW3(sin_theta))/r);
@@ -513,31 +513,31 @@ __global__ void dcv_steinhardt_param_calc_kernel_q4(
             tdz_r = -1.*cos_4phi;
             // tdz_i = -1.*sin_4phi;
             // d Y,4,4 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= (tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,4 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= (tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,4 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= (tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dx
-            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+1]+= -(tdx_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+0]+= (tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+1]+= -(tdx_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dy
-            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+3]+= -(tdy_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+2]+= (tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+3]+= -(tdy_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,-4 dz
-            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
-            // d_dYlm_dr[c_atom*3*2+5]+= -(tdz_i)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
+            // d_dYlm_dr[c_atom*3*2+4]+= (tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            // d_dYlm_dr[c_atom*3*2+5]+= -(tdz_i)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 9] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 9]) ;
             // d Y,4,4 dx + d Y,4,-4 dx
-            d_dYlm_dr[c_atom*3*2+0]+= 2*(tdx_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+0]+= 2*(tdx_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
             d_dYlm_dr[c_atom*3*2+1]+= 0 ;
             // d Y,4,4 dx + d Y,4,-4 dy
-            d_dYlm_dr[c_atom*3*2+2]+= 2*(tdy_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+2]+= 2*(tdy_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
             d_dYlm_dr[c_atom*3*2+3]+= 0 ;
             // d Y,4,4 dx + d Y,4,-4 dz
-            d_dYlm_dr[c_atom*3*2+4]+= 2*(tdz_r)*(-catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] - neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
+            d_dYlm_dr[c_atom*3*2+4]+= 2*(tdz_r)*(catom_q4_timesN*2*d_stein_qlm[stein_qlm_base_id + 8] + neigh_q6_timesN*2*d_stein_Ylm[stein_qlm_neigh_id + 8]) ;
             d_dYlm_dr[c_atom*3*2+5]+= 0 ;
         }
         for (int i=0;i<3;i++){
