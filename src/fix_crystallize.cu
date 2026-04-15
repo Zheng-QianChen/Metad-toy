@@ -19,17 +19,16 @@
 #include "zqc_CVs.h"
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
+#include "zqc_gaussian.h"
 
 #include <cuda_runtime.h>
 using namespace LAMMPS_NS;
 
 
 FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
-    : Fix(lmp, narg, arg),
-      sigma(0.05), height0(0.1), biasf(10.0), kBT(0.025852), pace(100),
-      cv_dim(1), nbin_num(100), continue_from_file(false), WellT_bool(false),
-      bias_grid(nullptr), f_hills(nullptr)
-{
+                                : Fix(lmp, narg, arg),
+                                  pace(100),
+                                  cv_dim(1), nbin_num(100){
     if (comm->me==0){
         f_check = fopen("metad_debug_logging.txt","w");
         LOG("New JOB STARTING WITH DEBUG MOD!");
@@ -47,9 +46,23 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     LOG("There are %d args", narg);
     // --- 核心参数解析：循环读取关键词/数值对 ---
     int i = 3; // 从第 4 个参数开始，即 style 名之后
-    KB = lmp->force->boltz;
     std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
     cv_configs = new MetaD_zqc::MetaDimensionManager();
+    double *cv_bound;
+    int *nbin;
+    int Gaussian_Hill_type = 0;
+    double sigma, height0, biasf, KB;
+    sigma     = 0.05;
+    height0   = 0.1;
+    biasf     = 10.0;
+    KB        = 0.025852;
+    int continue_from_file=false;
+    int WellT_bool=false;
+    // Gaussian_Hill_type={
+    // 0: 均匀网格
+    // 1: 稀疏网格
+    // 2: KDTree
+    // }
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
@@ -96,9 +109,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
             memory->create(nbin, cv_dim, "metad:nbin_size");
-            memory->create(cvspace_loc, cv_dim, "metad:cvspace_loc");
-            // memory->create(cv_compute, cv_dim, "metad:cv_compute");
-            memory->create(cv_bound, cv_dim*2, "metad:cv_bound");
+            memory->create(cv_bound, cv_dim*2, "metad:GaussianHill:cv_bound");
             i += 2;
         } else if (strcmp(arg[i], "CAL") == 0){
           ERR_COND(strcmp(arg[i+1], "NAME") != 0, "Error: CAL requires NAME keyword.");
@@ -207,6 +218,10 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             // reg_expression(int dim_idx, const std::string& expr_str);
             cv_configs->reg_expression(dim_idx, arg[i+5]);
             i += 6;
+        } else if (strcmp(arg[i], "Gaussian_Hill_type") == 0) {
+            ERR_COND(i + 1 >= narg, "Error: Gaussian_Hill_type command requires 1 argument: 0(均匀网格) or 1(稀疏网格) or 2(KDTree).");
+            Gaussian_Hill_type = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
+            i += 2;
         } else if (strcmp(arg[i], "METAD_RESTART") == 0) {
             ERR_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
             continue_from_file = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
@@ -219,6 +234,54 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             break;
         }
     }
+
+    // 定义Gaussian
+    if (Gaussian_Hill_type==0){
+      // p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<cv_dim>(lmp, f_check,
+      //                       cv_dim, sigma, height0, biasf,
+      //                       WellT_bool, cv_bound, nbin);
+      if (cv_dim == 1) {
+        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<1>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+      } else if (cv_dim == 2) {
+        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<2>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+      } else if (cv_dim == 3) {
+        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<3>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+      } else {
+        error->all(FLERR, "Only 1D-3D are supported for optimized grid.");
+      }
+    } else if (Gaussian_Hill_type==1){
+      if (cv_dim == 1) {
+        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<1>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+      } else if (cv_dim == 2) {
+        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<2>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+      } else if (cv_dim == 3) {
+        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<3>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+    } else if (Gaussian_Hill_type==2){
+        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<1>(lmp, f_check,
+                            cv_dim, sigma, height0, biasf,
+                            continue_from_file, WellT_bool, cv_bound, nbin);
+    }
+    }
+    // p_gaussian->dim = cv_dim;
+    // p_gaussian->sigma = sigma;
+    // p_gaussian->height0 = height0;
+    // p_gaussian->biasf = biasf;
+    // p_gaussian->KB = lmp->force->boltz;
+    // p_gaussian->WellT_bool = WellT_bool;
+    // p_gaussian->cv_bound = cv_bound;
+    
     
     // 输出文件
     first_run = true;
@@ -232,17 +295,20 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
 }
 
 FixMetadynamics::~FixMetadynamics() {
-  memory->destroy(bias_grid);
-  memory->destroy(nbin);
-  memory->destroy(cvspace_loc);
-  memory->destroy(cv_bound);
   memory->destroy(cv_values);
   memory->destroy(cv_history);
   memory->destroy(dVdcvs);
-  if (comm->me==0 && f_hills) {
-    fclose(f_hills);
-    fclose(f_check);
+  for (auto const& pair : cal_registry) {
+      delete pair.second; // 这里会调用 CV 及其派生类的析构函数
   }
+  cal_registry.clear(); // 清空 map 容器
+  // 2. 释放 cv_configs
+  if (cv_configs) {
+      delete cv_configs;
+      cv_configs = nullptr;
+  }
+  // memory->destroy(cv_bound);
+  // memory->destroy(nbin);
 }
 
 int FixMetadynamics::setmask() {
@@ -250,20 +316,9 @@ int FixMetadynamics::setmask() {
 }
 
 void FixMetadynamics::init() {
-//   if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
+  // if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
   if (first_run) {
-    // 分配网格
-    grid_size = 1;
-    for (int k = 0; k < cv_dim; ++k) {grid_size *= nbin[k];}
-    memory->create(bias_grid, grid_size, "metad:bias_grid");
-    for (bigint k = 0; k < grid_size; ++k) {bias_grid[k] = 0.0;}
-    memory->create(dcv, cv_dim, "metad:dcv");
-    for (int k = 0; k < cv_dim; ++k) {
-        dcv[k] = (cv_bound[2*k+1]-cv_bound[2*k])/nbin[k];
-        LOG("dcv[k] = %g", dcv[k]);
-    }
-    DEBUG_LOG("Fix init end.");
-
+    p_gaussian->init_set_mode();
     memory->create(cv_values, cv_dim, "metad:cv_values");
     memory->create(cv_history, cv_dim, "metad:cv_history");
     memory->create(dVdcvs, cv_dim, "metad:dVdcvs"); // 修正：dVdcv 应该是其梯度
@@ -285,115 +340,8 @@ void FixMetadynamics::init() {
       cv_values[1] = 0.0;
       first_run = false;}
     // 续算
-    // TODO:可以使用MPI的规约通信改进当前文件存取
-    if (comm->me == 0) {
-      if (continue_from_file){
-          // 尝试打开 HILLS 文件进行读取
-          FILE *f_read = fopen("HILLS", "r");
-            if (f_read) {
-                // 1. 读取 HILLS 文件并重建 bias_grid
-                char line[1024];
-                std::string format = "%lld";
-                for (int d = 0; d < cv_dim; ++d) format += " %lf";
-                format += " %lf %lf\n";
-                std::vector<double> current_cvs(cv_dim);
-                DEBUG_LOG("restart hills");
-                if (fgets(line, sizeof(line), f_read)){
-                  double h, s;
-                  long long current_timestep = 0;
-                  long long step;
-                  while (fgets(line, sizeof(line), f_read)) {
-                      // fscanf 的参数需要手动根据指针位置传入，这里利用数组地址特性
-                      // 我们需要：&step, &cv[0], &cv[1]... , &h, &s
-                      // 由于 fscanf 不直接支持数组指针展开，这里建议使用通用解析逻辑：
-                      if (line[0] == '#' || line[0] == '\n') continue; // 跳过注释或空行
-                      char *ptr = line;
-                      char *next_ptr;
-                      // 解析 Step
-                      step = strtoll(ptr, &next_ptr, 10);
-                      ptr = next_ptr;
-                      // 解析 CVs
-                      for (int d = 0; d < cv_dim; ++d) {
-                          current_cvs[d] = strtod(ptr, &next_ptr);
-                          ptr = next_ptr;
-                      }
-                      // 解析 h 和 s
-                      h = strtod(ptr, &next_ptr);
-                      ptr = next_ptr;
-                      s = strtod(ptr, &next_ptr);
-                      // 4. 更新 Grid
-                      // 将读取的 CV 复制到类成员 cv_values 中供 add_hill 使用
-                      for (int d = 0; d < cv_dim; ++d) cv_values[d] = current_cvs[d];
-                      
-                      get_cvspace_loc(cv_values, cvspace_loc);
-                      add_hill(cv_values, h);
-                  }
-                  // if (cv_dim == 1){
-                  //   // 循环读取每一行数据
-                  //   while (fscanf(f_read, "%lld %lf %lf %lf\n", 
-                  //                 &step, &cv_values[0], &h, &s)==4) {
-                  //       LOG("%lld %lf %lf %lf",step, cv_values[0],h,s);
-                  //       get_cvspace_loc(cv_values, cvspace_loc);
-                  //       add_hill(cv_values, h);
-                  //       // current_timestep = step;
-                  //   }
-                  //   LOG("%lld %lf %lf %lf", step, cv_values[0], h, s);
-                  // } else if (cv_dim == 2){
-                  //   // 循环读取每一行数据
-                  //   while (fscanf(f_read, "%lld %lf %lf %lf %lf\n", 
-                  //                 &step, &cv_values[0], &cv_values[1], &h, &s)==5) {
-                  //       LOG("%lld %lf %lf %lf %lf",step, cv_values[0], cv_values[1],h,s);
-                  //       get_cvspace_loc(cv_values, cvspace_loc);
-                  //       add_hill(cv_values, h);
-                  //       // current_timestep = step;
-                  //   }
-                  //   LOG("%lld %lf %lf %lf %lf", step, cv_values[0], cv_values[1], h, s);
-                  // } else {
-                  //   ERR_COND(1,"Error: There are too many CVs that more than this program can handel.");
-                  // }
-                }
-                fclose(f_read);
-                DEBUG_LOG("restart hills end");
-                // 2. 重新打开 HILLS 文件，使用 "a" (追加) 模式
-                f_hills = fopen("HILLS", "a");
-                // if (f_hills == NULL) {
-                //     error->all(FLERR, "Cannot open HILLS file for appending.");
-                // }
-          } else {
-              // --- 未找到 HILLS 文件，创建新文件 ---
-              f_hills = fopen("HILLS", "w");
-              // if (f_hills == NULL) {
-              //     error->all(FLERR, "Cannot open HILLS file for writing.");
-              // }
-              if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
-              if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
-          }
-      } else{
-          f_hills = fopen("HILLS", "w");
-          if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
-          if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
-      } // end of continue_from_file
-    } // end of comm->me==0
-    MPI_Barrier(world);
-    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   }
 }
-
-/* helper: 计算高斯 */
-static inline double gauss(int dim, double* dx, double s) {
-  if (dim==1){
-    return exp(-0.5*(dx[0]*dx[0])/(s*s));
-  } else if (dim==2){
-    return exp(-0.5*(dx[0]*dx[0]+dx[1]*dx[1])/(s*s));
-  } else {
-    double paw=0.0;
-    for (int i=0; i<dim; i++){
-      paw += dx[i]*dx[i];
-    }
-    return exp(-0.5*(paw)/(s*s));
-  }
-}
-
 
 void FixMetadynamics::init_list(int id, NeighList *ptr)
 {
@@ -415,51 +363,27 @@ void FixMetadynamics::post_force(int) {
     cv_configs->compute_total_cv();
   }
   for (int ii=0; ii<cv_dim; ii++){
-    // check ptrs
-    // cv_values[ii] = (base_cv[ii]->*cv_compute[ii])();
-    // cv_values[ii] = (base_cv[ii]->*(base_cv[ii]->set_CV_calculate("AVE")))();
     cv_values[ii] = cv_configs->compute_dim_cv(ii);
     cv_history[ii] += cv_values[ii];
     DEBUG_LOG("cv_compute[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
   }
-  DEBUG_LOG("1");
   // -----if pace, then add_hill-----
   if ((pace!=0)&&(update->ntimestep % pace == 0)) {
     for(int ii=0; ii<cv_dim; ii++){
       // cv_history[ii] = cv_history[ii]/pace;
       cv_history[ii] = cv_values[ii];
     }
-    get_cvspace_loc(cv_history, cvspace_loc);
-    double Vbias = 0.0;
-    if (WellT_bool){
-      Vbias = get_total_bias(cvspace_loc);
-    }
-    double current_temp;
-    current_temp = 300.0;
-    double w = height0 * exp(-(Vbias)/(current_temp*KB*(biasf-1.0)));
-    // double w = height0;
-    if (comm->me==0) {
-      fprintf(f_hills, "%ld", update->ntimestep);
-      for (int ii = 0; ii < cv_dim; ii++) {
-          fprintf(f_hills, " %.16g", cv_values[ii]);
-      }
-      fprintf(f_hills, " %.16g %.16g\n", w, sigma);
-      fflush(f_hills);
-    }
     DEBUG_LOG("enter add_hill");
-    add_hill(cv_values, w);
+    add_hill(cv_history);
     DEBUG_LOG("coming out from add_hill");
-    // DEBUG_LOG("bias_grid[0] = %g, grid_size=%d", bias_grid[900], grid_size);
     for(int ii=0; ii<cv_dim; ii++){
       cv_history[ii] = 0.0;
     }
-    MPI_Barrier(world);
-    // Add_Hills 之后所有线程要同步一下
-    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, world);
   }
   // calculate grad of grid
-  grid_gradient(cv_values, dVdcvs);
-  DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
+  p_gaussian->get_dVdcv(cv_values, dVdcvs);
+  // DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
+  // printf("cv_compute = %g, dVdcv = %.g\n",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
     DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
     // (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
@@ -468,132 +392,14 @@ void FixMetadynamics::post_force(int) {
   DEBUG_LOG("post_force_end");
 }
 
-void FixMetadynamics::get_cvspace_loc(double* cv_values, int* cvspace_loc){
-  for(int ii=0; ii<cv_dim; ii++){
-    // DEBUG_LOG("cv_values[%d] = %g, cvbound=[%g,%g], grid=%d",ii,cv_values[ii],cv_bound[ii*2+1],cv_bound[ii*2], nbin[ii]);
-    int loc = static_cast<int>(((cv_values[ii]-cv_bound[ii*2])/(cv_bound[ii*2+1]-cv_bound[ii*2]))*nbin[ii]);
-    if (loc < 1) loc = 1;
-    if (loc > nbin[ii] - 3) loc = nbin[ii] - 3;
-    cvspace_loc[ii] = (loc<1)?1:(loc>=nbin[ii]-1)?nbin[ii]-2:loc;
-    // DEBUG_LOG("cvspace_loc[%d] = %d",ii,cvspace_loc[ii]);
-  }
-}
-
-double FixMetadynamics::get_total_bias(int* cvspace_loc){
-  if (cv_dim==1){
-    return bias_grid[cvspace_loc[0]];
-  } else if (cv_dim==2){
-    return bias_grid[cvspace_loc[0]*nbin[0] + cvspace_loc[1]];
-  } else {
-    long long index = 0;
-    long long stride = 1;
-    for (int i = 0; i < cv_dim; ++i) {
-        index += (long long)cvspace_loc[i] * stride;
-        stride *= nbin[i]; 
-    }
-    return bias_grid[index];
-  }
-}
-
-// 4. 把高斯累加到网格
-void FixMetadynamics::add_hill(double *cv_values, double w) {
-  double* delta_x=new double[cv_dim];
-  if (cv_dim==1){
-    int lower,upper;
-    double *cv_values_lower=new double[cv_dim];
-    double *cv_values_upper=new double[cv_dim];
-    cv_values_lower[0] = cv_values[0] - 4.0*sigma;
-    cv_values_upper[0] = cv_values[0] + 4.0*sigma;
-    get_cvspace_loc(cv_values_lower, &lower);
-    get_cvspace_loc(cv_values_upper, &upper);
-    for(long long g=std::max(0, lower); g<std::min((int)nbin[0]-1, upper);g++){
-      // delta_x[0] =(cvspace_loc[0]- g)*dcv[0];
-      delta_x[0] = cv_bound[0] + (g+0.5)*(cv_bound[1]-cv_bound[0])/nbin[0];
-      delta_x[0] = cv_values[0]-delta_x[0];
-      bias_grid[g] += w * gauss(1, delta_x, sigma);
-      // DEBUG_LOG_COND((bias_grid[g]>1e-6),"init cvspace_loc=%d, bias_grid[%d]=%g",cvspace_loc[0],g,bias_grid[g]);
-    }
-    delete[] cv_values_lower;
-    delete[] cv_values_upper;
-  } else if (cv_dim==2){
-    double xc, yc;
-    int i,j;
-    for (long long g=0;g<grid_size;g++){
-      i = g/nbin[0];
-      j = g%nbin[0];
-      delta_x[0] = cv_bound[0] + (i+0.5)*(cv_bound[1]-cv_bound[0])/nbin[0];
-      delta_x[0] = cv_values[0]-delta_x[0];
-      delta_x[1] = cv_bound[2] + (j+0.5)*(cv_bound[3]-cv_bound[2])/nbin[1];
-      delta_x[1] = cv_values[1]-delta_x[1];
-      bias_grid[g] += w * gauss(2, delta_x, sigma);
-    }
-  } else {
-    for (long long g = 0; g < grid_size; g++) {
-        long long temp_g = g;
-        // 采用行主序 (Row-Major Order)：CV0 变化最慢，CV(N-1) 变化最快。
-        for (int i = 0; i < cv_dim; i++) {
-            int loc_i = temp_g % nbin[cv_dim - 1 - i];
-            double cv_min = cv_bound[2 * i];
-            double cv_max = cv_bound[2 * i + 1];
-            double bin_width = dcv[i];
-            double x_center = cv_min + (loc_i + 0.5) * bin_width;
-            delta_x[i] = cv_values[i] - x_center;
-            temp_g /= nbin[cv_dim - 1 - i];
-        }
-        bias_grid[g] += w * gauss(cv_dim, delta_x, sigma);
-    }
-  }
-  delete[] delta_x;
-  DEBUG_LOG("add_hill_end");
+void FixMetadynamics::add_hill(double* cv_values){
+    p_gaussian->add_hill(cv_values);
 }
 
 // 5. 网格梯度（中心差分）
-void FixMetadynamics::grid_gradient(double *cv_values,
+void FixMetadynamics::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
-  DEBUG_LOG("grid_gradient");
-  // int *cvspace_loc_p = new int[cv_dim];
-  // int *cvspace_loc_m = new int[cv_dim];
-  int *cvspace_loc = new int[cv_dim];
-  if (cv_dim==1){
-    get_cvspace_loc(cv_values, cvspace_loc);
-    int i = cvspace_loc[0];
-    // 计算原子相对于网格点 i 的偏移量 [0, 1]
-    double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-    // 确保 x 在插值公式中不因边界截断而产生错误的斜率
-    if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
-    double p0 = bias_grid[i - 1];
-    double p1 = bias_grid[i];
-    double p2 = bias_grid[i + 1];
-    double p3 = bias_grid[i + 2];
-    DEBUG_LOG("i,p0,p1,p2,p3 = %d %g %g %g %g", i, p0, p1, p2, p3);
-    dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
-                 x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
-                 1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];
-    // cvspace_loc_p[0] = cvspace_loc[0]+1;
-    // cvspace_loc_m[0] = cvspace_loc[0]-1;
-    // DEBUG_LOG("cvspace_loc_id p,m ; dcv = %d, %d; %lf",cvspace_loc_p[0],cvspace_loc_m[0],dcv[0]);
-    // DEBUG_LOG("cvspace_loc p, m = %g %g",get_total_bias(cvspace_loc_p), get_total_bias(cvspace_loc_m));
-    // dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
-    // DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
-
-  } else if (cv_dim==2){
-    // cvspace_loc_p[0] = cvspace_loc[0]+1;
-    // cvspace_loc_m[0] = cvspace_loc[0]-1;
-    // cvspace_loc_p[1] = cvspace_loc[1];
-    // cvspace_loc_m[1] = cvspace_loc[1];
-    // dVdcvs[0] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[0]);
-    // cvspace_loc_p[0] = cvspace_loc[0];
-    // cvspace_loc_m[0] = cvspace_loc[0];
-    // cvspace_loc_p[1] = cvspace_loc[1]+1;
-    // cvspace_loc_m[1] = cvspace_loc[1]-1;
-    // dVdcvs[1] = (get_total_bias(cvspace_loc_p)-get_total_bias(cvspace_loc_m))/(2*dcv[1]);
-    // // DEBUG_LOG("%f %f %f %f %f %f\n",bias_grid[(i+1)*nbin[0] + j], bias_grid[(i-1)*nbin[0] + j],bias_grid[i*nbin[0] + j+1],bias_grid[i*nbin[0] + j-1], dVdcv[0], dVdcv[1]);
-  }
-  // delete[] cvspace_loc_p;
-  // delete[] cvspace_loc_m;
-  delete[] cvspace_loc;
-  DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
-  DEBUG_LOG("grid_gradient_end");
+  p_gaussian->get_dVdcv(cv_values, dVdcvs);
 }
 
 // 工厂函数：创建FixZeroForce对象

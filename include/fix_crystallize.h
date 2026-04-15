@@ -17,7 +17,7 @@
 namespace MetaD_zqc {
   class CV {
     protected:
-      FILE* f_check;
+      FILE *f_check;
       LAMMPS_NS::LAMMPS *lmp;
       double cv_value;
       double *dcvdx;
@@ -43,6 +43,9 @@ namespace MetaD_zqc {
   };
 
   class MetaDimensionManager;
+
+  class Gaussian_Hill_Base;
+  // class GH_t0_uniformGrid;
 }
 
 namespace LAMMPS_NS {
@@ -54,39 +57,36 @@ namespace LAMMPS_NS {
     void init() override;
     void init_list(int id, NeighList *ptr) override;
     void post_force(int) override;
-    void post_force_cus(double cv, double dVdcv);
-    void post_force_r(double cv,double dVdcv);
-    void add_hill(double *, double);
-    void grid_gradient(double *, double *);
+    void add_hill(double *);
     void checkmax(double *cv, double *cv_max);
-    void get_dcvdx(double cv, double *dcvdx);
+    void get_dVdcv(double *cv_values, double *dVdcvs);
     int get_cv_dim() const;
     void get_cvspace_loc(double* , int* );
     double get_total_bias(int* );
     NeighList *listhalf, *listfull;
   private:
-    double sigma, height0, biasf, kBT;
+    // double sigma, height0, biasf, kBT;
+    // double KB;
+    // int WellT_bool;
+    // double *cv_bound, *dcv;
+    // int *nbin, *cvspace_loc;
+    // int grid_size;
+    // int continue_from_file;
+    // double *bias_grid;
+    int cv_dim,nbin_num;
+    MetaD_zqc::Gaussian_Hill_Base *p_gaussian;
     int pace,rec_pace;
     bool first_run;
-    double KB;
-    std::vector<double> cv_hist;
-    std::vector<double> height_hist;
     // double cv1_min, cv1_max, cv2_min, cv2_max;
-    int cv_dim,grid_size,nbin_num;
-    int *nbin, *cvspace_loc;
-    double *bias_grid, *cv_bound, *cv_values, *cv_history, *dVdcvs, *dcv;
+    double *cv_values, *cv_history, *dVdcvs;
     struct DimConfig {
       std::string name;
       std::string func;
     };
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
     MetaD_zqc::MetaDimensionManager *cv_configs;
-    // std::vector<MetaD_zqc::CV*> base_cv;
-    // std::vector<MetaD_zqc::CV::CV_Calculation> cv_compute;
-    // std::vector<MetaD_zqc::CV::CV_BiasForce> cv_biasforce;
-    int continue_from_file, WellT_bool;
     // FILE *file;
-    FILE *f_hills;
+    // FILE *f_hills;
     FILE *f_check=NULL;
     std::string rec_file_name;
     FILE *rec_file=NULL;

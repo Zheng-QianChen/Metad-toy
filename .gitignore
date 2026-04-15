@@ -32,3 +32,7 @@ test/Q3test/
 test/rec.log
 test/example_101010_fcc_nMPI/
 test/example_333_fcc_nMPI/
+test/*.lammpstrj
+test/*.log
+test/test_cvset/*
+test/testSi/*

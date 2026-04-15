@@ -7,6 +7,7 @@ import sys
 # --- 2. 文件 ---
 LAMMPS_INPUT_FILE = 'run.in' 
 data = np.loadtxt('HILLS')
+cv_dim = 1
 try:
     # 检查参数数量：至少需要脚本名、LAMMPS输入文件和 HILLS 文件 (共3个)
     if len(sys.argv) < 3:
@@ -15,6 +16,9 @@ try:
     
     LAMMPS_INPUT_FILE = sys.argv[1] # 'run.in'
     HILLS_FILE = sys.argv[2]        # 'HILLS'
+
+#    if len(sys.argv) >=3:
+#        cv_dim = int(sys.argv[3])
     
 except IndexError:
     print("错误: 请提供 LAMMPS 输入文件和 HILLS 文件路径。")
@@ -65,7 +69,8 @@ def parse_metad_params(input_file_path):
     params = {
         'sigma': 0.05, 'height0': 0.1, 'biasf': 10.0,
         'pace': 100, 'cv_dim': 1, 'nbin_num': 100,
-        'continue': False, 'lower_bound': 0.0, 'upper_bound': 1.0
+        'continue': False,
+        'bounds': {}  # 使用字典存储 {dim_idx: [lower, upper, bins]}
     }
 
     # 模拟 C++ 状态机解析
@@ -92,13 +97,19 @@ def parse_metad_params(input_file_path):
                     break
                 i += 1 # 跳过 NAME, Q6, STEINH, Q, 6 等 CV 定义参数
         elif arg == "DIM":
-            # DIM <index> <lower> <upper> <bins> <target_name>
-            dim_idx = int(cleaned_tokens[i+1])
-            if dim_idx == 1:
-                params['lower_bound'] = float(cleaned_tokens[i+2])
-                params['upper_bound'] = float(cleaned_tokens[i+3])
-                params['nbin_num'] = int(cleaned_tokens[i+4])
-            i += 6 # 注意：现在 DIM 有 5 个后续参数了 (包含最后的 Q6.AVE)
+            # DIM <index> <lower> <upper> <bins> <expr>
+            try:
+                dim_idx = int(cleaned_tokens[i+1])
+                l_bound = float(cleaned_tokens[i+2])
+                u_bound = float(cleaned_tokens[i+3])
+                bins    = int(cleaned_tokens[i+4])
+                # 存储该维度的配置
+                params['bounds'][dim_idx] = [l_bound, u_bound, bins]
+                # 更新全局 nbin_num (兼容旧逻辑)
+                params['nbin_num'] = bins 
+            except (ValueError, IndexError):
+                print(f"警告: 解析 DIM {i} 时出错")
+            i += 6
         elif arg == "METAD_RESTART":
             params['continue'] = (int(cleaned_tokens[i+1]) != 0)
             i += 2
@@ -112,30 +123,37 @@ def parse_metad_params(input_file_path):
 
 metad_params = parse_metad_params(LAMMPS_INPUT_FILE)
 
+if cv_dim:
+    metad_params['cv_dim']=cv_dim
+
 if metad_params:
-    # 假设您的 LAMMPS 模拟是 2D 或 1D，但您的 FES 绘图需要 nbin1 和 nbin2
-    # 我们使用解析到的 nbin_num 作为两个维度的 bin 数
-    if metad_params['cv_dim']==1:
-        cv1_min,cv1_max = metad_params['lower_bound'], metad_params['upper_bound']
-        nbin1 = metad_params['nbin_num']
+    if metad_params['cv_dim'] == 1:
+        # 获取第 1 维的参数
+        b1 = metad_params['bounds'].get(1, [0.0, 1.0, 100])
+        cv1_min, cv1_max, nbin1 = b1[0], b1[1], b1[2]
+        
         dx = (cv1_max - cv1_min) / nbin1
         X = np.linspace(cv1_min + dx/2, cv1_max - dx/2, nbin1)
         F = np.zeros_like(X)
-        print(f"成功从 {LAMMPS_INPUT_FILE} 读取网格参数：nbin={nbin1}")
-    elif metad_params['cv_dim']==2:
-        cv1_min, cv1_max = 0.0, 40.0
-        cv2_min, cv2_max = 0.0, 40.0
-        nbin1 = metad_params['nbin_num']
-        nbin2 = metad_params['nbin_num']
+        print(f"1D 网格：{cv1_min} 到 {cv1_max}, bins={nbin1}")
+
+    elif metad_params['cv_dim'] == 2:
+        # 分别获取第 1 维和第 2 维的参数
+        b1 = metad_params['bounds'].get(1, [0.0, 1.0, 100])
+        b2 = metad_params['bounds'].get(2, [0.0, 1.0, 100])
+        
+        cv1_min, cv1_max, nbin1 = b1[0], b1[1], b1[2]
+        cv2_min, cv2_max, nbin2 = b2[0], b2[1], b2[2]
+        
         dx = (cv1_max - cv1_min) / nbin1
         dy = (cv2_max - cv2_min) / nbin2
+        
         x = np.linspace(cv1_min + dx/2, cv1_max - dx/2, nbin1)
         y = np.linspace(cv2_min + dy/2, cv2_max - dy/2, nbin2)
         X, Y = np.meshgrid(x, y, indexing='ij') 
         F = np.zeros_like(X)
-        print(f"成功从 {LAMMPS_INPUT_FILE} 读取网格参数：nbin={nbin1}x{nbin2}")
-else:
-    print("无法初始化网格，请检查输入文件。")
+        print(f"2D 网格：CV1[{cv1_min}, {cv1_max}] Bins={nbin1}")
+        print(f"         CV2[{cv2_min}, {cv2_max}] Bins={nbin2}")
 
 if metad_params['cv_dim']==1:
     for step, cv1, h, sigma in data:

@@ -563,6 +563,10 @@ void MetaD_zqc::STEIN_QL<L>::bias_force_AVE(double dVdcv){
         DEBUG_LOG("dVdcv  = %g", dVdcv);
         c_tag = (my_env->h_group_indices)[c_atom];
         DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
+        if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
+            printf("error: force is infinity, check your system or cv_value.\n");
+             error->all(FLERR, "STEIN_QL CV error: force is infinity, check your system or cv_value.");
+        }
         f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
         f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
         f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
