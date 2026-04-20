@@ -27,10 +27,9 @@
 
 using namespace LAMMPS_NS;
 
-
 MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
                                 LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
-                                int env_setNum, int group_id, int Q_num,
+                                std::string env_setNum, int group_id, int Q_num,
                                 MetaD_zqc::Steinhardt_env* my_env,
                                 char *Q_type_str, double cutoff_r, int cutoff_Natoms, 
                                 int d_block_size)
@@ -51,6 +50,35 @@ MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
         }
     }
     return nullptr;
+}
+
+std::map<std::string, MetaD_zqc::Steinhardt_env*> MetaD_zqc::Steinhardt_env::env_pool;
+
+MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
+                                            LAMMPS_NS::FixMetadynamics *Fixmetad,
+                                            int group_id, double cutoff_r, int cutoff_Natoms) {
+    // 1. generate a unique key for the environment based on its parameters
+    std::string key = std::to_string(group_id) + "_" + std::to_string(cutoff_r) + "_" + std::to_string(cutoff_Natoms);
+    // 2. check if the envioronment already exist in the pool
+    if (env_pool.count(key)) {
+        return env_pool[key]; // if exits, return the existing envioronment
+    }
+    // 3. new envioronment and store it in the pool if not exist
+    MetaD_zqc::Steinhardt_env *new_env = new Steinhardt_env(lmp, f_check, Fixmetad, 
+                                                group_id, cutoff_r, cutoff_Natoms);
+    env_pool[key] = new_env; // store the new envioronment in the pool
+    return new_env;
+}
+
+
+std::string MetaD_zqc::Steinhardt_env::get_env_key(){
+    std::string key = std::to_string(this->group_id) + "_" + std::to_string(this->cutoff_r) + "_" + std::to_string(this->cutoff_Natoms);
+    return key;
+}
+
+void MetaD_zqc::Steinhardt_env::clear_pool() {
+    for (auto& pair : env_pool) delete pair.second;
+    env_pool.clear();
 }
 
 MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
@@ -76,7 +104,7 @@ MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
     group_dminneigh = new double [2]; //inintial
     neigh_in_cutoff_r = new int [2]; //inintial
     neigh_both_in_r_N = new int [2]; //inintial
-    init_flag = true;
+    init_flag = false;
 
     // comment name
     d_group_numneigh.set_name("d_group_numneigh");
@@ -92,7 +120,7 @@ MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
 
 template <int L>
 MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                             int env_setNum, int group_id, int stein_l, 
+                             std::string env_setNum, int group_id, int stein_l, 
                              MetaD_zqc::Steinhardt_env* my_env,
                              int d_block_size)
                         : Steinhardt(lmp, f_check),
@@ -118,8 +146,8 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
     DEBUG_LOG("all_count = %lld", (long long)all_count);
 
     // Q_per_atoms_value = new double [2]; //inintial
-    stein_q = new double [1];
-    stein_q = nullptr;
+    // stein_q = nullptr;
+    lmp->memory->create(stein_q, 0, "metad:STEIN_QL:cv_bound");
     error = lmp->error;
 
     
@@ -133,14 +161,18 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
 
 template <int L>
 MetaD_zqc::STEIN_QL<L>::~STEIN_QL(){
-    delete[] stein_q;
-    delete[] h_stein_Ylm;
+    // delete[] stein_q;
+    lmp->memory->destroy(stein_q);
+    // delete[] h_stein_Ylm;
     // SAFE_CUDA_FREE(d_stein_Ylm.ptr);
-    delete[] h_dYlm_dr;
+    // delete[] h_dYlm_dr;
+    lmp->memory->destroy(h_dYlm_dr);
     // SAFE_CUDA_FREE(d_dYlm_dr.ptr);
-    delete[] h_dcvdx;
+    // delete[] h_dcvdx;
+    lmp->memory->destroy(h_dcvdx);
     // SAFE_CUDA_FREE(d_dcvdx.ptr);
-    delete[] h_stein_qlm;
+    // delete[] h_stein_qlm;
+    lmp->memory->destroy(h_stein_qlm);
     // SAFE_CUDA_FREE(d_stein_qlm.ptr);
     // release all alloc
     // delete[] group_dminneigh;
@@ -153,7 +185,8 @@ MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
     atoms = nullptr;
     // release all alloc
     delete[] nlist;
-    delete[] h_group_numneigh;
+    // delete[] h_group_numneigh;
+    lmp->memory->destroy(h_group_numneigh);
     // SAFE_CUDA_FREE(d_group_numneigh.ptr);
     delete[] numneigh;
     delete[] firstneigh;
@@ -163,7 +196,8 @@ MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
     // SAFE_CUDA_FREE(d_mask.ptr);
     delete[] h_group_indices;
     // SAFE_CUDA_FREE(d_group_indices.ptr);
-    delete[] h_firstneigh_ptrs;
+    // delete[] h_firstneigh_ptrs;
+    lmp->memory->destroy(h_firstneigh_ptrs);
     // SAFE_CUDA_FREE(d_firstneigh_ptrs.ptr);
     delete[] group_dminneigh;
     // SAFE_CUDA_FREE(d_group_dminneigh.ptr);
@@ -210,6 +244,10 @@ void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
 }
 
 void MetaD_zqc::Steinhardt_env::get_env(){
+    DEBUG_LOG("im in get_env, current step is %lld, last_update_step is %lld", (long long)lmp->update->ntimestep, (long long)this->last_update_step);
+    // if (lmp->update->ntimestep == this->last_update_step){
+    //     return;
+    // }
     size_t datalen = 0;
     atom = lmp->atom;
     // =======更新一下邻居列表位置防止报错=========
@@ -227,7 +265,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
     // utilize different envioronment set
     // such as neighbor list, atom position, box size, to get the local structure information for each atom in the group
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&((numneigh != nullptr))&&(!(init_flag))){
+    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&((numneigh != nullptr))&&(init_flag)){
         DEBUG_LOG("we skip rebuild in envioronment when %lld.", (long long)lmp->neighbor->lastcall);
     } else {
         // =========================================================================
@@ -261,14 +299,8 @@ void MetaD_zqc::Steinhardt_env::get_env(){
         // LAMMPS_NS::tagint *h_group_numneigh = new LAMMPS_NS::tagint[group_count + 1];
         // LAMMPS_NS::tagint *d_group_numneigh;
         datalen = group_count + 1;
-        if (last_group_count < group_count){
-            delete[] h_group_numneigh;
-            h_group_numneigh = nullptr;
-            h_group_numneigh = new LAMMPS_NS::tagint[datalen];
-            // SAFE_CUDA_FREE(d_group_numneigh);
-            // SAFE_CUDA_MALLOC(&d_group_numneigh, (datalen) * sizeof(LAMMPS_NS::tagint), f_check); // 分配设备端邻居数目数组
-            d_group_numneigh.grow_to(datalen, f_check, __FILE__, __LINE__);
-        }
+        lmp->memory->grow(h_group_numneigh, datalen, "STEIN_QL:h_group_numneigh");
+        d_group_numneigh.grow_to(datalen, f_check, __FILE__, __LINE__);
         DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
         // 3. 逐原子拷贝邻居列表数据到GPU
         DEBUG_LOG("group_count=%d" ,group_count);
@@ -319,7 +351,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
         DEBUG_LOG_COND((d_firstneigh_ptrs.ptr == NULL),"d_firstneigh_ptrs list not initialized");
         DEBUG_LOG("d_firstneigh_ptrs list %d %d %d" ,h_firstneigh_ptrs[1],h_firstneigh_ptrs[2],h_firstneigh_ptrs[3]);
         DEBUG_LOG("generate end d_firstneigh_ptrs");
-        if (init_flag) {init_flag = false;}
+        if (init_flag) {init_flag = true;}
     }
     // =========================================================================
     // h_x / h_x_flat / d_x_flat :
@@ -389,6 +421,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
       ( cutoff_Natoms, cutoff_rsq, box_x, box_y, box_z, 
       group_count, d_group_indices.ptr, d_group_numneigh.ptr, d_firstneigh_ptrs.ptr, d_x_flat.ptr,
       d_group_dminneigh.ptr, d_neigh_in_cutoff_r.ptr, d_neigh_both_in_r_N.ptr, d_calculated_numneigh.ptr) ;
+    DEBUG_LOG("env refresh out, kernel launched");
     // double *h_group_dminneigh = new double [group_count*cutoff_Natoms*4];
     // int *h_neigh_in_cutoff_r = new int [group_count];
     // int *h_neigh_both_in_r_N = new int [group_count];
@@ -440,21 +473,22 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     cudaDeviceSynchronize(); //catch kernel done
     DEBUG_LOG("copy end");
     DEBUG_LOG("group_dminneigh Allocated at: %p", group_dminneigh);
+    this->last_update_step = lmp->update->ntimestep;
 
     
-    // 输出邻居
-    DEBUG_RUN(for (int ii=0; ii<group_count; ii++){
-        for (int jj=0; jj<1; jj++){
-            fprintf(f_check, "c_atom_idx=%lld,%lld,%lld : Nx:%f Ny:%f Nz:%f r2:%f\n", 
-                    (long long)lmp->atom->tag[h_group_indices[ii]],
-                    (long long)neigh_in_cutoff_r[ii],
-                    (long long)neigh_both_in_r_N[ii],
-                    group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 0],
-                    group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 1],
-                    group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 2],
-                    group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 3]);
-        }
-    });
+    // // 输出邻居
+    // DEBUG_RUN(for (int ii=0; ii<group_count; ii++){
+    //     for (int jj=0; jj<1; jj++){
+    //         fprintf(f_check, "c_atom_idx=%lld,%lld,%lld : Nx:%f Ny:%f Nz:%f r2:%f\n", 
+    //                 (long long)lmp->atom->tag[h_group_indices[ii]],
+    //                 (long long)neigh_in_cutoff_r[ii],
+    //                 (long long)neigh_both_in_r_N[ii],
+    //                 group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 0],
+    //                 group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 1],
+    //                 group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 2],
+    //                 group_dminneigh[ii*cutoff_Natoms*4 + jj*4 + 3]);
+    //     }
+    // });
 }
 
 
@@ -463,10 +497,12 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::envioronment(){
-    if (env_setNum == 0)
-    {
+    DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
+    if (lmp->update->ntimestep > my_env->last_update_step){
         my_env->get_env();
     }
+    // DEBUG_LOG("envioronment function in, env_setNum is %s, get_env done",env_setNum);
+    DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
 }
 
 template <int L>
@@ -494,41 +530,46 @@ template <int L>
 double MetaD_zqc::STEIN_QL<L>::compute_cv_AVE(){
     DEBUG_LOG("im in compute_cv_AVE.");
     int group_count = my_env->group_count;
-    // compute_Q_peratoms();
-    // TODO: different calculate ways to the cv_value from stein_q
+    DEBUG_LOG("group_count = %d",group_count);
     double ql_ave_local=0;
-    my_averager->compute(group_count, all_count, stein_q, ql_ave_local);
-    // my_averager->compute(group_count, d_stein_ql, ql_ave_local);
+    DEBUG_LOG("535");
+    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
+    if (group_count != 0) {
+        // compute_Q_peratoms();
+        // TODO: different calculate ways to the cv_value from stein_q
+        my_averager->compute(group_count, all_count, stein_q, ql_ave_local);
+        // my_averager->compute(group_count, d_stein_ql, ql_ave_local);
+    }
+    DEBUG_LOG("543");
     MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
     return cv_value;
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
     // =======接受邻居更新消息,进行与设备端通信===========
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(!(my_env->init_flag))){
+    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(this->init_flag)){
         DEBUG_LOG("rebuilds = %lld", (long long)lmp->neighbor->lastcall);
         DEBUG_LOG("now = %lld", (long long)lmp->update->ntimestep);
         ERR_COND(((my_env->h_group_indices) == nullptr),"h_group_indices is nullptr.");
         DEBUG_LOG("h_group_indices=%p",(my_env->h_group_indices));
     } else {
         // ===重建邻居列表后重新查找local中的目标原子=======
-        my_env->refresh_lmpbox();
+        if (lmp->update->ntimestep > my_env->last_update_step){
+            my_env->refresh_lmpbox();
+        }
+        DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
         block_num = my_env->block_num;
         N = my_env->N;
         // stein_q for all aim atoms
-        long long len = sizeof(stein_q)/sizeof(double);
-        if (len<my_env->group_count){
-            delete[] stein_q;
-            stein_q = nullptr;
-            stein_q = new double[(my_env->group_count)];
-        }
+        lmp->memory->grow(stein_q, my_env->group_count, "metad:STEIN_QL:cv_bound");
         DEBUG_LOG("d_block_size is %d, block_num is %d",d_block_size, block_num);
     }
     DEBUG_LOG("group_count=%lld",(long long)my_env->group_count);
 
     // 2. calculate atoms' envioronment
-    DEBUG_LOG("envioronment function in");
+    DEBUG_LOG("envioronment function in, env_setNum is %s",env_setNum.c_str());
     envioronment();
     DEBUG_LOG("envioronment function out");
 
@@ -584,22 +625,22 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx(double cv_value, double *dcvdx){
 
     // DEBUG_RUN(
     datalen = (group_count * (stein_l + 1) * 2);
-    if (last_group_count < group_count){
-        // delete[] h_stein_qlm;
-        // h_stein_qlm = new double[datalen];
-        lmp->memory->grow(h_stein_qlm, datalen, "STEIN_QL:h_stein_qlm");
-    }
+    lmp->memory->grow(h_stein_qlm, datalen, "STEIN_QL:h_stein_qlm");
+    // if (last_group_count < group_count){
+    //     delete[] h_stein_qlm;
+    //     h_stein_qlm = new double[datalen];
+    // }
     SAFE_CUDA_MEMCPY(h_stein_qlm, d_stein_qlm.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
     // );
 
 
     datalen = (group_count*3);
-    if (last_group_count < group_count){
-        // delete[] h_dcvdx;
-        // h_dcvdx = nullptr;
-        // h_dcvdx = new double[datalen];
-        lmp->memory->grow(h_dcvdx, datalen, "STEIN_QL:h_dcvdx");
-    }
+    lmp->memory->grow(h_dcvdx, datalen, "STEIN_QL:h_dcvdx");
+    // if (last_group_count < group_count){
+    //     delete[] h_dcvdx;
+    //     h_dcvdx = nullptr;
+    //     h_dcvdx = new double[datalen];
+    // }
     // SAFE_CUDA_FREE(d_dcvdx);
     // SAFE_CUDA_MALLOC(&d_dcvdx, datalen*sizeof(double), f_check);
     d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
@@ -607,12 +648,12 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx(double cv_value, double *dcvdx){
 
 
     datalen = (group_count*3*2);
-    if (last_group_count < group_count){
-        // delete[] h_dYlm_dr;
-        // h_dYlm_dr = nullptr;
-        // h_dYlm_dr = new double[(group_count*3*2)];
-        lmp->memory->grow(h_dYlm_dr, datalen, "STEIN_QL:h_dYlm_dr");
-    }
+    lmp->memory->grow(h_dYlm_dr, datalen, "STEIN_QL:h_dYlm_dr");
+    // if (last_group_count < group_count){
+    //     delete[] h_dYlm_dr;
+    //     h_dYlm_dr = nullptr;
+    //     h_dYlm_dr = new double[(group_count*3*2)];
+    // }
     // SAFE_CUDA_FREE(d_dYlm_dr);
     // SAFE_CUDA_MALLOC(&d_dYlm_dr, datalen*sizeof(double), f_check);
     d_dYlm_dr.grow_to(datalen, f_check, __FILE__, __LINE__);
@@ -704,7 +745,6 @@ void MetaD_zqc::STEIN_QL<L>::summary(FILE* f){}
 
 template <>
 void MetaD_zqc::STEIN_QL<4>::call_steinhardt_cv_kernel(){
-
     steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
         (my_env->group_count), (my_env->cutoff_Natoms),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),

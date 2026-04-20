@@ -86,81 +86,101 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::init_set_mode(){
         index_radius[k] = static_cast<int>(ceil(4.0 * sigma / dcv[k])) + 1;
         printf("Precompute index_radius[%d] = %d\n", k, index_radius[k]);
     }
-    this->io_hills();
+    this->init_hills();
 
     DEBUG_LOG("Fix init end.");
 }
 
 template<int D>
-void MetaD_zqc::GH_t0_uniformGrid<D>::io_hills(){
-    // TODO:可以使用MPI的规约通信改进当前文件存取
-    if (lmp->comm->me == 0) {
-      if (continue_from_file){
-          // 尝试打开 HILLS 文件进行读取
-          FILE *f_read = fopen("HILLS", "r");
-            if (f_read) {
-                // 1. 读取 HILLS 文件并重建 bias_grid
-                char line[1024];
-                std::string format = "%lld";
-                for (int d = 0; d < cv_dim; ++d) format += " %lf";
-                format += " %lf %lf\n";
-                std::vector<double> current_cvs(cv_dim);
-                DEBUG_LOG("restart hills");
-                if (fgets(line, sizeof(line), f_read)){
-                  double h, s;
-                  long long current_timestep = 0;
-                  long long step;
-                  while (fgets(line, sizeof(line), f_read)) {
-                      // fscanf 的参数需要手动根据指针位置传入，这里利用数组地址特性
-                      // 我们需要：&step, &cv[0], &cv[1]... , &h, &s
-                      // 由于 fscanf 不直接支持数组指针展开，这里建议使用通用解析逻辑：
-                      if (line[0] == '#' || line[0] == '\n') continue; // 跳过注释或空行
-                      char *ptr = line;
-                      char *next_ptr;
-                      // 解析 Step
-                      step = strtoll(ptr, &next_ptr, 10);
-                      ptr = next_ptr;
-                      // 解析 CVs
-                      for (int d = 0; d < cv_dim; ++d) {
-                          current_cvs[d] = strtod(ptr, &next_ptr);
-                          ptr = next_ptr;
-                      }
-                      // 解析 h 和 s
-                      h = strtod(ptr, &next_ptr);
-                      ptr = next_ptr;
-                      s = strtod(ptr, &next_ptr);
-                      // 4. 更新 Grid
-                      // 将读取的 CV 复制到类成员 cv_values 中供 add_hill 使用
-                    //   for (int d = 0; d < cv_dim; ++d) cv_values[d] = current_cvs[d];
-                      
-                      get_cvspace_loc(current_cvs.data(), cvspace_loc);
-                      add_to_grid(current_cvs.data(), h);
-                  }
+void MetaD_zqc::GH_t0_uniformGrid<D>::init_hills(){
+    int me = lmp->comm->me;
+    int nprocs = lmp->comm->nprocs;
+    long long total_size = 0;
+
+    // 1. 获取文件总大小并广播 (避免所有进程同时访问元数据服务器)
+    if (me == 0) {
+        if (continue_from_file) {
+            FILE *f_test = fopen("HILLS", "r");
+            if (f_test) {
+                fseek(f_test, 0, SEEK_END);
+                total_size = ftell(f_test);
+                fclose(f_test);
+            }
+        }
+    }
+    MPI_Bcast(&total_size, 1, MPI_LONG_LONG, 0, lmp->world);
+
+    // 2. 如果文件存在且需要续接，则进入并行读取逻辑
+    if (total_size > 0 && continue_from_file) {
+        long long my_start_offset = me * (total_size / nprocs);
+        long long my_end_offset = (me == nprocs - 1) ? total_size : (me + 1) * (total_size / nprocs);
+
+        FILE *f_read = fopen("HILLS", "r");
+        if (f_read) {
+            fseek(f_read, my_start_offset, SEEK_SET);
+            char line[1024];
+            
+            // 对齐逻辑：非 0 进程丢弃第一行（由前一个进程读过界来处理）
+            if (me != 0) {
+                if (!fgets(line, sizeof(line), f_read)) { /* 到达末尾 */ }
+            }
+
+            std::vector<double> current_cvs(cv_dim);
+            // 只要起始位置在自己的物理区间内，就继续读取完整行
+            while (ftell(f_read) < my_end_offset) {
+                if (!fgets(line, sizeof(line), f_read)) break;
+                if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
+
+                char *ptr = line;
+                char *next_ptr;
+                // 解析 Step
+                strtoll(ptr, &next_ptr, 10);
+                ptr = next_ptr;
+
+                // 解析 CVs
+                for (int d = 0; d < cv_dim; ++d) {
+                    current_cvs[d] = strtod(ptr, &next_ptr);
+                    ptr = next_ptr;
                 }
-                fclose(f_read);
-                DEBUG_LOG("restart hills end");
-                // 2. 重新打开 HILLS 文件，使用 "a" (追加) 模式
-                f_hills = fopen("HILLS", "a");
-                if (f_hills == NULL) {
-                    lmp->error->all(FLERR, "Cannot open HILLS file for appending.");
-                }
-          } else {
-              // --- 未找到 HILLS 文件，创建新文件 ---
-              f_hills = fopen("HILLS", "w");
-              if (f_hills == NULL) {
-                  lmp->error->all(FLERR, "Cannot open HILLS file for writing.");
-              }
-              if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
-              if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
-          }
-      } else{
-          f_hills = fopen("HILLS", "w");
-          if (cv_dim==2){fprintf(f_hills, "# step cv1 cv2 height sigma\n");}
-          if (cv_dim==1){fprintf(f_hills, "# step cv_values height sigma\n");}
-      } // end of continue_from_file
-    } // end of comm->me==0
+                // 解析 Height (h)
+                double h = strtod(ptr, &next_ptr);
+                double s = strtod(ptr, &next_ptr);
+                // sigma (s) 在此处根据需要解析，若只更新 grid 则解析到 h 即可
+
+                // 累加到本地 bias_grid
+                add_to_grid(current_cvs.data(), h, s);
+            }
+            fclose(f_read);
+        }
+
+        // 3. 规约通信：将所有进程本地计算的 bias_grid 累加到 rank 0
+        if (nprocs > 1) {
+            // 使用 MPI_IN_PLACE 减少 rank 0 的额外内存开销
+            MPI_Reduce(me == 0 ? MPI_IN_PLACE : &bias_grid[0], 
+                       &bias_grid[0], grid_size, MPI_DOUBLE, MPI_SUM, 0, lmp->world);
+        }
+    }
+
+    // 4. Rank 0 负责文件句柄的后续管理
+    if (me == 0) {
+        if (total_size > 0 && continue_from_file) {
+            f_hills = fopen("HILLS", "a");
+            DEBUG_LOG("restart hills parallel end");
+        } else {
+            f_hills = fopen("HILLS", "w");
+            if (cv_dim == 2) fprintf(f_hills, "# step cv1 cv2 height sigma\n");
+            if (cv_dim == 1) fprintf(f_hills, "# step cv_values height sigma\n");
+        }
+
+        if (f_hills == NULL) {
+            lmp->error->one(FLERR, "Cannot open HILLS file for writing/appending.");
+        }
+    }
+
+    // 5. 根据你的要求，这里不再进行 Bcast
+    // 注意：如果其他进程的 Kernel 需要读取最新的 bias_grid 副本，请务必恢复广播
+    // MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, lmp->world);
     MPI_Barrier(lmp->world);
-    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, lmp->world);
 }
 
 template<int D>
@@ -173,10 +193,10 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::add_hill(double *cv_history){
         }
         double w = height0 * exp(-(Vbias)/(current_temp*KB*(biasf-1.0)));
         write_hill(cv_history, w);
-        add_to_grid(cv_history, w);
+        add_to_grid(cv_history, w, this->sigma);
     }
-    MPI_Barrier(lmp->world);
-    MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, lmp->world);
+    // MPI_Barrier(lmp->world);
+    // MPI_Bcast(&bias_grid[0], grid_size, MPI_DOUBLE, 0, lmp->world);
 }
 
 template<int D>
@@ -186,7 +206,7 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::write_hill(double *cv_values, double w){
         for (int ii = 0; ii < cv_dim; ii++) {
             fprintf(f_hills, " %.16g", cv_values[ii]);
         }
-        fprintf(f_hills, " %.16g %.16g\n", w, sigma);
+        fprintf(f_hills, " %.16g %.16g\n", w, this->sigma);
         fflush(f_hills);
     }
 }
@@ -196,14 +216,14 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::write_hill(double *cv_values, double w){
 // =============================================================================
 // 4. 把高斯累加到网格
 template<>
-void MetaD_zqc::GH_t0_uniformGrid<1>::add_to_grid(double *cv_values, double w) {
+void MetaD_zqc::GH_t0_uniformGrid<1>::add_to_grid(double *cv_values, double w, double sig) {
   int center_idx = static_cast<int>((cv_values[0] - cv_bound[0]) / dcv[0]);
   lower[0] = std::max(0, center_idx - index_radius[0]);
   upper[0] = std::min((int)nbin[0] - 1, center_idx + index_radius[0]);
   for(long long g=lower[0]; g<=upper[0];g++){
       delta_x[0] = cv_bound[0] + (g+0.5)*(cv_bound[1]-cv_bound[0])/nbin[0];
       delta_x[0] = cv_values[0]-delta_x[0];
-      bias_grid[g] += w * gauss_calc(1, delta_x, sigma);
+      bias_grid[g] += w * gauss_calc(1, delta_x, sig);
       // DEBUG_LOG_COND((bias_grid[g]>1e-6),"init cvspace_loc=%d, bias_grid[%d]=%g",cvspace_loc[0],g,bias_grid[g]);
       // if (bias_grid[g]>1e-6){
       //     printf("init cvspace_loc=%d, bias_grid[%d]=%g\n",cvspace_loc[0],g,bias_grid[g]);
@@ -213,7 +233,7 @@ void MetaD_zqc::GH_t0_uniformGrid<1>::add_to_grid(double *cv_values, double w) {
 }
 
 template<>
-void MetaD_zqc::GH_t0_uniformGrid<2>::add_to_grid(double *cv_values, double w) {
+void MetaD_zqc::GH_t0_uniformGrid<2>::add_to_grid(double *cv_values, double w, double sig) {
   double xc, yc;
   for (int k=0; k<cv_dim; k++){
     int center_idx = static_cast<int>((cv_values[k] - cv_bound[2*k]) / dcv[k]);
@@ -228,14 +248,14 @@ void MetaD_zqc::GH_t0_uniformGrid<2>::add_to_grid(double *cv_values, double w) {
       delta_x[0] = cv_values[0]-delta_x[0];
       delta_x[1] = cv_bound[2] + (j+0.5)*(cv_bound[3]-cv_bound[2])/nbin[1];
       delta_x[1] = cv_values[1]-delta_x[1];
-      bias_grid[g] += w * gauss_calc(2, delta_x, sigma);
+      bias_grid[g] += w * gauss_calc(2, delta_x, sig);
     }
   }
   DEBUG_LOG("add_hill_end"); 
 }
 
 template<>
-void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w) {
+void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w, double sig) {
   for (long long g = 0; g < grid_size; g++) {
       long long temp_g = g;
       // 采用行主序 (Row-Major Order)：CV0 变化最慢，CV(N-1) 变化最快。
@@ -248,7 +268,7 @@ void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w) {
           delta_x[i] = cv_values[i] - x_center;
           temp_g /= nbin[cv_dim - 1 - i];
       }
-      bias_grid[g] += w * gauss_calc(cv_dim, delta_x, sigma);
+      bias_grid[g] += w * gauss_calc(cv_dim, delta_x, sig);
   }
   DEBUG_LOG("add_hill_end");
 }

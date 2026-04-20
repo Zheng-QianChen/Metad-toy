@@ -66,6 +66,13 @@ namespace MetaD_zqc {
         friend class Steinhardt;
         template <int U> friend class STEIN_QL;
     private:
+        // use env_pool to save envioronment, 
+        // avoid repeatly construct envioronment when multiple steinhardt CVs exist
+        static std::map<std::string, Steinhardt_env*> env_pool;
+        int ref_count = 0; // 引用计数，用于管理生命周期
+        LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
+
+        // vars for envioronment calculate
         FILE *f_check = nullptr;
         LAMMPS_NS::LAMMPS *lmp = nullptr;
         LAMMPS_NS::Error *error = nullptr;
@@ -117,12 +124,25 @@ namespace MetaD_zqc {
         GpuBuffer<int>                              d_neigh_both_in_r_N;
         LAMMPS_NS::tagint                           *calculated_numneigh = nullptr;
         GpuBuffer<LAMMPS_NS::tagint>                d_calculated_numneigh;
-    public:
+        
         Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
              LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
              double cutoff_r, int cutoff_Natoms);
-        ~Steinhardt_env();
         void get_env();
+
+    public:
+        // 工厂函数：内部自动合并相同参数的环境
+        static Steinhardt_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check, 
+                                            LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                                            int group_id, double cutoff_r, int cutoff_Natoms);
+        Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
+             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
+             double cutoff_r, int cutoff_Natoms);
+        std::string get_env_key();
+        // 用于在 Fix 析构时清理所有显存
+        static void clear_pool();
+
+        ~Steinhardt_env();
         void refresh_lmpbox();
     };
 
@@ -130,11 +150,12 @@ namespace MetaD_zqc {
     template <int L>
     class STEIN_QL : public Steinhardt {
     private:
-        FILE *f_check = nullptr;
+        // FILE *f_check = nullptr;
         LAMMPS_NS::Error *error = nullptr;
         LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
+        int init_flag=false;
         int stein_l=0;
-        int env_setNum=0;
+        std::string env_setNum;
         MetaD_zqc::Averager* my_averager;
         MetaD_zqc::Steinhardt_env* my_env;
         int d_block_size;         // use it to change the GPU set
@@ -166,7 +187,7 @@ namespace MetaD_zqc {
         using CV_BiasForce = typename CV::CV_BiasForce;
         STEIN_QL(LAMMPS_NS::LAMMPS *lmp,
                              LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                             int env_setNum, int group_id, int stein_l, 
+                             std::string env_setNum, int group_id, int stein_l, 
                              MetaD_zqc::Steinhardt_env* my_env,
                              int d_block_size);
         ~STEIN_QL() override;
@@ -188,7 +209,7 @@ namespace MetaD_zqc {
 
     Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
                                 LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
-                                int env_setNum, int group_id, int Q_num,
+                                std::string env_setNum, int group_id, int Q_num,
                                 Steinhardt_env* my_env,
                                 char *Q_type_str, double cutoff_r, int cutoff_Natoms, 
                                 int d_block_size);

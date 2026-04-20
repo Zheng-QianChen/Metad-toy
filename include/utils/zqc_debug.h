@@ -15,7 +15,7 @@
         if (f_check != NULL) { \
             fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
             fflush(f_check); \
-    } \
+        } \
     } while(0)
 #else
     #define DEBUG_LOG(...) do {} while(0)
@@ -39,7 +39,7 @@
     #define ERR_COND(cond, format, ...) do { \
         int _me = lmp->comm->me; \
         if (cond) { \
-                        if (f_check != NULL) { \
+            if (f_check != NULL) { \
                 fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
                 fflush(f_check); \
             } \
@@ -48,8 +48,8 @@
 #else
     #define ERR_COND(cond, format, ...) do { \
         if (cond) { \
-            exit(0);\
-            error->all(FLERR,"msg_buf"); \
+            error->all(FLERR,format"\n"); \
+            exit(1);\
         } \
     } while(0)
 #endif
@@ -151,18 +151,21 @@
             cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
             if (mem_info_err != cudaSuccess) { \
                 fprintf(f_check, "cudaMemGetInfo failed: %s\n", cudaGetErrorString(mem_info_err)); \
+                fflush(f_check); \
                 (error)->all(FLERR, "GPU memory query failed"); \
             } \
             if ((size) > free_mem || mem_info_err != cudaSuccess) { \
                 fprintf(f_check, "Memory Check Failed!\n"); \
                 fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
                 fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
+                fflush(f_check); \
                 (error)->all(FLERR, "GPU Memory check failed"); \
             } \
             cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
             if (MallocErr != cudaSuccess) { \
                 fprintf(f_check, "CUDA Malloc failed at %s:%d: %s (Size: %zu bytes)\n", \
                         __FILE__, __LINE__, cudaGetErrorString(MallocErr), (size_t)(size)); \
+                fflush(f_check); \
                 (error)->all(FLERR, "Device memory allocation failed\n"); \
             } \
         } while(0)
@@ -172,16 +175,19 @@
             cudaError_t mem_info_err = cudaMemGetInfo(&free_mem, &total_mem); \
             if (mem_info_err != cudaSuccess) { \
                 fprintf(f_check, "cudaMemGetInfo failed: %s\n", cudaGetErrorString(mem_info_err)); \
+                fflush(f_check); \
             } \
             if ((size) > free_mem || mem_info_err != cudaSuccess) { \
                 fprintf(f_check, "Memory Check Failed!\n"); \
                 fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
                 fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
+                fflush(f_check); \
             } \
             cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
             if (MallocErr != cudaSuccess) { \
                 fprintf(f_check, "CUDA Malloc failed at %s:%d: %s (Size: %zu bytes)\n", \
                         __FILE__, __LINE__, cudaGetErrorString(MallocErr), (size_t)(size)); \
+                fflush(f_check); \
             } \
         } while(0)
 #else
@@ -214,11 +220,13 @@
                 fprintf(f_check, "Memory Check Failed!\n"); \
                 fprintf(f_check, "  Requested: %zu bytes (%.2f KB)\n", (size_t)(size), (size)/1024.0); \
                 fprintf(f_check, "  Available: %zu bytes (%.2f MB)\n", free_mem, free_mem/(1024.0*1024.0)); \
+                fflush(f_check); \
             } \
             cudaError_t MallocErr = cudaMalloc(ptr, (size)); \
             if (MallocErr != cudaSuccess) { \
                 fprintf(f_check, "CUDA Malloc failed at %s:%d: %s (Size: %zu bytes)\n", \
                         __FILE__, __LINE__, cudaGetErrorString(MallocErr), (size_t)(size)); \
+                fflush(f_check); \
             } \
         } while(0)
 #endif
@@ -251,6 +259,7 @@
                 fprintf(f_check, "  Direction: %s\n", _dir); \
                 fprintf(f_check, "  Error: %s\n", cudaGetErrorString(_err)); \
                 fprintf(f_check, "  Size: %.2f MB\n", (double)(size_bytes) / (1024 * 1024)); \
+                fflush(f_check); \
                 (error)->all(FLERR, "CUDA memory copy operation failed"); \
             } \
         } while(0)

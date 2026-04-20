@@ -58,6 +58,9 @@ namespace MetaD_zqc {
         double *delta_x;
         int *index_radius;
         int *lower, *upper;
+        
+        void add_to_grid(double *cv_values, double w, double sig);
+        void get_cvspace_loc(double* cv_values, int* cvspace_loc);
 
         public:
         ~GH_t0_uniformGrid();
@@ -66,13 +69,11 @@ namespace MetaD_zqc {
                             double sigma, double height0, double biasf,
                             int continue_from_file, int WellT_bool,
                             double *cv_bound, int *nbin);
-        void io_hills();
+        void init_hills();
         void init_set_mode() override;
         void add_hill(double *cv_values) override;
-        void add_to_grid(double *cv_values, double w);
         void get_dVdcv(double *, double *) override;
         void write_hill(double *cv_values, double w);
-        void get_cvspace_loc(double* cv_values, int* cvspace_loc);
         double get_total_bias(int* cvspace_loc);
         double gauss_calc(int dim, double* dx, double s);
     };
@@ -80,9 +81,9 @@ namespace MetaD_zqc {
     template class GH_t0_uniformGrid<1>;
     template class GH_t0_uniformGrid<2>;
     template class GH_t0_uniformGrid<3>;
-    template<> void MetaD_zqc::GH_t0_uniformGrid<1>::add_to_grid(double *cv_values, double w);
-    template<> void MetaD_zqc::GH_t0_uniformGrid<2>::add_to_grid(double *cv_values, double w);
-    template<> void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w);
+    template<> void MetaD_zqc::GH_t0_uniformGrid<1>::add_to_grid(double *cv_values, double w, double sig);
+    template<> void MetaD_zqc::GH_t0_uniformGrid<2>::add_to_grid(double *cv_values, double w, double sig);
+    template<> void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w, double sig);
     template<> void MetaD_zqc::GH_t0_uniformGrid<1>::get_dVdcv(double *cv_values, double *dVdcvs);
     template<> void MetaD_zqc::GH_t0_uniformGrid<2>::get_dVdcv(double *cv_values, double *dVdcvs);
     template<> void MetaD_zqc::GH_t0_uniformGrid<3>::get_dVdcv(double *cv_values, double *dVdcvs);
@@ -147,6 +148,13 @@ namespace MetaD_zqc {
         // int *lower, *upper;
         int *index_radius;
 
+        void io_hills();
+        void add_to_grid(double *cv_values, double w);
+        void recursive_add2grid(int dim, CoordKey& key, 
+                                double* dx_array,
+                                double w, double* cv_values);
+        void GridHashBcast();
+
     public:
         GH_t1_sparseHash(LAMMPS_NS::LAMMPS *lmp, FILE* f_check,
                          int cv_dim, double sigma, double height0, double biasf,
@@ -156,15 +164,8 @@ namespace MetaD_zqc {
         ~GH_t1_sparseHash();
 
         void init_set_mode() override;
-        void io_hills();
         void write_hill(double *cv_values, double w);
-
         void add_hill(double *cv_values) override;
-        void add_to_grid(double *cv_values, double w);
-        void recursive_add2grid(int dim, CoordKey& key, 
-                                double* dx_array,
-                                double w, double* cv_values);
-        void GridHashBcast();
 
         void get_dVdcv(double *cv_values, double *dVdcvs) override;
         double mixed_recursive_logic(int current_dim, int target_dim, 

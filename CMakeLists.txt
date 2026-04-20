@@ -7,6 +7,7 @@ project(fix_crystallize_plugin LANGUAGES CXX CUDA)
 # -------------------------------------------------------------------
 option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" ON)
 # option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" OFF)
+option(USE_ML_CVS   "Use Machine Learning models as Collective Variables" ON)
 
 # -------------------------------------------------------------------
 # 1. 路径配置（通过环境变量获取，不再硬编码）
@@ -23,8 +24,8 @@ set(MPI_INCLUDE_PATH  ${MPI_HOME}/include)
 # -------------------------------------------------------------------
 # 2. 编译器与标准设置
 # -------------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CUDA_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
@@ -48,17 +49,48 @@ include_directories(${MPI_INCLUDE_PATH})
 # 4. 自动识别源文件
 # -------------------------------------------------------------------
 # 自动寻找 src 目录下的所有 cu 文件，方便未来扩展 CV
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cu")
+# file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cu")
+# file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*/*.cu")
+# file(GLOB_RECURSE CHILDREN LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/include/*)
+# foreach(child ${CHILDREN})
+#     if(IS_DIRECTORY ${child})
+#         include_directories(${child})
+#         message(STATUS "Include path added: ${child}")
+#     endif()
+# endforeach()
+# 创建一个全局列表，用于收集所有子包的源文件
+set_property(GLOBAL PROPERTY PLUGIN_SOURCES "")
+set_property(GLOBAL PROPERTY PLUGIN_INCLUDES "")
+set_property(GLOBAL PROPERTY PLUGIN_LIBS "")
+
+# 依次添加子包
+add_subdirectory(src/cvs)
+add_subdirectory(src/grids)
+add_subdirectory(src/core)
+add_subdirectory(src/utils)
+if (USE_ML_CVS)
+    add_subdirectory(src/ml_cvs)
+endif()
+
+# 包含收集到的所有头文件路径
+# include_directories(${PLUGIN_INCLUDES})
+
+get_property(FINAL_SOURCES GLOBAL PROPERTY PLUGIN_SOURCES)
+get_property(FINAL_INCLUDES GLOBAL PROPERTY PLUGIN_INCLUDES)
+get_property(FINAL_LIBS    GLOBAL PROPERTY PLUGIN_LIBS)
+
+include_directories(${FINAL_INCLUDES})
 
 # -------------------------------------------------------------------
 # 5. 编译目标
 # -------------------------------------------------------------------
 # 找lammps库文件，路径由环境变量 LAMMPS_LIB_DIR 指定
 find_library(LAMMPS_LIB lammps PATHS ${LAMMPS_LIB_DIR} NO_DEFAULT_PATH)
-add_library(fix_crystallize_plugin MODULE ${SOURCES})
+# add_library(fix_crystallize_plugin MODULE ${SOURCES})
+add_library(fix_crystallize_plugin MODULE ${FINAL_SOURCES})
 if(LAMMPS_LIB)
     message(STATUS "linking lammps lib path is: ${LAMMPS_LIB}")
-    target_link_libraries(fix_crystallize_plugin PRIVATE ${LAMMPS_LIB})
+    target_link_libraries(fix_crystallize_plugin PRIVATE ${LAMMPS_LIB} ${FINAL_LIBS})
 else()
     message(FATAL_ERROR "cannot find liblammps.so, please check LAMMPS_LIB_DIR")
 endif()

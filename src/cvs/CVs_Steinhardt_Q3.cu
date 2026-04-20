@@ -58,7 +58,6 @@ __global__ void dcv_steinhardt_param_calc_kernel_q3(
         double tdx_r, tdy_r, tdz_r, tdx_i, tdy_i,tdz_i;
         int stein_qlm_base_id, stein_qlm_neigh_id, Neigh_Nb;
         int neigh_num = d_neigh_both_in_r_N[c_atom];
-        catom_q4_timesN = 1.0/(d_stein_ql[c_atom]*neigh_num);
         for(int i=0; i<3; i++){
             // from 0 to l, both re_part and im_part
             d_dcvdx[c_atom*3 + i] = 0;
@@ -66,6 +65,10 @@ __global__ void dcv_steinhardt_param_calc_kernel_q3(
             d_dYlm_dr[c_atom*3*2 + i*2 + 1] = 0;
             // DEBUG_LOG("d_stein_qlm[%d] = %f + i* %f", stein_qlm_base_id + i + 1,d_stein_qlm[stein_qlm_base_id + i + 0],d_stein_qlm[stein_qlm_base_id + i + 1]);
         }
+        if (neigh_num == 0) {
+            return;
+        }
+        catom_q4_timesN = 1.0/(d_stein_ql[c_atom]*neigh_num);
         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
             dx = d_group_dminneigh[c_atom*cutoff_Natoms*4 + neigh_atom*4 + 0];
             dy = d_group_dminneigh[c_atom*cutoff_Natoms*4 + neigh_atom*4 + 1];
@@ -301,6 +304,10 @@ __global__ void steinhardt_param_calc_kernel_q3(int group_count, int cutoff_Nato
             d_stein_qlm[stein_qlm_base_id + i*2 + 0] = 0;
             d_stein_qlm[stein_qlm_base_id + i*2 + 1] = 0;
             // DEBUG_LOG("d_stein_qlm[%d] = %f + i* %f", stein_qlm_base_id + i + 1,d_stein_qlm[stein_qlm_base_id + i + 0],d_stein_qlm[stein_qlm_base_id + i + 1]);
+        }
+        if (neigh_num == 0){
+            d_stein_ql[c_atom] = 0;
+            return;
         }
         // start to calc
         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){

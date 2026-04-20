@@ -15,7 +15,7 @@ atom_style atomic
 boundary p p p
 #newton off
 # 加载插件
-plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so.2
+plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
 
 # --- 3. 逻辑跳转：如果是从文件启动 ---
 if "${has_restart} == 1" then "jump SELF skip_equilibration"

@@ -20,9 +20,11 @@
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
 #include "zqc_gaussian.h"
+#include "zqc_mlcvs.h"
 
 #include <cuda_runtime.h>
 using namespace LAMMPS_NS;
+
 
 
 FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
@@ -138,7 +140,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
               req.group_id = lmp->group->find(req.group_name);
               ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
               //参数有效性
-              ERR_COND((req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 4, 6, 8, or 12.");
+              ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 3, 4, 6, 8, or 12.");
               ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
               // 进阶设置
               // default values
@@ -174,10 +176,11 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
               full_request->set_id(2);
               steinh_requests.push_back(req);
               // // 创建 CV 对象
-              int env_setNum=0;
               // TODO: 需要处理相同envs的合并问题
-              MetaD_zqc::Steinhardt_env *temp_env = new MetaD_zqc::Steinhardt_env(lmp, 
+              MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
                                     f_check, this, req.group_id, req.cutoff_r, req.cutoff_Natoms);
+              DEBUG_LOG("Steinhardt_env is %p", temp_env);
+              std::string env_setNum = temp_env->get_env_key();
               cal_registry[cal_name]= MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, 
                                     env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
                                     req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
@@ -234,6 +237,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             break;
         }
     }
+    LOG("init calc set end, start to define Gaussian.");
 
     // 定义Gaussian
     if (Gaussian_Hill_type==0){
@@ -285,8 +289,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     
     // 输出文件
     first_run = true;
-    DEBUG_LOG("Fix init end.");
-    
+    LOG("Fix init end.");
+
     // // 设置执行时机
     // force_integrate = 1;
     // vflag = 1;
@@ -309,6 +313,7 @@ FixMetadynamics::~FixMetadynamics() {
   }
   // memory->destroy(cv_bound);
   // memory->destroy(nbin);
+  MetaD_zqc::Steinhardt_env::clear_pool();
 }
 
 int FixMetadynamics::setmask() {
@@ -360,8 +365,9 @@ void FixMetadynamics::post_force(int) {
     MetaD_zqc::CV* obj = pair.second;
     DEBUG_LOG("base_calc of %s is start", pair.first.c_str());
     obj->base_calc(); 
-    cv_configs->compute_total_cv();
+    DEBUG_LOG("base_calc of %s is end", pair.first.c_str());
   }
+  cv_configs->compute_total_cv();
   for (int ii=0; ii<cv_dim; ii++){
     cv_values[ii] = cv_configs->compute_dim_cv(ii);
     cv_history[ii] += cv_values[ii];
