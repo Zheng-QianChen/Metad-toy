@@ -27,6 +27,72 @@
 
 using namespace LAMMPS_NS;
 
+MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                                            int narg, char **arg, int &i, FILE *f_check){
+    DEBUG_LOG("In STEINH settings");
+    printf("++++++++++++++++++++++++++++++im in STEINH settings, narg=%d, current arg is %s\n", narg, arg[i]);
+    LAMMPS_NS::Error *error = lmp->error;
+
+    std::string cal_name = arg[i];
+
+    MetaD_zqc::SteinhardtRequest req;
+    req.cal_name = cal_name;
+    // 原子环境分析-初始设置
+    // Usage: STEINH <Q/L> <4/6/8/12> <group>
+    ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
+    req.Q_type_str = arg[i+1];
+    req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+    req.group_name = arg[i+3];
+    req.group_id = lmp->group->find(req.group_name);
+    ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
+    //参数有效性
+    ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 3, 4, 6, 8, or 12.");
+    ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
+    // 进阶设置
+    // default values
+    req.cutoff_r = 4.0;
+    req.cutoff_Natoms = 12;
+    req.d_block_size = 128;
+    int iarg=4 + i;
+    while (iarg < narg) {
+        if (strcmp(arg[iarg], "cutoff_r") == 0) {
+            ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
+            req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            iarg += 2;
+        }
+        else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
+            req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+            iarg += 2;
+        }
+        else if (strcmp(arg[iarg], "d_block_size") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
+            req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+            ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
+            iarg += 2;
+        }
+        else {
+            break;
+        }
+    }
+    LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
+                        req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+    NeighRequest *full_request;
+    full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
+    full_request->set_id(2);
+    // steinh_requests.push_back(req);
+    // // 创建 CV 对象
+    // TODO: 需要处理相同envs的合并问题
+    MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
+                            f_check, Fixmetad, req.group_id, req.cutoff_r, req.cutoff_Natoms);
+    DEBUG_LOG("Steinhardt_env is %p", temp_env);
+    std::string env_setNum = temp_env->get_env_key();
+    i = iarg;
+    return MetaD_zqc::create_steinhardt_cv(lmp, Fixmetad, f_check, 
+                            env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
+                            req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+}
+
 MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
                                 LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
                                 std::string env_setNum, int group_id, int Q_num,
@@ -101,10 +167,19 @@ MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
 
     // const char *group_name = arg[1];
     groupbit = lmp->group->bitmask[group_id]; // 关键：存储原子组位掩码
-    group_dminneigh = new double [2]; //inintial
-    neigh_in_cutoff_r = new int [2]; //inintial
-    neigh_both_in_r_N = new int [2]; //inintial
     init_flag = false;
+    
+    // group_dminneigh = new double [2]; //inintial
+    // neigh_in_cutoff_r = new int [2]; //inintial
+    // neigh_both_in_r_N = new int [2]; //inintial
+    lmp->memory->create(h_group_numneigh, 0, "metad:STEIN_QL:h_group_numneigh");
+    lmp->memory->create(h_x_flat, 0, "metad:STEIN_QL:h_x_flat");
+    lmp->memory->create(h_group_indices, 0, "metad:STEIN_QL:h_group_indices");
+    lmp->memory->create(h_firstneigh_ptrs, 0, "metad:STEIN_QL:h_firstneigh_ptrs");
+    lmp->memory->create(group_dminneigh, 0, "metad:STEIN_QL:group_dminneigh");
+    lmp->memory->create(neigh_in_cutoff_r, 0, "metad:STEIN_QL:neigh_in_cutoff_r");
+    lmp->memory->create(neigh_both_in_r_N, 0, "metad:STEIN_QL:neigh_both_in_r_N");
+    lmp->memory->create(calculated_numneigh, 0, "metad:STEIN_QL:calculated_numneigh");
 
     // comment name
     d_group_numneigh.set_name("d_group_numneigh");
@@ -175,50 +250,58 @@ MetaD_zqc::STEIN_QL<L>::~STEIN_QL(){
     lmp->memory->destroy(h_stein_qlm);
     // SAFE_CUDA_FREE(d_stein_qlm.ptr);
     // release all alloc
-    // delete[] group_dminneigh;
-    // delete[] neigh_in_cutoff_r;
-    // delete[] neigh_both_in_r_N;
-    // delete[] Q_per_atoms_value;
+    // the GpuBuffer will automatically release its memory, 
+    // so we don't need to manually free it here
 }
 
 MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
     atoms = nullptr;
     // release all alloc
-    delete[] nlist;
+    nlist = nullptr;
     // delete[] h_group_numneigh;
     lmp->memory->destroy(h_group_numneigh);
     // SAFE_CUDA_FREE(d_group_numneigh.ptr);
-    delete[] numneigh;
-    delete[] firstneigh;
-    delete[] h_x_flat;
+    numneigh = nullptr;
+    firstneigh = nullptr;
+    mask = nullptr;
+    // delete[] h_x_flat;
+    lmp->memory->destroy(h_x_flat);
     // SAFE_CUDA_FREE(d_x_flat.ptr);
-    delete[] mask;
     // SAFE_CUDA_FREE(d_mask.ptr);
-    delete[] h_group_indices;
+    // delete[] h_group_indices;
+    lmp->memory->destroy(h_group_indices);
     // SAFE_CUDA_FREE(d_group_indices.ptr);
     // delete[] h_firstneigh_ptrs;
     lmp->memory->destroy(h_firstneigh_ptrs);
     // SAFE_CUDA_FREE(d_firstneigh_ptrs.ptr);
-    delete[] group_dminneigh;
+    // delete[] group_dminneigh;
+    lmp->memory->destroy(group_dminneigh);
     // SAFE_CUDA_FREE(d_group_dminneigh.ptr);
-    delete[] neigh_in_cutoff_r;
+    // delete[] neigh_in_cutoff_r;
+    lmp->memory->destroy(neigh_in_cutoff_r);
     // SAFE_CUDA_FREE(d_neigh_in_cutoff_r.ptr);
-    delete[] neigh_both_in_r_N;
+    // delete[] neigh_both_in_r_N;
+    lmp->memory->destroy(neigh_both_in_r_N);
     // SAFE_CUDA_FREE(d_neigh_both_in_r_N.ptr);
-    delete[] calculated_numneigh;
+    // delete[] calculated_numneigh;
+    lmp->memory->destroy(calculated_numneigh);
     // SAFE_CUDA_FREE(d_calculated_numneigh.ptr);
     // delete[] Q_per_atoms_value;
+    // the GpuBuffer will automatically release its memory, 
+    // so we don't need to manually free it here
 }
 
 void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
     // clear the h_group_indices
-    delete[] h_group_indices;
-    h_group_indices = nullptr;
-    DEBUG_LOG("free h_group_indices");
     atom = lmp->atom;
     mask = (atom)->mask;     // 原子组掩码
 
-    h_group_indices = new int [((atom)->nlocal)];
+    // delete[] h_group_indices;
+    // h_group_indices = nullptr;
+    // DEBUG_LOG("free h_group_indices");
+    // h_group_indices = new int [((atom)->nlocal)];
+
+    lmp->memory->grow(h_group_indices, ((atom)->nlocal), "STEIN_QL:h_group_indices");
     // group_count = how many aim atoms in local
     last_group_count = group_count;
     group_count = 0; // 当前local中有
@@ -233,8 +316,8 @@ void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
 
     // SAFE_CUDA_FREE((d_mask));
     // SAFE_CUDA_MALLOC(&(d_mask), (group_count)*sizeof(int), f_check);
-    d_mask.grow_to(group_count, f_check, __FILE__, __LINE__);
-    SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(group_count)*sizeof(int),cudaMemcpyHostToDevice,f_check);
+    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), f_check, __FILE__, __LINE__);
+    SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(((atom)->nlocal+(atom)->nghost))*sizeof(int),cudaMemcpyHostToDevice,f_check);
 
     // set up nvidia thread number
     block_num = ((group_count) + d_block_size - 1)/d_block_size;
@@ -360,11 +443,12 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     // int *h_tag = atom->tag;       // 原子全局ID数组(主机)
     // int *d_tag;             // 设备端坐标二级指针
     double **h_x = atom->x;      // 原子坐标数组(主机)
-    delete[] h_x_flat;
-    h_x_flat = nullptr;
-    DEBUG_LOG("free h_x_flat");
+    // delete[] h_x_flat;
+    // h_x_flat = nullptr;
+    // DEBUG_LOG("free h_x_flat");
+    // h_x_flat = new double [(atom->nlocal + atom->nghost) * 3];
     DEBUG_LOG("d_x_flat=%p",d_x_flat.ptr);
-    h_x_flat = new double [(atom->nlocal + atom->nghost) * 3];
+    lmp->memory->grow(h_x_flat, (atom->nlocal + atom->nghost) * 3, "STEIN_QL:h_x_flat");
     for (int i = 0; i < (atom->nlocal + atom->nghost); i++) {
         memcpy(&(h_x_flat[i*3]), h_x[i], 3*sizeof(double));
     }
@@ -454,20 +538,24 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     DEBUG_LOG_COND((group_dminneigh == NULL),"group_dminneigh list not initialized");
     DEBUG_LOG_COND((neigh_in_cutoff_r == NULL),"group_dminneigh list not initialized");
     DEBUG_LOG_COND((neigh_both_in_r_N == NULL),"group_dminneigh list not initialized");
-    delete[] group_dminneigh;
-    group_dminneigh = new double [group_count*cutoff_Natoms*4];
+    // delete[] group_dminneigh;
+    // group_dminneigh = new double [group_count*cutoff_Natoms*4];
+    lmp->memory->grow(group_dminneigh, (group_count*cutoff_Natoms*4), "STEIN_QL:group_dminneigh");
     SAFE_CUDA_MEMCPY(group_dminneigh, d_group_dminneigh.ptr,
       (group_count*cutoff_Natoms*4) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    delete[] neigh_in_cutoff_r;
-    neigh_in_cutoff_r = new int [group_count];
+    // delete[] neigh_in_cutoff_r;
+    // neigh_in_cutoff_r = new int [group_count];
+    lmp->memory->grow(neigh_in_cutoff_r, (group_count), "STEIN_QL:neigh_in_cutoff_r");
     SAFE_CUDA_MEMCPY(neigh_in_cutoff_r, d_neigh_in_cutoff_r.ptr,
       (group_count) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
-    delete[] neigh_both_in_r_N;
-    neigh_both_in_r_N = new int [group_count];
+    // delete[] neigh_both_in_r_N;
+    // neigh_both_in_r_N = new int [group_count];
+    lmp->memory->grow(neigh_both_in_r_N, (group_count), "STEIN_QL:neigh_both_in_r_N");
     SAFE_CUDA_MEMCPY(neigh_both_in_r_N, d_neigh_both_in_r_N.ptr,
       (group_count) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
-    delete[] calculated_numneigh;
-    calculated_numneigh = new LAMMPS_NS::tagint [group_count*cutoff_Natoms];
+    // delete[] calculated_numneigh;
+    // calculated_numneigh = new LAMMPS_NS::tagint [group_count*cutoff_Natoms];
+    lmp->memory->grow(calculated_numneigh, (group_count*cutoff_Natoms), "STEIN_QL:calculated_numneigh");
     SAFE_CUDA_MEMCPY(calculated_numneigh, d_calculated_numneigh.ptr,
       (group_count*cutoff_Natoms) * sizeof(LAMMPS_NS::tagint), cudaMemcpyDeviceToHost,f_check);
     cudaDeviceSynchronize(); //catch kernel done
@@ -532,15 +620,10 @@ double MetaD_zqc::STEIN_QL<L>::compute_cv_AVE(){
     int group_count = my_env->group_count;
     DEBUG_LOG("group_count = %d",group_count);
     double ql_ave_local=0;
-    DEBUG_LOG("535");
     DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
     if (group_count != 0) {
-        // compute_Q_peratoms();
-        // TODO: different calculate ways to the cv_value from stein_q
         my_averager->compute(group_count, all_count, stein_q, ql_ave_local);
-        // my_averager->compute(group_count, d_stein_ql, ql_ave_local);
     }
-    DEBUG_LOG("543");
     MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
     return cv_value;
@@ -839,21 +922,21 @@ __global__ void get_envioronment(int cutoff_Natoms, double cutoff_rsq,
             delt_x = (neigh_x - c_x);
             delt_y = (neigh_y - c_y);
             delt_z = (neigh_z - c_z);
-            if (delt_x > box_x/2) {
-                delt_x -= box_x;
-            } else if (delt_x < -box_x/2) {
-                delt_x += box_x;
-            }
-            if (delt_y > box_y/2) {
-                delt_y -= box_y;
-            } else if (delt_y < -box_y/2) {
-                delt_y += box_y;
-            }
-            if (delt_z > box_z/2) {
-                delt_z -= box_z;
-            } else if (delt_z < -box_z/2) {
-                delt_z += box_z;
-            }
+            // if (delt_x > box_x/2) {
+            //     delt_x -= box_x;
+            // } else if (delt_x < -box_x/2) {
+            //     delt_x += box_x;
+            // }
+            // if (delt_y > box_y/2) {
+            //     delt_y -= box_y;
+            // } else if (delt_y < -box_y/2) {
+            //     delt_y += box_y;
+            // }
+            // if (delt_z > box_z/2) {
+            //     delt_z -= box_z;
+            // } else if (delt_z < -box_z/2) {
+            //     delt_z += box_z;
+            // }
             // DEBUG_LOG("c_atom_tag=%d, n_local_tag=%d, nx,ny,nz:%f,%f,%f",c_atom_tag,n_local_tag,delt_x,delt_y,delt_z);
             r2 = delt_x*delt_x + delt_y*delt_y + delt_z*delt_z;
             if ((r2 > cutoff_rsq )||(r2<1e-12)) continue;
@@ -886,3 +969,5 @@ __global__ void get_envioronment(int cutoff_Natoms, double cutoff_rsq,
         }
     }
 }
+
+REGISTER_CV("STEINH", MetaD_zqc::Steinhardt::create);

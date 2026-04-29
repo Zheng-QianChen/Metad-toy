@@ -48,7 +48,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     LOG("There are %d args", narg);
     // --- 核心参数解析：循环读取关键词/数值对 ---
     int i = 3; // 从第 4 个参数开始，即 style 名之后
-    std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
+    // std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
     cv_configs = new MetaD_zqc::MetaDimensionManager();
     double *cv_bound;
     int *nbin;
@@ -116,77 +116,79 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         } else if (strcmp(arg[i], "CAL") == 0){
           ERR_COND(strcmp(arg[i+1], "NAME") != 0, "Error: CAL requires NAME keyword.");
           std::string cal_name = arg[i+2];
+          std::string type = arg[i+3];
           LOG("Dueling with %s",cal_name.c_str());
           i += 3;
-          if (strcmp(arg[i], "DISTANCE") == 0) {
-              DEBUG_LOG("In DISTANCE settings");
-              // DISTANCE 1 2 -> cv_values: 1-2 距离
-              ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
-              int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
-              int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-              cal_registry[cal_name] = new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
-              // DEBUG_LOG("debug: %d %d", id1, id2);
-              i += 3;
-          } else if (strcmp(arg[i], "STEINH") == 0) {
-              DEBUG_LOG("In STEINH settings");
-              MetaD_zqc::SteinhardtRequest req;
-              req.cal_name = cal_name;
-              // 原子环境分析-初始设置
-              // Usage: STEINH <Q/L> <4/6/8/12> <group>
-              ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
-              req.Q_type_str = arg[i+1];
-              req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-              req.group_name = arg[i+3];
-              req.group_id = lmp->group->find(req.group_name);
-              ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
-              //参数有效性
-              ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 3, 4, 6, 8, or 12.");
-              ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
-              // 进阶设置
-              // default values
-              req.cutoff_r = 4.0;
-              req.cutoff_Natoms = 12;
-              req.d_block_size = 128;
-              int iarg=4 + i;
-              while (iarg < narg) {
-                  if (strcmp(arg[iarg], "cutoff_r") == 0) {
-                      ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
-                      req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                      iarg += 2;
-                  }
-                  else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
-                      ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
-                      req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                      iarg += 2;
-                  }
-                  else if (strcmp(arg[iarg], "d_block_size") == 0) {
-                      ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
-                      req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                      ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
-                      iarg += 2;
-                  }
-                  else {
-                    break;
-                  }
-              }
-              LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
-                                req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
-              NeighRequest *full_request;
-              full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
-              full_request->set_id(2);
-              steinh_requests.push_back(req);
-              // // 创建 CV 对象
-              // TODO: 需要处理相同envs的合并问题
-              MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
-                                    f_check, this, req.group_id, req.cutoff_r, req.cutoff_Natoms);
-              DEBUG_LOG("Steinhardt_env is %p", temp_env);
-              std::string env_setNum = temp_env->get_env_key();
-              cal_registry[cal_name]= MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, 
-                                    env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
-                                    req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
-              i = iarg;
-          }
-      } else if (strcmp(arg[i], "SIMBOL") == 0) {
+          cal_registry[cal_name] = MetaD_zqc::CVFactory::create(type, lmp, this, narg, arg, i, f_check);
+          // if (strcmp(arg[i], "DISTANCE") == 0) {
+          //     DEBUG_LOG("In DISTANCE settings");
+          //     // DISTANCE 1 2 -> cv_values: 1-2 距离
+          //     ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
+          //     int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
+          //     int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+          //     cal_registry[cal_name] = new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
+          //     // DEBUG_LOG("debug: %d %d", id1, id2);
+          //     i += 3;
+          // } else if (strcmp(arg[i], "STEINH") == 0) {
+          //     DEBUG_LOG("In STEINH settings");
+          //     MetaD_zqc::SteinhardtRequest req;
+          //     req.cal_name = cal_name;
+          //     // 原子环境分析-初始设置
+          //     // Usage: STEINH <Q/L> <4/6/8/12> <group>
+          //     ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
+          //     req.Q_type_str = arg[i+1];
+          //     req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+          //     req.group_name = arg[i+3];
+          //     req.group_id = lmp->group->find(req.group_name);
+          //     ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
+          //     //参数有效性
+          //     ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 3, 4, 6, 8, or 12.");
+          //     ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
+          //     // 进阶设置
+          //     // default values
+          //     req.cutoff_r = 4.0;
+          //     req.cutoff_Natoms = 12;
+          //     req.d_block_size = 128;
+          //     int iarg=4 + i;
+          //     while (iarg < narg) {
+          //         if (strcmp(arg[iarg], "cutoff_r") == 0) {
+          //             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
+          //             req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+          //             iarg += 2;
+          //         }
+          //         else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
+          //             ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
+          //             req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+          //             iarg += 2;
+          //         }
+          //         else if (strcmp(arg[iarg], "d_block_size") == 0) {
+          //             ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
+          //             req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+          //             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
+          //             iarg += 2;
+          //         }
+          //         else {
+          //           break;
+          //         }
+          //     }
+          //     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
+          //                       req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+          //     NeighRequest *full_request;
+          //     full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
+          //     full_request->set_id(2);
+          //     steinh_requests.push_back(req);
+          //     // // 创建 CV 对象
+          //     // TODO: 需要处理相同envs的合并问题
+          //     MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
+          //                           f_check, this, req.group_id, req.cutoff_r, req.cutoff_Natoms);
+          //     DEBUG_LOG("Steinhardt_env is %p", temp_env);
+          //     std::string env_setNum = temp_env->get_env_key();
+          //     cal_registry[cal_name]= MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, 
+          //                           env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
+          //                           req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+          //     i = iarg;
+          // }
+      } else if (strcmp(arg[i], "SYMBOL") == 0) {
             // SIMBOL v1 Q6.AVE -> SIMBOL <symbol_name> <cv_method>
             ERR_COND(i + 2 >= narg, "Error: DIM command requires 2 arguments: SIMBOL <symbol_name> <cv_method>.");
             // "Q4.mean"

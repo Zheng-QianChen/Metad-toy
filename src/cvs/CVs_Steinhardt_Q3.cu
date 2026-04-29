@@ -275,7 +275,6 @@ __global__ void steinhardt_param_calc_kernel_q3(int group_count, int cutoff_Nato
                     double *d_stein_qlm, double *d_stein_Ylm,
                     double *d_stein_ql){
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    int neigh_N = 0;
     if(c_atom<group_count){
         // steinhardt_param_calc_kernel_q3
         int stein_l=3;

@@ -14,6 +14,10 @@
 #include <string>
 #include <vector>
 
+namespace LAMMPS_NS {
+    class FixMetadynamics;
+}
+
 namespace MetaD_zqc {
   class CV {
     protected:
@@ -46,6 +50,21 @@ namespace MetaD_zqc {
 
   class Gaussian_Hill_Base;
   // class GH_t0_uniformGrid;
+
+  class CVFactory {
+    typedef CV* (*CreatorFunc)(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics *,
+                   int, char**, int&, FILE*);
+    private:
+      // 用静态方法包裹 map，确保初始化顺序安全
+      static std::map<std::string, CreatorFunc>& get_registry();
+    public:
+      CVFactory() {};
+      CVFactory(const CVFactory&) = delete;
+      CVFactory& operator=(const CVFactory&) = delete;
+      static void register_cv(std::string name, CreatorFunc func);
+      static CV* create(std::string name, LAMMPS_NS::LAMMPS* lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                        int narg, char** arg, int &i, FILE *f_check);
+  };
 }
 
 namespace LAMMPS_NS {

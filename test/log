@@ -1,0 +1,169 @@
+LAMMPS (29 Aug 2024)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+Loaded 1 plugins from /home/zqc/apps/deepmd/lib/deepmd_lmp
+[MAP DEBUG] REGISTER: key=DISTANCE, MapAddr=0x7f35cc1fda00
+>>> [Auto-Reg] DISTANCE registered.
+[MAP DEBUG] REGISTER: key=STEINH, MapAddr=0x7f35cc1fda00
+>>> [Auto-Reg] STEINH registered.
+Reading restart file ...
+  restart file = 29 Aug 2024, LAMMPS = 29 Aug 2024
+WARNING: Restart file used different # of processors: 8 vs. 1 (src/read_restart.cpp:628)
+  restoring atom style atomic from restart
+  orthogonal box = (-0.48020173 -0.48020173 -0.48020173) to (20.480202 20.480202 20.480202)
+  1 by 1 by 1 MPI processor grid
+  pair style meam stores no restart info
+  500 atoms
+  read_restart CPU = 0.000 seconds
+500 atoms in group metad_group
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:36] New JOB STARTING WITH DEBUG MOD!
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:41] MPI_COMM_WORLD size: 1
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:43] Process Rank: 0 | Total Processes: 1 | Thread ID: 139873686067456
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:48] There are 40 args
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:80] Logging: set GAUSSIAN sigma, height, biasf: 0.01 0.05 10.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:81] Logging: attention, we use Joules/moles as the height's units, so if the lammps settings is not real, there will be a units transform.
+             If you set CV's bounds in physicals, this units will follows your lammps units settings.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:87] Logging: pace = 50.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:106] Logging: rec_file = rec.log, rec_pace = 1.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:120] Dueling with Q6
+De!!!!!!!!!!!!!!!!!17
+++++++++++++++++im in CVFactory::create, name=STEINH
+Factory looking for: [STEINH]
+  Registered key: [DISTANCE]
+  Registered key: [STEINH]
+++++++++++++++++++++++++++++++im in STEINH settings, narg=40, current arg is STEINH
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:78] Logging: set STEINH as Q_type_str=Q Q_num=6 group_name=metad_group cutoff_r=3.800000 cutoff_Natoms=18 d_block_size=128.
+De!!!!!!!!!!!!!!!!!25
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:223] Logging: cv_compute=1 bound set at [0,1], total grid is 10000.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:224] Logging: cv_compute=1 bound set expr as v1
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:69] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:244] init calc set end, start to define Gaussian.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:296] Fix init end.
+Resetting global fix info from restart file:
+  fix style: nvt, fix ID: 1
+All restart file global fix info was re-assigned
+[Rank:0][/home/zqc/work/Metad-toy/src/grids/GH_t0_uniformGrid.cu:85] dcv[k] = 0.0001
+Precompute index_radius[0] = 401
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 7
+  ghost atom cutoff = 7
+  binsize = 3.5, bins = 6 6 6
+  3 neighbor lists, perpetual/occasional/extra = 3 0 0
+  (1) fix metad, perpetual
+      attributes: full, newton on
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+  (2) pair meam, perpetual, copy from (1)
+      attributes: full, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+  (3) pair meam, perpetual, half/full from (1)
+      attributes: half, newton on
+      pair build: halffull/newton
+      stencil: none
+      bin: none
+Setting up Verlet run ...
+  Unit style    : metal
+  Current step  : 5055000
+  Time step     : 0.001
+Per MPI rank memory allocation (min/avg/max) = 9.786 | 9.786 | 9.786 Mbytes
+   Step          Temp          E_pair         TotEng         Press     
+   5055000   626.11729     -1592.6636     -1552.2786      12858.097    
+DEBUG: GPU Buffer [d_mask] expanded from 0 to 650
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 302
+the past location is (nil)
+now location is 0xb0f200000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:309] Warning: box < cutoff_r, please check your system !
+DEBUG: GPU Buffer [d_group_indices] expanded from 0 to 650
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 348
+the past location is (nil)
+now location is 0xb0f200c00
+DEBUG: GPU Buffer [d_group_numneigh] expanded from 0 to 651
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 369
+the past location is (nil)
+now location is 0xb0f201800
+DEBUG: GPU Buffer [d_firstneigh_ptrs] expanded from 0 to 41803
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 399
+the past location is (nil)
+now location is 0xb0f202400
+DEBUG: GPU Buffer [d_x_flat] expanded from 0 to 7723
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 440
+the past location is (nil)
+now location is 0xb0f22b200
+DEBUG: GPU Buffer [d_group_dminneigh] expanded from 0 to 40650
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 464
+the past location is (nil)
+now location is 0xb0f23a400
+DEBUG: GPU Buffer [d_neigh_in_cutoff_r] expanded from 0 to 2352
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 467
+the past location is (nil)
+now location is 0xb0f289c00
+DEBUG: GPU Buffer [d_neigh_both_in_r_N] expanded from 0 to 663
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 470
+the past location is (nil)
+now location is 0xb0f28c200
+DEBUG: GPU Buffer [d_calculated_numneigh] expanded from 0 to 10237
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 473
+the past location is (nil)
+now location is 0xb0f28ce00
+DEBUG: GPU Buffer [d_stein_Ylm] expanded from 0 to 138700
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 768
+the past location is (nil)
+now location is 0xb0f296e00
+DEBUG: GPU Buffer [d_stein_ql] expanded from 0 to 650
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 772
+the past location is (nil)
+now location is 0xb0f3a5e00
+DEBUG: GPU Buffer [d_stein_qlm] expanded from 0 to 7800
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 775
+the past location is (nil)
+now location is 0xb0f3a7400
+DEBUG: GPU Buffer [d_dcvdx] expanded from 0 to 1750
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 712
+the past location is (nil)
+now location is 0xb0f3b6800
+DEBUG: GPU Buffer [d_dYlm_dr] expanded from 0 to 3400
+in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 725
+the past location is (nil)
+now location is 0xb0f3ba000
+   5055010   594.21217     -1592.8626     -1554.5354      12920.654    
+   5055020   599.95486     -1591.8688     -1553.1712      13186.074    
+   5055030   608.12895     -1588.863      -1549.6382      13977.598    
+   5055040   610.99306     -1586.8311     -1547.4216      14540.811    
+   5055050   619.22713     -1585.1869     -1545.2463      14896.383    
+   5055060   645.87599     -1582.5726     -1540.9131      15659.88     
+   5055070   659.46978     -1576.8599     -1534.3235      17960.267    
+   5055080   604.39788     -1569.9476     -1530.9635      19769.999    
+   5055090   604.88155     -1564.0419     -1525.0266      21544.285    
+   5055100   582.40972     -1565.3232     -1527.7573      21334.847    
+   5055110   574.35066     -1571.151      -1534.105       19822.431    
+   5055120   625.39342     -1574.5556     -1534.2172      18979.824    
+   5055130   600.72524     -1574.4948     -1535.7475      18573.499    
+   5055140   553.68767     -1576.0571     -1540.3438      17702.837    
+   5055150   646.32036     -1576.5137     -1534.8255      18366.544    
+   5055160   594.70071     -1574.2094     -1535.8508      18915.976    
+   5055170   630.28092     -1574.5332     -1533.8796      19271.835    
+   5055180   607.78706     -1576.4468     -1537.244       18530.757    
+   5055190   607.60778     -1574.8831     -1535.6919      18928.512    
+   5055200   586.69861     -1574.6803     -1536.8378      18344.944    
+   5055210   664.00318     -1576.6289     -1533.8002      18002.403    
+   5055220   601.53766     -1578.8445     -1540.0448      16719.723    
+   5055230   641.445       -1580.7794     -1539.4057      16352.105    
+   5055240   603.12306     -1578.6778     -1539.7758      16758.911    
+   5055250   552.509       -1575.4832     -1539.8459      17494.452    
+   5055260   576.33562     -1575.3609     -1538.1868      17996.696    
+   5055270   612.45232     -1578.3219     -1538.8183      17354.737    
+   5055280   612.89706     -1580.1729     -1540.6405      16648.449    
+   5055290   598.75583     -1579.2705     -1540.6503      16599.707    

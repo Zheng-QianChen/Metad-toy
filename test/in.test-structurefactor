@@ -46,8 +46,8 @@ fix             1 all npt  temp ${temp} ${temp} 0.1 iso 1 1 1
 thermo 10
 thermo_style custom step temp epair etotal press
 dump normal all atom 10 dump.normal.lammpstrj
-run 50000
-# run 1
+# run 50000
+run 1
 unfix     1
 undump normal
 write_restart restart.normal
@@ -57,14 +57,14 @@ fix             1 all nvt  temp ${temp_eq} ${temp_eq} 0.1
 thermo 10
 thermo_style custom step temp epair etotal press
 dump liquidus all atom 10 dump.liquidus.lammpstrj
-run 500000
-# run 1
+# run 500000
+run 1
 unfix     1
 
 # fix             1 all npt  temp ${temp} ${temp} 0.1 iso 1 1 1
 fix             1 all nvt  temp ${temp} ${temp} 0.1
-run 5000
-# run 1
+# run 5000
+run 1
 unfix     1
 undump liquidus
 
@@ -89,25 +89,16 @@ group metad_group union all
 
 variable group_atoms equal count(metad_group)
 variable actual_height equal "0.01 * v_group_atoms"
-# 调用 metad fix：fix ID group metad sigma height biasf pace cv_dim nbin_num continue(bool)
-# fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
-#                     PACE 10 &
-#                     RECORD FILE_NAME rec.log REC_PACE 1 &
-#                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 4.5 cutoff_Natoms 18 &
-#                     CAL NAME Q4 STEINH Q 4 metad_group cutoff_r 3.9 cutoff_Natoms 12 &
-#                     SIMBOL v1 Q6.AVE &
-#                     SIMBOL v2 Q4.AVE &
-#                     CV_dim 1 &
-#                     DIM 1 0 1 1000 "v1" &
-#                     METAD_RESTART 1 &
-#                     WT 0
-fix metad all metad GAUSSIAN 0.01 0.05 10.0 &
+# 调用 metad fix：fix ID <group> metad  GAUSSIAN sigma height biasf 
+#                                       PACE    <pace>
+#                                       ........
+fix metad all metad GAUSSIAN 0.01 0.01 10.0 &
                     PACE 50 &
                     RECORD FILE_NAME rec.log REC_PACE 1 &
-                    CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.8 cutoff_Natoms 18 &
-                    SYMBOL v1 Q6.AVE &
+                    CAL NAME SF STRU_FACTOR metad_group cutoff_r 6 q_factor 2.8 &
+                    SYMBOL v1 SF.AVE &
                     CV_dim 1 &
-                    DIM 1 0 1 10000 "v1" &
+                    DIM 1 1.0 4.0 30000 "v1" &
                     METAD_RESTART 1 &
                     WT 0
 fix             1 all nvt  temp ${temp} ${temp} 0.001
@@ -121,7 +112,7 @@ dump 1 all atom 100 dump.metad.lammpstrj
 # variable a loop 300 # 3,000,000 / 10,000
 # label run_loop
     # run 10
-    run 500000
+    run 5000000
     
     # 保存带步数的 restart
     write_restart restart.metad

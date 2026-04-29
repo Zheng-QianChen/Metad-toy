@@ -8,6 +8,24 @@
 #define POW7(a) (POW3(a) * POW4(a))
 
 #define PI 3.1415926535897932385
+
+#ifndef REGISTER_CV_MACRO
+    #define REGISTER_CV_MACRO
+    #include <cstdio>
+    // 定义宏：传入 CV 的字符串名称和对应的类名
+    #define CONCAT_IMPL(a, b) a##b
+    #define CONCAT(a, b) CONCAT_IMPL(a, b)
+
+    #define REGISTER_CV(name_str, class_type)                                     \
+    namespace {                                                                   \
+        __attribute__((constructor, visibility("default")))                       \
+        void CONCAT(reg_func_, __LINE__)() {                                      \
+            MetaD_zqc::CVFactory::register_cv(name_str, &class_type);     \
+        }                                                                         \
+    }
+#endif
+
+
 // #define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \

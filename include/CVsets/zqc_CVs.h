@@ -22,6 +22,8 @@ namespace MetaD_zqc {
         double box_x, box_y, box_z;
         double dx, dy, dz;
     public:
+        static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
+                         int narg, char **arg, int &i, FILE *f_check);
         Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2, FILE *f_check);
         ~Distance() override;
         CV_Calculation set_CV_calculate(std::string func_name) override;
@@ -40,6 +42,8 @@ namespace MetaD_zqc {
         double dx, dy, dz;
     private:
     public:
+        static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
+                             int narg, char **arg, int &i, FILE *f_check);
         Steinhardt(LAMMPS_NS::LAMMPS *lmp, FILE *f_check):CV(lmp, f_check){}
         virtual ~Steinhardt() override{};
         void summary(FILE* f) override = 0;
@@ -135,9 +139,9 @@ namespace MetaD_zqc {
         static Steinhardt_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check, 
                                             LAMMPS_NS::FixMetadynamics *Fixmetad, 
                                             int group_id, double cutoff_r, int cutoff_Natoms);
-        Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
-             double cutoff_r, int cutoff_Natoms);
+        // Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
+        //      LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
+        //      double cutoff_r, int cutoff_Natoms);
         std::string get_env_key();
         // 用于在 Fix 析构时清理所有显存
         static void clear_pool();
@@ -213,4 +217,5 @@ namespace MetaD_zqc {
                                 Steinhardt_env* my_env,
                                 char *Q_type_str, double cutoff_r, int cutoff_Natoms, 
                                 int d_block_size);
+
 }

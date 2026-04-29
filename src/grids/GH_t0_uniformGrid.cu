@@ -279,74 +279,83 @@ void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w, d
 template<>
 void MetaD_zqc::GH_t0_uniformGrid<1>::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
-    DEBUG_LOG("get_dVdcv");
-    // printf("cv_values=%g\n",cv_values[0]);
-    get_cvspace_loc(cv_values, cvspace_loc);
-    int i = cvspace_loc[0];
-    // 计算原子相对于网格点 i 的偏移量 [0, 1]
-    double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-    // 确保 x 在插值公式中不因边界截断而产生错误的斜率
-    if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
-    double p0 = bias_grid[i - 1];
-    double p1 = bias_grid[i];
-    double p2 = bias_grid[i + 1];
-    double p3 = bias_grid[i + 2];
-    dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
-                x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
-                1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];
-    DEBUG_LOG("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g", i, p0, p1, p2, p3,dVdcvs[0]);
-    // printf("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g\n", i, p0, p1, p2, p3,dVdcvs[0]);
-    DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
-    if (isnan(dVdcvs[0])) { // 检查 NaN
-        printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
-        dVdcvs[0] = 0.0;
+    if (lmp->comm->me==0) {
+        DEBUG_LOG("get_dVdcv");
+        // printf("cv_values=%g\n",cv_values[0]);
+        get_cvspace_loc(cv_values, cvspace_loc);
+        int i = cvspace_loc[0];
+        // 计算原子相对于网格点 i 的偏移量 [0, 1]
+        double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+        // 确保 x 在插值公式中不因边界截断而产生错误的斜率
+        if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
+        double p0 = bias_grid[i - 1];
+        double p1 = bias_grid[i];
+        double p2 = bias_grid[i + 1];
+        double p3 = bias_grid[i + 2];
+        dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
+                    x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
+                    1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];
+        DEBUG_LOG("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g", i, p0, p1, p2, p3,dVdcvs[0]);
+        // printf("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g\n", i, p0, p1, p2, p3,dVdcvs[0]);
+        DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
+        if (isnan(dVdcvs[0])) { // 检查 NaN
+            printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
+            dVdcvs[0] = 0.0;
+        }
+        DEBUG_LOG("grid_gradient_end");
     }
-    DEBUG_LOG("grid_gradient_end");
+    MPI_Bcast(dVdcvs, cv_dim, MPI_DOUBLE, 0, lmp->world);
 }
 
 template<>
 void MetaD_zqc::GH_t0_uniformGrid<2>::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
-    get_cvspace_loc(cv_values, cvspace_loc);
-    int i = cvspace_loc[0];
-    int j = cvspace_loc[1]; 
-    // 2. 计算相对于左下角网格点的偏移量 dx, dy (范围 [0, 1])
-    double dx = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-    double dy = (cv_values[1] - (cv_bound[2] + j * dcv[1])) / dcv[1];
-    // 边界保护
-    if (dx < 0.0) dx = 0.0; if (dx > 1.0) dx = 1.0;
-    if (dy < 0.0) dy = 0.0; if (dy > 1.0) dy = 1.0;
-    // 3. 获取周边 4 个点的偏置势值
-    // 布局： p01(i, j+1) -- p11(i+1, j+1)
-    //        |                |
-    //       p00(i, j)   -- p10(i+1, j)
-    double p00 = bias_grid[i * nbin[1] + j];         // (i, j)
-    double p10 = bias_grid[(i + 1) * nbin[1] + j];   // (i+1, j)
-    double p01 = bias_grid[i * nbin[1] + (j + 1)];   // (i, j+1)
-    double p11 = bias_grid[(i + 1) * nbin[1] + (j + 1)]; // (i+1, j+1)
-    // 4. 双线性插值求偏导 (dV/dCV)
-    // V(dx, dy) = p00(1-dx)(1-dy) + p10*dx*(1-dy) + p01*(1-dx)*dy + p11*dx*dy
-    // dV/ddx = [ (p10 - p00)(1-dy) + (p11 - p01)dy ] / dcv[0]
-    dVdcvs[0] = ((p10 - p00) * (1.0 - dy) + (p11 - p01) * dy) / dcv[0];
-    // dV/ddy = [ (p01 - p00)(1-dx) + (p11 - p10)dx ] / dcv[1]
-    dVdcvs[1] = ((p01 - p00) * (1.0 - dx) + (p11 - p10) * dx) / dcv[1];
-    DEBUG_LOG("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g", 
-              i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
-    // printf("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g\n", 
-    //           i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
-    DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
-    if (isnan(dVdcvs[0]) || isnan(dVdcvs[1])) { // 检查 NaN
-        printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
-        dVdcvs[0] = 0.0;
-        dVdcvs[1] = 0.0;
+    if (lmp->comm->me==0) {
+        get_cvspace_loc(cv_values, cvspace_loc);
+        int i = cvspace_loc[0];
+        int j = cvspace_loc[1]; 
+        // 2. 计算相对于左下角网格点的偏移量 dx, dy (范围 [0, 1])
+        double dx = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+        double dy = (cv_values[1] - (cv_bound[2] + j * dcv[1])) / dcv[1];
+        // 边界保护
+        if (dx < 0.0) dx = 0.0; if (dx > 1.0) dx = 1.0;
+        if (dy < 0.0) dy = 0.0; if (dy > 1.0) dy = 1.0;
+        // 3. 获取周边 4 个点的偏置势值
+        // 布局： p01(i, j+1) -- p11(i+1, j+1)
+        //        |                |
+        //       p00(i, j)   -- p10(i+1, j)
+        double p00 = bias_grid[i * nbin[1] + j];         // (i, j)
+        double p10 = bias_grid[(i + 1) * nbin[1] + j];   // (i+1, j)
+        double p01 = bias_grid[i * nbin[1] + (j + 1)];   // (i, j+1)
+        double p11 = bias_grid[(i + 1) * nbin[1] + (j + 1)]; // (i+1, j+1)
+        // 4. 双线性插值求偏导 (dV/dCV)
+        // V(dx, dy) = p00(1-dx)(1-dy) + p10*dx*(1-dy) + p01*(1-dx)*dy + p11*dx*dy
+        // dV/ddx = [ (p10 - p00)(1-dy) + (p11 - p01)dy ] / dcv[0]
+        dVdcvs[0] = ((p10 - p00) * (1.0 - dy) + (p11 - p01) * dy) / dcv[0];
+        // dV/ddy = [ (p01 - p00)(1-dx) + (p11 - p10)dx ] / dcv[1]
+        dVdcvs[1] = ((p01 - p00) * (1.0 - dx) + (p11 - p10) * dx) / dcv[1];
+        DEBUG_LOG("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g", 
+                i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
+        // printf("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g\n", 
+        //           i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
+        DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
+        if (isnan(dVdcvs[0]) || isnan(dVdcvs[1])) { // 检查 NaN
+            printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
+            dVdcvs[0] = 0.0;
+            dVdcvs[1] = 0.0;
+        }
+        DEBUG_LOG("grid_gradient_end");
     }
-    DEBUG_LOG("grid_gradient_end");
+    MPI_Bcast(dVdcvs, cv_dim, MPI_DOUBLE, 0, lmp->world);
 }
 
 template<>
 void MetaD_zqc::GH_t0_uniformGrid<3>::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
-    DEBUG_LOG("grid_gradient_end");
+    if (lmp->comm->me==0) {
+        DEBUG_LOG("grid_gradient_end");
+    }
+    MPI_Bcast(dVdcvs, cv_dim, MPI_DOUBLE, 0, lmp->world);
 }
 
 

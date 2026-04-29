@@ -1,3 +1,5 @@
+#include <cstdio>
+
 #include "fix_crystallize.h"
 #include "zqc_CVs.h"
 #include "zqc_debug.h"
@@ -13,6 +15,19 @@
 #include "group.h"
 
 
+MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp, 
+                                          LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                                          int narg, char **arg, int &i, FILE *f_check){
+  LAMMPS_NS::Error *error = lmp->error;
+  DEBUG_LOG("In DISTANCE settings");
+  // DISTANCE 1 2 -> cv_values: 1-2 距离
+  ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
+  int id1   = LAMMPS_NS::utils::inumeric(FLERR, arg[i+1], false, lmp);
+  int id2   = LAMMPS_NS::utils::inumeric(FLERR, arg[i+2], false, lmp);
+  // DEBUG_LOG("debug: %d %d", id1, id2);
+  i += 3;
+  return new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
+}
 
 MetaD_zqc::Distance::~Distance(){
   delete[] dcvdx;
@@ -117,3 +132,6 @@ MetaD_zqc::CV::CV_Calculation MetaD_zqc::Distance::set_CV_calculate(std::string 
 MetaD_zqc::CV::CV_BiasForce MetaD_zqc::Distance::set_CV_bias_force(std::string func_name){
   return static_cast<MetaD_zqc::CV::CV_BiasForce>(&MetaD_zqc::Distance::bias_force);
 }
+
+
+REGISTER_CV("DISTANCE", MetaD_zqc::Distance::create);
