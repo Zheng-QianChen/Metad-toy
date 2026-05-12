@@ -25,6 +25,7 @@
 #include <cuda_runtime.h>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 using namespace LAMMPS_NS;
 
@@ -449,6 +450,8 @@ void MetaD_zqc::Stru_factor::envioronment(){
 auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string func_name) -> CV_Calculation {
     if (func_name == "AVE") {
         return static_cast<CV_Calculation>(&Stru_factor::compute_cv_AVE);
+    } else if (func_name == "FILTER_SUM") {
+        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_FILTER_SUM);
     }
     return nullptr;
 }
@@ -456,6 +459,8 @@ auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string func_name) -> CV_Calcu
 auto MetaD_zqc::Stru_factor::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
     if (func_name == "AVE") {
         return static_cast<CV_BiasForce>(&Stru_factor::bias_force_AVE);
+    } else if (func_name == "FILTER_SUM") {
+        return static_cast<CV_Calculation>(&Stru_factor::bias_force_FILTER_SUM);
     }
     return nullptr;
 }
@@ -475,6 +480,35 @@ double MetaD_zqc::Stru_factor::compute_cv_AVE(){
     }
     MPI_Allreduce(&sf_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
+    return cv_value;
+}
+
+double MetaD_zqc::Stru_factor::compute_cv_FILTER_SUM(){
+    DEBUG_LOG("Entering compute_cv_FILTER_SUM.");
+    int group_count = my_env->group_count;
+    double filter_sum_local = 0.0;
+    
+    // 参数建议：s_0 是区分液固的阈值（论文中的 1.25），d_0 是平滑过渡的宽度
+    double s_0 = 1.25; 
+    double d_0 = 0.1;  
+
+    if (group_count != 0 && h_stru_factor != NULL) {
+        for (int i = 0; i < group_count; ++i) {
+            double s_i = h_stru_factor[i];
+            
+            // 使用平滑阶跃函数：f(s) = 1 / (1 + exp(-(s - s_0) / d_0))
+            // 这样当 s_i 增加时，贡献度平滑地从 0 变到 1
+            double exp_term = std::exp(-(s_i - s_0) / d_0);
+            double filter_val = 1.0 / (1.0 + exp_term);
+            
+            filter_sum_local += filter_val;
+        }
+    }
+
+    // 汇总所有进程的固态原子数估计值
+    MPI_Allreduce(&filter_sum_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+    
+    DEBUG_LOG("FILTER_SUM (Estimated solid atoms): %g", cv_value);
     return cv_value;
 }
 
@@ -525,7 +559,7 @@ void MetaD_zqc::Stru_factor::bias_force_AVE(double dVdcv){
     double **f = lmp->atom->f;
     double **x = lmp->atom->x;
     int c_tag;
-    DEBUG_RUN((double sumForce[3] = {0.0, 0.0, 0.0}));
+    double sumForce[3] = {0.0, 0.0, 0.0};
     DEBUG_LOG("MetaD_zqc::Stru_factor::bias_force_AVE");
     this->get_dcvdx_AVE(cv_value, h_dcvdx);
     // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
@@ -543,11 +577,13 @@ void MetaD_zqc::Stru_factor::bias_force_AVE(double dVdcv){
         f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
         f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
         DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        DEBUG_RUN((sumForce[0] += dVdcv*h_dcvdx[c_atom*3 + 0]));
-        DEBUG_RUN((sumForce[1] += dVdcv*h_dcvdx[c_atom*3 + 1]));
-        DEBUG_RUN((sumForce[2] += dVdcv*h_dcvdx[c_atom*3 + 2]));
+        sumForce[0] += dVdcv*h_dcvdx[c_atom*3 + 0];
+        sumForce[1] += dVdcv*h_dcvdx[c_atom*3 + 1];
+        sumForce[2] += dVdcv*h_dcvdx[c_atom*3 + 2];
     }
-    DEBUG_LOG("sumForce=%g\n",sqrt(POW2(sumForce[0])+POW2(sumForce[1])+POW2(sumForce[2])));
+    double sumforce_mod=sqrt(POW2(sumForce[0])+POW2(sumForce[1])+POW2(sumForce[2]));
+    LOG_COND(sumforce_mod>1e-10,"Warning: bias force will make the system flow. sumforce_mod=%g",sumforce_mod);
+    DEBUG_LOG("sumForce=%g",sumforce_mod);
     DEBUG_LOG("post_force_r_end");
 }
 
@@ -730,15 +766,27 @@ __global__ void structure_factor_cv_kernel(
             sincos(theta, &sin_theta, &cos_theta);
             if (r2 > r_on){
                 s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
-                // ds = -6.0*POW2((r2-r_on)/(cutoff_rsq-r_on))/(cutoff_rsq-r_on);
             } else {
                 s = 1.0;
-                // ds = 0.0;
             }
             d_stru_factor[c_atom] += sin_theta/theta*s;
         }
         // d_stru_factor[c_atom] /= (double)(d_neigh_in_cutoff_r[c_atom]);
         d_stru_factor[c_atom] += 1.0;
+    }
+}
+
+__global__ void structure_factor_cv_Filter(
+        int group_count, double q_factor_filter,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        double *d_stru_factor){
+
+    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+    double r_on = 0.8*cutoff_rsq;
+    double s = 1.0;
+    // double ds = 0.0;
+    if(c_atom<group_count){
+        d_stru_factor[c_atom] = q_factor_filter;
     }
 }
 
@@ -793,16 +841,14 @@ __global__ void structure_factor_dcv_AVE_kernel(
             }
             if (r2 > r_on){
                 s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
-                ds = -6.0*POW2((r2-r_on)/(cutoff_rsq-r_on))/(cutoff_rsq-r_on);
             } else {
                 s = 1.0;
-                ds = 0.0;
             }
-            temp = NeighInGroupWeight*q_factor*(cos_theta/theta - sin_theta/POW2(theta))/all_count;
-            Stru_fact = q_factor*sin_theta/theta/all_count;
-            d_dcvdx[c_atom*3 + 0] -= (s*temp + ds*Stru_fact)*dx/r;
-            d_dcvdx[c_atom*3 + 1] -= (s*temp + ds*Stru_fact)*dy/r;
-            d_dcvdx[c_atom*3 + 2] -= (s*temp + ds*Stru_fact)*dz/r;
+            temp = (NeighInGroupWeight * q_factor/ all_count) \
+                        *(cos_theta/theta - sin_theta/POW2(theta)) *s;
+            d_dcvdx[c_atom*3 + 0] -= (temp)*dx/r;
+            d_dcvdx[c_atom*3 + 1] -= (temp)*dy/r;
+            d_dcvdx[c_atom*3 + 2] -= (temp)*dz/r;
         }
     }
 

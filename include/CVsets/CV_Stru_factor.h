@@ -61,8 +61,8 @@ namespace MetaD_zqc {
         // [group_indices] : group atoms tagint, 1-D = [atoms in group and also in local]
         int                                         *mask = nullptr;
         GpuBuffer<int>                              d_mask;
-        LAMMPS_NS::tagint                           *h_tag = nullptr;
-        GpuBuffer<LAMMPS_NS::tagint>                d_tag;
+        // LAMMPS_NS::tagint                           *h_tag = nullptr;
+        // GpuBuffer<LAMMPS_NS::tagint>                d_tag;
         LAMMPS_NS::tagint                           *h_group_indices = nullptr;
         GpuBuffer<LAMMPS_NS::tagint>                d_group_indices;
         // [firstneigh_ptrs]: group neighbor, each center atoms * neighbors localtag

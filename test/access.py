@@ -30,5 +30,5 @@ print(stds)
 import matplotlib.pyplot as plt
 plt.figure(figsize=(10, 5), dpi=300)
 plt.plot(row_indices, cv, label='CV')
-plt.ylim(1,4)
+plt.ylim(0,1)
 plt.savefig(f"cv_plot{outer}.png")
