@@ -186,6 +186,8 @@ namespace MetaD_zqc {
         // stein_qlm stored in 
         double                                      *h_stein_qlm = nullptr;
         GpuBuffer<double>                           d_stein_qlm;
+        double                                     *h_stein_LQlm = nullptr;
+        GpuBuffer<double>                           d_stein_LQlm;
     public:
         using CV_Calculation = typename CV::CV_Calculation;
         using CV_BiasForce = typename CV::CV_BiasForce;
@@ -201,13 +203,19 @@ namespace MetaD_zqc {
         void base_calc() override;
         void compute_Q_peratoms();
         double compute_cv_AVE();
+        double compute_cv_LOC_AVE();
         void bias_force_AVE(double dVdcv);
+        void bias_force_LOC_AVE(double dVdcv);
         void summary(FILE* f) override;
         void get_dcvdx(double cv_value, double *dcvdx) override;
+        void get_dcvdx_AVE(double cv_value, double *dcvdx);
+        void get_dcvdx_LOC_AVE(double cv_value, double *dcvdx);
         void steinhardt_param_calc(double *);
         void get_numneigh_full_pair_ABANDON_();
         void call_steinhardt_cv_kernel();
         void call_steinhardt_dcv_kernel();
+        void call_steinhardt_cv_LOCAL_kernel();
+        void call_steinhardt_dcv_LOCAL_kernel();
         void envioronment();
     };
 

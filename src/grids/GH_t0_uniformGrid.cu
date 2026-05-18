@@ -388,7 +388,7 @@ double MetaD_zqc::GH_t0_uniformGrid<1>::get_total_bias(int* cvspace_loc){
 
 template<>
 double MetaD_zqc::GH_t0_uniformGrid<2>::get_total_bias(int* cvspace_loc){
-  return bias_grid[cvspace_loc[0]*nbin[0] + cvspace_loc[1]];
+  return bias_grid[cvspace_loc[0]*nbin[1] + cvspace_loc[1]];
 }
 
 template<>
@@ -396,7 +396,7 @@ double MetaD_zqc::GH_t0_uniformGrid<3>::get_total_bias(int* cvspace_loc){
   long long index = 0;
   long long stride = 1;
   for (int i = 0; i < cv_dim; ++i) {
-      index += (long long)cvspace_loc[i] * stride;
+      index += (long long)cvspace_loc[i+1] * stride;
       stride *= nbin[i]; 
   }
   return bias_grid[index];

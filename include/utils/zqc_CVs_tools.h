@@ -58,8 +58,7 @@ struct GpuBuffer {
     ~GpuBuffer() { if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, __FILE__, __LINE__); }
 };
 
-__global__ void get_envioronment
-(
+__global__ void get_envioronment(
     int cutoff_Natoms, double cutoff_rsq, double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
@@ -67,14 +66,21 @@ __global__ void get_envioronment
     LAMMPS_NS::tagint *d_calculated_numneigh
 );
 
-__global__ void fix_crystallizes_kernel
-(
+__global__ void fix_crystallizes_kernel(
     int cutoff_Natoms, double cutoff_rsq, double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
     double *d_group_dminneigh, int *d_neigh_in_cutoff_r, int *d_neigh_both_in_r_N,
     LAMMPS_NS::tagint *d_calculated_numneigh
 );
+
+__global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
+                    int stein_l, int groupbit,
+                    int *d_mask, LAMMPS_NS::tagint *d_group_indices,
+                    LAMMPS_NS::tagint *calculated_numneigh, 
+                    int *d_neigh_both_in_r_N,
+                    double *d_stein_qlm, double *d_stein_LQlm,
+                    double *d_stein_ql);
 
 __global__ void steinhardt_param_calc_kernel_q3(
     int group_count, int cutoff_Natoms,
@@ -116,6 +122,15 @@ __global__ void steinhardt_param_calc_kernel_q6(
 );
 
 __global__ void dcv_steinhardt_param_calc_kernel_q6(
+    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
+    int *d_mask,
+    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_dYlm_dr,double *d_dcvdx
+);
+
+__global__ void dcv_steinhardt_param_calc_LOCAL_kernel_q4(
     int cutoff_Natoms, int group_count, int groupbit, int all_count, 
     int *d_mask,
     LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 

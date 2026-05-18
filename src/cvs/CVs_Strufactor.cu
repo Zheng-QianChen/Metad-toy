@@ -451,7 +451,7 @@ auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string func_name) -> CV_Calcu
     if (func_name == "AVE") {
         return static_cast<CV_Calculation>(&Stru_factor::compute_cv_AVE);
     } else if (func_name == "FILTER_SUM") {
-        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_FILTER_SUM);
+        // return static_cast<CV_Calculation>(&Stru_factor::compute_cv_FILTER_SUM);
     }
     return nullptr;
 }
@@ -460,7 +460,7 @@ auto MetaD_zqc::Stru_factor::set_CV_bias_force(std::string func_name) -> CV_Bias
     if (func_name == "AVE") {
         return static_cast<CV_BiasForce>(&Stru_factor::bias_force_AVE);
     } else if (func_name == "FILTER_SUM") {
-        return static_cast<CV_Calculation>(&Stru_factor::bias_force_FILTER_SUM);
+        // return static_cast<CV_Calculation>(&Stru_factor::bias_force_FILTER_SUM);
     }
     return nullptr;
 }
@@ -483,34 +483,34 @@ double MetaD_zqc::Stru_factor::compute_cv_AVE(){
     return cv_value;
 }
 
-double MetaD_zqc::Stru_factor::compute_cv_FILTER_SUM(){
-    DEBUG_LOG("Entering compute_cv_FILTER_SUM.");
-    int group_count = my_env->group_count;
-    double filter_sum_local = 0.0;
+// double MetaD_zqc::Stru_factor::compute_cv_FILTER_SUM(){
+//     DEBUG_LOG("Entering compute_cv_FILTER_SUM.");
+//     int group_count = my_env->group_count;
+//     double filter_sum_local = 0.0;
     
-    // 参数建议：s_0 是区分液固的阈值（论文中的 1.25），d_0 是平滑过渡的宽度
-    double s_0 = 1.25; 
-    double d_0 = 0.1;  
+//     // 参数建议：s_0 是区分液固的阈值（论文中的 1.25），d_0 是平滑过渡的宽度
+//     double s_0 = 1.25; 
+//     double d_0 = 0.1;  
 
-    if (group_count != 0 && h_stru_factor != NULL) {
-        for (int i = 0; i < group_count; ++i) {
-            double s_i = h_stru_factor[i];
+//     if (group_count != 0 && h_stru_factor != NULL) {
+//         for (int i = 0; i < group_count; ++i) {
+//             double s_i = h_stru_factor[i];
             
-            // 使用平滑阶跃函数：f(s) = 1 / (1 + exp(-(s - s_0) / d_0))
-            // 这样当 s_i 增加时，贡献度平滑地从 0 变到 1
-            double exp_term = std::exp(-(s_i - s_0) / d_0);
-            double filter_val = 1.0 / (1.0 + exp_term);
+//             // 使用平滑阶跃函数：f(s) = 1 / (1 + exp(-(s - s_0) / d_0))
+//             // 这样当 s_i 增加时，贡献度平滑地从 0 变到 1
+//             double exp_term = std::exp(-(s_i - s_0) / d_0);
+//             double filter_val = 1.0 / (1.0 + exp_term);
             
-            filter_sum_local += filter_val;
-        }
-    }
+//             filter_sum_local += filter_val;
+//         }
+//     }
 
-    // 汇总所有进程的固态原子数估计值
-    MPI_Allreduce(&filter_sum_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+//     // 汇总所有进程的固态原子数估计值
+//     MPI_Allreduce(&filter_sum_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     
-    DEBUG_LOG("FILTER_SUM (Estimated solid atoms): %g", cv_value);
-    return cv_value;
-}
+//     DEBUG_LOG("FILTER_SUM (Estimated solid atoms): %g", cv_value);
+//     return cv_value;
+// }
 
 void MetaD_zqc::Stru_factor::compute_stru_factor_peratoms(){
     // =======接受邻居更新消息,进行与设备端通信===========
@@ -768,6 +768,7 @@ __global__ void structure_factor_cv_kernel(
                 s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
             } else {
                 s = 1.0;
+                // ds = 0.0;
             }
             d_stru_factor[c_atom] += sin_theta/theta*s;
         }
@@ -776,19 +777,19 @@ __global__ void structure_factor_cv_kernel(
     }
 }
 
-__global__ void structure_factor_cv_Filter(
-        int group_count, double q_factor_filter,
-        LAMMPS_NS::tagint *d_group_numneigh,
-        double *d_stru_factor){
+// __global__ void structure_factor_cv_Filter(
+//         int group_count, double q_factor_filter,
+//         LAMMPS_NS::tagint *d_group_numneigh,
+//         double *d_stru_factor){
 
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    double r_on = 0.8*cutoff_rsq;
-    double s = 1.0;
-    // double ds = 0.0;
-    if(c_atom<group_count){
-        d_stru_factor[c_atom] = q_factor_filter;
-    }
-}
+//     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+//     double r_on = 0.8*cutoff_rsq;
+//     double s = 1.0;
+//     // double ds = 0.0;
+//     if(c_atom<group_count){
+//         d_stru_factor[c_atom] = q_factor_filter;
+//     }
+// }
 
 __global__ void structure_factor_dcv_AVE_kernel(
         int group_count, int groupbit, int all_count, double cutoff_rsq,

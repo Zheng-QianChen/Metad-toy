@@ -189,8 +189,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
           //     i = iarg;
           // }
       } else if (strcmp(arg[i], "SYMBOL") == 0) {
-            // SIMBOL v1 Q6.AVE -> SIMBOL <symbol_name> <cv_method>
-            ERR_COND(i + 2 >= narg, "Error: DIM command requires 2 arguments: SIMBOL <symbol_name> <cv_method>.");
+            // SYMBOL v1 Q6.AVE -> SYMBOL <symbol_name> <cv_method>
+            ERR_COND(i + 2 >= narg, "Error: DIM command requires 2 arguments: SYMBOL <symbol_name> <cv_method>.");
             // "Q4.mean"
             DEBUG_LOG("168L:%s", arg[i+2]);
             std::string target = arg[i+2];
