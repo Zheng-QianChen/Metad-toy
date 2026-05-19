@@ -20,6 +20,7 @@
 
 #include "zqc_debug.h"
 #include "zqc_CVs.h"
+#include "CV_Steinhardt_math.cu"
 
 #include <cuda_runtime.h>
 #include <cstring>
@@ -859,6 +860,10 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
     int cutoff_Natoms = my_env->cutoff_Natoms;
     int last_group_count = my_env->last_group_count;
     int group_count = my_env->group_count;
+    // TODO: we can change the cuda stream to lammps stream, 
+    // but we need to make sure that the stream is synchronized before we copy data back to host. 
+    // For now, we will use the default stream.
+    cudaStream_t lammps_stream = 0; // Assuming you want to use the default stream. Adjust if you have a specific stream.
     // in class protect
     // result array
     // every q has <2*L + 1> qlm, with complex we will times 2
@@ -877,9 +882,11 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
     // SAFE_CUDA_FREE(d_stein_ql);
     // SAFE_CUDA_MALLOC(&d_stein_ql, group_count*sizeof(double), f_check);
     d_stein_ql.grow_to(group_count, f_check, __FILE__, __LINE__);
+    cudaMemsetAsync(d_stein_ql.ptr, 0, (group_count)*sizeof(double), lammps_stream);
     // SAFE_CUDA_FREE(d_stein_qlm);
     // SAFE_CUDA_MALLOC(&d_stein_qlm, (group_count*(L + 1)*2)*sizeof(double), f_check);
     d_stein_qlm.grow_to((group_count*(L + 1)*2), f_check, __FILE__, __LINE__);
+    cudaMemsetAsync(d_stein_qlm.ptr, 0, (group_count*(L + 1)*2)*sizeof(double), lammps_stream);
 
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
@@ -916,21 +923,9 @@ template <int L>
 void MetaD_zqc::STEIN_QL<L>::summary(FILE* f){}
 
 
-
-
-template <>
-void MetaD_zqc::STEIN_QL<4>::call_steinhardt_cv_kernel(){
-    steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
-        (my_env->group_count), (my_env->cutoff_Natoms),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,
-        d_stein_ql.ptr) ;
-}
-
-template <>
-void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    dcv_steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
+template <int L>
+void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_kernel(){
+    dcv_steinhardt_param_calc_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
@@ -939,44 +934,75 @@ void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_kernel(){
 }
 
 
-template <>
-void MetaD_zqc::STEIN_QL<6>::call_steinhardt_cv_kernel(){
-    steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
+template <int L>
+void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_kernel(){
+    steinhardt_param_calc_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->group_count), (my_env->cutoff_Natoms),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
         d_stein_qlm.ptr, d_stein_Ylm.ptr,
         d_stein_ql.ptr) ;
 }
 
-template <>
-void MetaD_zqc::STEIN_QL<6>::call_steinhardt_dcv_kernel(){
-    dcv_steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
-        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
-}
+
+// template <>
+// void MetaD_zqc::STEIN_QL<4>::call_steinhardt_cv_kernel(){
+//     steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
+//         (my_env->group_count), (my_env->cutoff_Natoms),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
+//         d_stein_ql.ptr) ;
+// }
+
+// template <>
+// void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_kernel(){
+//     // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
+//     dcv_steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
+//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+//         d_dYlm_dr.ptr, d_dcvdx.ptr);
+// }
 
 
-template <>
-void MetaD_zqc::STEIN_QL<3>::call_steinhardt_cv_kernel(){
-    steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
-        (my_env->group_count), (my_env->cutoff_Natoms),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,
-        d_stein_ql.ptr) ;
-}
+// template <>
+// void MetaD_zqc::STEIN_QL<6>::call_steinhardt_cv_kernel(){
+//     steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
+//         (my_env->group_count), (my_env->cutoff_Natoms),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
+//         d_stein_ql.ptr) ;
+// }
 
-template <>
-void MetaD_zqc::STEIN_QL<3>::call_steinhardt_dcv_kernel(){
-    dcv_steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
-        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
-}
+// template <>
+// void MetaD_zqc::STEIN_QL<6>::call_steinhardt_dcv_kernel(){
+//     dcv_steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
+//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+//         d_dYlm_dr.ptr, d_dcvdx.ptr);
+// }
+
+
+// template <>
+// void MetaD_zqc::STEIN_QL<3>::call_steinhardt_cv_kernel(){
+//     steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
+//         (my_env->group_count), (my_env->cutoff_Natoms),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
+//         d_stein_ql.ptr) ;
+// }
+
+// template <>
+// void MetaD_zqc::STEIN_QL<3>::call_steinhardt_dcv_kernel(){
+//     dcv_steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
+//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+//         d_dYlm_dr.ptr, d_dcvdx.ptr);
+// }
 
 // LOCAL_AVE
 
@@ -1008,37 +1034,39 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_LOCAL_kernel(){
     //     d_stein_ql.ptr) ;
 }
 
+
+
 template <>
 void MetaD_zqc::STEIN_QL<3>::call_steinhardt_dcv_LOCAL_kernel(){
     // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    dcv_steinhardt_param_calc_LOCAL_kernel_q4<<<block_num,d_block_size>>>(
-        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
+    // dcv_steinhardt_param_calc_LOCAL_kernel_q3<<<block_num,d_block_size>>>(
+    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
 }
 
 template <>
 void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_LOCAL_kernel(){
     // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    dcv_steinhardt_param_calc_LOCAL_kernel_q4<<<block_num,d_block_size>>>(
-        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
+    // dcv_steinhardt_param_calc_LOCAL_kernel_q4<<<block_num,d_block_size>>>(
+    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
 }
 
 template <>
 void MetaD_zqc::STEIN_QL<6>::call_steinhardt_dcv_LOCAL_kernel(){
     // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    dcv_steinhardt_param_calc_LOCAL_kernel_q4<<<block_num,d_block_size>>>(
-        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
+    // dcv_steinhardt_param_calc_LOCAL_kernel_q6<<<block_num,d_block_size>>>(
+    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
 }
 
 
@@ -1125,6 +1153,269 @@ __global__ void get_envioronment(int cutoff_Natoms, double cutoff_rsq,
         else{
             d_neigh_both_in_r_N[c_atom]=d_neigh_in_cutoff_r[c_atom];
         }
+    }
+}
+
+
+
+template <int L>
+__global__ void steinhardt_param_calc_kernel(
+    int group_count, int cutoff_Natoms,
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql
+) {
+    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c_atom >= group_count) return;
+
+    // 【与导数核函数完美镜像】的近邻数读取与基础寻址逻辑
+    int neigh_num = d_neigh_both_in_r_N[c_atom];
+    int stein_qlm_base_id = c_atom * (L + 1) * 2;
+    int stein_Ylm_base_id;
+
+    // 如果没有邻居，直接清零退出
+    if (neigh_num == 0) return;
+    double inv_neigh = 1.0 / (double)neigh_num;
+
+    // 在寄存器（栈）上初始化局部数组用于累加，避免频繁读写全局显存
+    constexpr int qlm_size = (L + 1) * 2;
+    // double local_qlm[qlm_size] = {0.0};
+    d_stein_qlm[stein_qlm_base_id] = 0.0;
+    double *local_qlm = &d_stein_qlm[stein_qlm_base_id];
+
+    for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
+        // 【完全通用】的坐标读取与基础三角函数
+        double dx = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 0];
+        double dy = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 1];
+        double dz = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 2];
+        double r2 = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 3];
+        double r  = sqrt(r2);
+
+        double theta = acos(dz / r);
+        double phi = atan2(dy, dx);
+
+        double sin_theta, cos_theta, sin_phi, cos_phi;
+        double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
+        double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
+        double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
+        double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
+        double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
+        sincos(theta, &sin_theta, &cos_theta);
+        sincos(phi, &sin_phi, &cos_phi);
+
+        // 【完全通用】的三角函数倍角级联（编译期静态分支分发）
+        if constexpr (L >= 2) {
+            sincos(2 * theta, &sin_2theta, &cos_2theta);
+            sincos(2 * phi, &sin_2phi, &cos_2phi);
+        }
+        if constexpr (L >= 3) {
+            sincos(3 * phi, &sin_3phi, &cos_3phi);
+            sincos(3 * theta, &sin_3theta, &cos_3theta);
+            sincos(4 * theta, &sin_4theta, &cos_4theta);
+        }
+        if constexpr (L >= 4) {
+            sincos(4 * phi, &sin_4phi, &cos_4phi);
+            sincos(5 * theta, &sin_5theta, &cos_5theta);
+            sincos(5 * phi, &sin_5phi, &cos_5phi);
+            sincos(6 * theta, &sin_6theta, &cos_6theta);
+        }
+        if constexpr (L >= 6) {
+            sincos(6 * phi, &sin_6phi, &cos_6phi);
+        }
+        
+        stein_Ylm_base_id = c_atom*cutoff_Natoms*(L + 1)*2 + neigh_atom*(L + 1)*2;
+
+        // ==========================================================
+        //  💥 核心艺术：利用编译期静态判断条件，杜绝任何浪费！
+        // ==========================================================
+        if constexpr (L == 3) {
+            compute_qlm_forward_L3(
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
+                &local_qlm[0], &d_stein_Ylm[stein_Ylm_base_id]
+            );
+        } else if constexpr (L == 4) {
+            compute_qlm_forward_L4(
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2phi, sin_2phi,
+                cos_3phi, sin_3phi,
+                cos_4phi, sin_4phi,
+                &local_qlm[0], &d_stein_Ylm[stein_Ylm_base_id]
+            );
+        } else if constexpr (L == 6) {
+            compute_qlm_forward_L6(
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
+                cos_5phi, sin_5phi,
+                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
+                &local_qlm[0], &d_stein_Ylm[stein_Ylm_base_id]
+            );
+        }
+    }
+
+    // --- 循环外归一化与写回全局显存 ---
+    
+    #pragma unroll
+    for (int i = 0; i < qlm_size; i++) {
+        local_qlm[i] *= inv_neigh;
+        // d_stein_qlm[stein_qlm_base_id + i] = local_qlm[i];
+    }
+
+    double ql_sq = local_qlm[0] * local_qlm[0];
+
+    // 3. 对应你原代码的第三步：从 m = 1 开始累加已经归一化的各项平方和
+    #pragma unroll
+    for (int i = 1; i <= L; i++) {
+        double re_part = local_qlm[i * 2 + 0];
+        double im_part = local_qlm[i * 2 + 1];
+        ql_sq += 2.0 * (re_part * re_part + im_part * im_part);
+    }
+
+    d_stein_ql[c_atom] = sqrt(ql_sq * 12.56637061435917295385/double(2*L + 1));
+}
+
+
+template <int L>
+__global__ void dcv_steinhardt_param_calc_kernel(
+    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
+    int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_dYlm_dr, double *d_dcvdx
+) {
+    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+    if (c_atom >= group_count) return;
+    double Factor_Y, Factor_Ydx, Factor_Ydy, Factor_Ydz;
+    double tdx_r, tdx_i, tdy_r, tdy_i, tdz_r, tdz_i;
+
+    // 【完全通用】框架：近邻、数组清零、寻址逻辑
+    int neigh_num = d_neigh_both_in_r_N[c_atom];
+    for(int i = 0; i < 3; i++) {
+        d_dcvdx[c_atom * 3 + i] = 0.0;
+        d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] = 0.0;
+        d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1] = 0.0;
+    }
+    if (neigh_num == 0) return;
+
+    double catom_ql_timesN = 1.0 / (d_stein_ql[c_atom] * neigh_num);
+    int stein_qlm_base_id = c_atom * (L + 1) * 2;
+
+    for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
+        // 【完全通用】的坐标读取与基础三角函数
+        double dx = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 0];
+        double dy = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 1];
+        double dz = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 2];
+        double r2 = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 3];
+        double r  = sqrt(r2);
+        
+        double theta = acos(dz / r);
+        double phi = atan2(dy, dx);
+
+        double sin_theta, cos_theta, sin_phi, cos_phi;
+        double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
+        double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
+        double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
+        double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
+        double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
+        sincos(theta, &sin_theta, &cos_theta);
+        sincos(phi, &sin_phi, &cos_phi);
+        
+        // 【完全通用】的三角函数倍角级联
+        if constexpr (L >= 2) {
+            sincos(2 * theta, &sin_2theta, &cos_2theta);
+            sincos(2 * phi, &sin_2phi, &cos_2phi);
+        }
+        // 如果 L >= 3，才编译 3 倍角
+        if constexpr (L >= 3) {
+            sincos(3 * phi, &sin_3phi, &cos_3phi);
+            sincos(4 * theta, &sin_4theta, &cos_4theta);
+        }
+        // 如果 L >= 4，才编译 4 倍角
+        if constexpr (L >= 4) {
+            sincos(3 * theta, &sin_3theta, &cos_3theta);
+            sincos(4 * phi, &sin_4phi, &cos_4phi);
+            sincos(5 * theta, &sin_5theta, &cos_5theta);
+            sincos(5 * phi, &sin_5phi, &cos_5phi);
+            sincos(6 * theta, &sin_6theta, &cos_6theta);
+        }
+        if constexpr (L >= 6) {
+            sincos(6 * phi, &sin_6phi, &cos_6phi);
+        }
+
+        // 【完全通用】的近邻查找逻辑
+        int Neigh_Nb = 0;
+        double neigh_ql_timesN = 0.0;
+        int stein_qlm_neigh_id = 0;
+        int neigh_tag = calculated_numneigh[c_atom * cutoff_Natoms + neigh_atom];
+        
+        if (d_mask[neigh_tag] & groupbit) {
+            int left = 0, right = group_count - 1;
+            while (left <= right) {
+                int mid = left + (right - left) / 2;
+                if (d_group_indices[mid] == neigh_tag) {
+                    Neigh_Nb = d_neigh_both_in_r_N[mid];
+                    neigh_ql_timesN = 1.0 / (d_stein_ql[mid] * Neigh_Nb);
+                    stein_qlm_neigh_id = mid * (L + 1) * 2;
+                    break;
+                } else if (d_group_indices[mid] < neigh_tag) left = mid + 1;
+                else right = mid - 1;
+            }
+        }
+
+        // ==========================================================
+        //  💥 核心艺术：利用编译期静态判断条件，杜绝任何浪费！
+        // ==========================================================
+        if constexpr (L == 3) {
+            // 当编译指定该模板为 <3> 时，编译器在这一步会直接盲切到 L3 函数。
+            // 此时 L==6 的分支、以及计算 q6 所需的其他高阶 sin_5theta 变量，
+            // 会被编译器判定为“死代码”彻底移除。最终生成的 GPU 二进制指令纯净无污染。
+            compute_Ylm_gradient_L3(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, 
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        } else if constexpr (L == 4) {
+            // 针对计算 q4，这里在前面额外多算两个高阶级联分量即可
+            compute_Ylm_gradient_L4(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
+                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
+                cos_6theta, sin_6theta,
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        } else if constexpr (L == 6) {
+            // 针对计算 q6，这里在前面额外多算两个高阶级联分量即可
+            compute_Ylm_gradient_L6(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
+                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
+                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        }
+    }
+
+    // 【完全通用】最后的总偏导汇总
+    for (int i = 0; i < 3; i++) {
+        d_dcvdx[c_atom * 3 + i] = d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1];
+        d_dcvdx[c_atom * 3 + i] = -(d_dcvdx[c_atom * 3 + i] * 2 * M_PI) / (all_count * (2 * L + 1));
     }
 }
 

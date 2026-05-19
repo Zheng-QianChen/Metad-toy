@@ -74,6 +74,24 @@ __global__ void fix_crystallizes_kernel(
     LAMMPS_NS::tagint *d_calculated_numneigh
 );
 
+
+template <int L>
+__global__ void steinhardt_param_calc_kernel(
+    int group_count, int cutoff_Natoms,
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql
+);
+
+template <int L>
+__global__ void dcv_steinhardt_param_calc_kernel(
+    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
+    int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_dYlm_dr, double *d_dcvdx
+);
+
+
 __global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
                     int stein_l, int groupbit,
                     int *d_mask, LAMMPS_NS::tagint *d_group_indices,
@@ -81,61 +99,3 @@ __global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_N
                     int *d_neigh_both_in_r_N,
                     double *d_stein_qlm, double *d_stein_LQlm,
                     double *d_stein_ql);
-
-__global__ void steinhardt_param_calc_kernel_q3(
-    int group_count, int cutoff_Natoms,
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm,
-    double *d_stein_ql
-);
-
-__global__ void dcv_steinhardt_param_calc_kernel_q3(
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask,
-    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr,double *d_dcvdx
-);
-
-__global__ void steinhardt_param_calc_kernel_q4(
-    int group_count, int cutoff_Natoms,
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm,
-    double *d_stein_ql
-);
-
-__global__ void dcv_steinhardt_param_calc_kernel_q4(
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask,
-    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr,double *d_dcvdx
-);
-
-__global__ void steinhardt_param_calc_kernel_q6(
-    int group_count, int cutoff_Natoms,
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm,
-    double *d_stein_ql
-);
-
-__global__ void dcv_steinhardt_param_calc_kernel_q6(
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask,
-    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr,double *d_dcvdx
-);
-
-__global__ void dcv_steinhardt_param_calc_LOCAL_kernel_q4(
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask,
-    LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr,double *d_dcvdx
-);
-
