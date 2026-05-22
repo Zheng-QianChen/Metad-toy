@@ -472,11 +472,13 @@ void MetaD_zqc::Stru_factor::base_calc(){
 double MetaD_zqc::Stru_factor::compute_cv_AVE(){
     DEBUG_LOG("im in compute_cv_AVE.");
     int group_count = my_env->group_count;
+    int Threads_own_atoms = lmp->atom->nlocal;
     DEBUG_LOG("group_count = %d",group_count);
     double sf_ave_local=0;
     DEBUG_LOG_COND((h_stru_factor == NULL),"h_stru_factor list not initialized");
     if (group_count != 0) {
-        my_averager->compute(group_count, all_count, h_stru_factor, sf_ave_local);
+        my_averager->compute(Threads_own_atoms, all_count, h_stru_factor, 
+            lmp->atom->mask, my_env->groupbit, sf_ave_local);
     }
     MPI_Allreduce(&sf_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);

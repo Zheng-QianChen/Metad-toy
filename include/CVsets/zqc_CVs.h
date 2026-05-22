@@ -40,6 +40,9 @@ namespace MetaD_zqc {
     class Steinhardt : public CV {
     protected:
         double dx, dy, dz;
+        double *my_qlm_data; 
+        int num_elements; // 比如 (2l+1)*2
+        bool comm_mode=false;               // 当前正在处于哪种通信状态
     private:
     public:
         static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
@@ -217,6 +220,11 @@ namespace MetaD_zqc {
         void call_steinhardt_cv_LOCAL_kernel();
         void call_steinhardt_dcv_LOCAL_kernel();
         void envioronment();
+        // communication for Ghost atoms
+        bool need_forward_comm() override { return true; }
+        int get_comm_forward_bytes() override;
+        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset) override;
+        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset) override;
     };
 
     Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,

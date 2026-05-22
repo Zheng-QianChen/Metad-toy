@@ -287,6 +287,10 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // p_gaussian->KB = lmp->force->boltz;
     // p_gaussian->WellT_bool = WellT_bool;
     // p_gaussian->cv_bound = cv_bound;
+
+    // 确认通讯
+    comm_forward=get_comm_forward_bytes();
+    comm_reverse=get_comm_reverse_bytes();
     
     
     // 输出文件
@@ -408,6 +412,59 @@ void FixMetadynamics::add_hill(double* cv_values){
 void FixMetadynamics::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
   p_gaussian->get_dVdcv(cv_values, dVdcvs);
+}
+
+int FixMetadynamics::get_comm_forward_bytes() {
+    int total_size = 0;
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->get_comm_forward_bytes()) {
+            total_size += obj->get_comm_forward_bytes();
+        }
+    }
+    printf("total_size=%d",total_size);
+    return total_size;
+}
+
+int FixMetadynamics::get_comm_reverse_bytes() {
+    int total_size = 0;
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->get_comm_reverse_bytes()) {
+            total_size += obj->get_comm_reverse_bytes();
+        }
+    }
+    return total_size;
+}
+
+int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) {
+    int slot_offset = 0; // 偏移量计数器，单位是“槽位(Slot)”，1个Slot = 1个double
+    
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->need_forward_comm()) {
+            // 每个 obj 传入 ubuf 总线，并在它专属的 slot_offset 位置开始平铺写入
+            // 子 obj 内部写入了多少个 slot，就返回多少，累加给 slot_offset
+            slot_offset += obj->pack_comm_ubuf(n, list, buf, slot_offset);
+        }
+    }
+    return slot_offset;
+}
+
+void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
+    
+    int slot_offset = 0;
+    
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->need_forward_comm()) {
+            // 一模一样地把 ubuf 总线和起始槽位偏移量交还给子 CV 解包
+            obj->unpack_comm_ubuf(n, first, buf, slot_offset);
+            
+            // 每一个 CV 占用的总槽位数 = 原子数 n * 单个原子需要的槽位数
+            slot_offset += n * obj->get_comm_forward_bytes();
+        }
+    }
 }
 
 // 工厂函数：创建FixZeroForce对象

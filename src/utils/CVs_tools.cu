@@ -3,10 +3,12 @@
 #include "zqc_CVs_tools.h"
 #include "zqc_debug.h"
 
-void MetaD_zqc::KahanAverager::compute(int n, int glob_N, double* arr, double &ave) {
+void MetaD_zqc::KahanAverager::compute(int n, int glob_N, double* arr, 
+                                        int* mask, int groupbit, double &ave) {
     double sum = 0.0;
     double c = 0.0; 
     for (int i = 0; i < n; i++) {
+        if (!(mask[i] & (groupbit) )) continue; // 跳过不参与平均的元素
         double y = arr[i] - c;
         double t = sum + y;
         c = (t - sum) - y;
@@ -24,7 +26,8 @@ MetaD_zqc::CUBAverager::~CUBAverager() {
     cudaFree(this->d_sum);
 }
 
-void MetaD_zqc::CUBAverager::compute(int n, int glob_N, double* d_arr, double &ave) {// d_arr 是已经在 GPU 显存中的指针
+void MetaD_zqc::CUBAverager::compute(int n, int glob_N, double* d_arr, 
+                                        int* mask, int groupbit, double &ave) {// d_arr 是已经在 GPU 显存中的指针
     if (n <= 0) { ave = 0.0; return; }
     void *d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;

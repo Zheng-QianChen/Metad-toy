@@ -7,10 +7,10 @@
 namespace MetaD_zqc {
     class Averager {
     public:
-        virtual void compute(int n, int glob_N, double* arr, double &ave) = 0;
+        virtual void compute(int n, int glob_N, double* arr, int* mask, int groupbit, double &ave) = 0;
     };
     class KahanAverager : public Averager {
-        void compute(int n, int glob_N, double* arr, double &ave) override;
+        void compute(int n, int glob_N, double* arr, int* mask, int groupbit, double &ave) override;
     };
     class CUBAverager : public Averager {
     public:
@@ -18,7 +18,7 @@ namespace MetaD_zqc {
         ~CUBAverager();
     private:
         double *d_sum;
-        void compute(int n, int glob_N, double* arr, double &ave) override;
+        void compute(int n, int glob_N, double* arr, int* mask, int groupbit, double &ave) override;
     };
 }
 
@@ -77,10 +77,11 @@ __global__ void fix_crystallizes_kernel(
 
 template <int L>
 __global__ void steinhardt_param_calc_kernel(
-    int group_count, int cutoff_Natoms,
+    int group_count, int cutoff_Natoms, int *d_group_indices,
     int *d_neigh_both_in_r_N, double *d_group_dminneigh,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql
 );
+
 
 template <int L>
 __global__ void dcv_steinhardt_param_calc_kernel(

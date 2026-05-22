@@ -1,6 +1,10 @@
 // Ylm_equations.h
 #pragma once
 
+
+
+
+
 // 专门处理 L=3 的所有 m 项合并公式（纯扁平）
 __device__ __forceinline__ void compute_Ylm_gradient_L3(
     double r, 
@@ -814,3 +818,5 @@ __device__ __forceinline__ void compute_qlm_forward_L6(
     d_stein_qlm_cut[13] += d_stein_Ylm_cut[13];
 
 }
+
+
