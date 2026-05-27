@@ -559,7 +559,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     // neigh_both_in_r_N = new int [group_count];
     lmp->memory->grow(neigh_both_in_r_N, (Threads_own_atoms), "STEIN_QL:neigh_both_in_r_N");
     SAFE_CUDA_MEMCPY(neigh_both_in_r_N, d_neigh_both_in_r_N.ptr,
-      (group_count) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
+      (Threads_own_atoms) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
     // delete[] calculated_numneigh;
     // calculated_numneigh = new LAMMPS_NS::tagint [group_count*cutoff_Natoms];
     lmp->memory->grow(calculated_numneigh, (group_count*cutoff_Natoms), "STEIN_QL:calculated_numneigh");
@@ -781,6 +781,8 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
     // without worrying about the data consistency between MPI processes.
     DEBUG_LOG("[Rank:%d][Before Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
     DEBUG_LOG("[Rank:%d][Before Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
+    cudaDeviceSynchronize(); // waiting memory
+    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
     comm_mode=true;
     lmp->comm->forward_comm(Fixmetad);
     comm_mode=false;
@@ -1112,50 +1114,51 @@ int MetaD_zqc::STEIN_QL<L>::get_comm_forward_bytes(){
 }
 
 template <int L>
-int MetaD_zqc::STEIN_QL<L>::pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset) {
+int MetaD_zqc::STEIN_QL<L>::pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
-        return (num_elements + 1 +1) * n;
+        return (num_elements + 1 +1);
     }
     int m = slot_offset; 
-    
+    int cycle_offset = comm_forward;
+
     for (int i = 0; i < n; i++) {
         int j = list[i]; // 目标本地原子标号
         
         // 1. 先塞当前原子的所有 qlm 分量
         for (int k = 0; k < num_elements; k++) {
-            u_buf[m++] = h_stein_qlm[j * num_elements + k];
+            u_buf[m + cycle_offset*i + k] = h_stein_qlm[j * num_elements + k];
         }
         
         // 2. 紧接着，塞当前原子的 ql 标量数据
-        u_buf[m++] = stein_q[j]; // 假设这是你的 ql 数组
+        u_buf[m + cycle_offset*i + num_elements] = stein_q[j]; // 假设这是你的 ql 数组
 
-        u_buf[m++] = ubuf(my_env->neigh_both_in_r_N[j]).d;
+        u_buf[m + cycle_offset*i + num_elements +1] = ubuf(my_env->neigh_both_in_r_N[j]).d;
     }
     
-    // 返回这一趟总共为 n 个原子消耗写入的槽位总数
-    return (num_elements + 1 +1) * n;
+    return (num_elements + 1 +1);
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset) {
+void MetaD_zqc::STEIN_QL<L>::unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return;
     }
 
     int m = slot_offset; 
+    int cycle_offset = comm_forward;
     
     // 从 first 开始，连续恢复 n 个 Ghost 原子的复合数据
     for (int i = first; i < first + n; i++) {
         
         // 1. 先剥离 qlm 倒回 qlm 跑道
         for (int k = 0; k < num_elements; k++) {
-            h_stein_qlm[i * num_elements + k] = u_buf[m++];
+            h_stein_qlm[i * num_elements + k] = u_buf[ m+ cycle_offset*(i-first) + k];
         }
         
         // 2. 紧接着剥离 ql 倒回 ql 跑道
-        stein_q[i] = u_buf[m++];
+        stein_q[i] = u_buf[ m+ cycle_offset*(i-first) + num_elements];
 
-        my_env->neigh_both_in_r_N[i] = (int) ubuf(u_buf[m++]).i;
+        my_env->neigh_both_in_r_N[i] = (int) ubuf(u_buf[ m+ cycle_offset*(i-first) + num_elements +1]).i;
     }
 }
 

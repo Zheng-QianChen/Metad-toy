@@ -36,3 +36,4 @@ test/*.lammpstrj
 test/*.log
 test/test_cvset/*
 test/testSi/*
+test/test_cvset/HILLS

@@ -8,6 +8,11 @@
 #include "zqc_CVs_tools.h"
 
 namespace MetaD_zqc {
+    struct StruFactorRequest;
+    class Stru_fact_env;
+    class Stru_fact_chem_env;
+    class Stru_factor;
+    class Stru_fact_chem;
 
     struct StruFactorRequest {
         int group_id;
@@ -17,15 +22,24 @@ namespace MetaD_zqc {
         double q_factor;
         int d_block_size;
         int original_arg_index; 
+
+        bool use_chemical_lock = false;
+        double c_target = 0.0;
+        double sigma = 1.0;
+        std::vector<double> chemical_gaussmap; // 如果认为哪种化学成分的原子相近，可以给出一个相似的map值
     };
 
     class Stru_fact_env{
         friend class Stru_factor;
+        friend class Stru_fact_chem_env;
+        friend class Stru_factor_chem;
+
     private:
         // use env_pool to save envioronment, 
         // avoid repeatly construct envioronment when multiple steinhardt CVs exist
         static std::map<std::string, Stru_fact_env*> env_pool;
         LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
+        bool use_chemical_lock=false;
 
         // vars for envioronment calculate
         FILE *f_check = nullptr;
@@ -82,26 +96,27 @@ namespace MetaD_zqc {
         LAMMPS_NS::tagint                           *calculated_numneigh = nullptr;
         GpuBuffer<LAMMPS_NS::tagint>                d_calculated_numneigh;
         
+        void get_env();
         Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
              LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
              double cutoff_r);
-        void get_env();
         public:
         // 工厂函数：内部自动合并相同参数的环境
         static Stru_fact_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check, 
                                             LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                            int group_id, double cutoff_r);
+                                            StruFactorRequest req);
         // Stru_factor* create_Stru_fact(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
         //      LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
         //      double cutoff_r);
         std::string get_env_key();
         // 用于在 Fix 析构时清理所有显存
         static void clear_pool();
-        ~Stru_fact_env();
-        void refresh_lmpbox();
+        virtual ~Stru_fact_env();
+        virtual void refresh_lmpbox();
     };
 
     class Stru_factor : public CV {
+        friend class Stru_factor_chem;
     private:
         // FILE *f_check = nullptr;
         LAMMPS_NS::Error *error = nullptr;
@@ -137,8 +152,12 @@ namespace MetaD_zqc {
         using CV_BiasForce = typename CV::CV_BiasForce;
         CV_Calculation set_CV_calculate(std::string func_name) override;
         CV_BiasForce set_CV_bias_force(std::string func_name) override;
+
         // void cv_method();
         void base_calc() override;
+        virtual void call_structure_factor_cv_kernel();
+        virtual void call_structure_factor_dcv_AVE_kernel();
+
         void compute_Q_peratoms();
         double compute_cv_AVE();
         void bias_force_AVE(double dVdcv);
@@ -148,9 +167,43 @@ namespace MetaD_zqc {
         void get_numneigh_full_pair_ABANDON_();
         void compute_stru_factor_peratoms();
         void sf_param_calc(double *h_stru_factor);
-        void call_structure_factor_cv_kernel();
-        void call_structure_factor_dcv_AVE_kernel();
         void envioronment();
+    };
+
+    class Stru_fact_chem_env : public Stru_fact_env {
+        friend class Stru_factor_chem;
+    private:
+        double c_target;
+        double sigma;
+        // GPU 端常驻的高斯权重映射表（下标对应 LAMMPS 的原子 type）
+        double                                      *h_type_weights = nullptr;
+        GpuBuffer<double>                           d_type_weights;
+        // [atom_types] : list for atom types, 1-D = [nlocal]
+        // 注意：这个指针直接指向 LAMMPS 的 atom->type 数组，不需要在构造函数里分配和复制数据，只需要在 get_env() 里刷新一次即可
+        int                                         *atom_types = nullptr;
+        GpuBuffer<int>                              d_atom_types;
+
+    public:
+        // Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
+        //                    LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
+        //                    double cutoff_r, double c_target, double sigma, 
+        //                    const std::vector<double>& type_table);
+        Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
+                           LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
+                           double cutoff_r, double c_target, double sigma);
+        ~Stru_fact_chem_env() override;
+        void refresh_lmpbox() override;
+    };
+
+    class Stru_factor_chem : public Stru_factor {
+    private:
+        Stru_fact_chem_env* my_chem_env; // 专有类型转换指针
+    public:
+        Stru_factor_chem(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
+                         std::string env_setNum, int group_id, MetaD_zqc::Stru_fact_chem_env* my_env,
+                         double q_factor, int d_block_size);
+        void call_structure_factor_cv_kernel() override;
+        void call_structure_factor_dcv_AVE_kernel() override;
     };
 }
 
@@ -174,4 +227,42 @@ __global__ void structure_factor_dcv_AVE_kernel(
         LAMMPS_NS::tagint *d_group_numneigh,
         int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
         double q_factor, double *d_stru_factor, 
+        double *d_dcvdx);
+
+__global__ void structure_factor_chem_cv_kernel(
+        int group_count, double q_factor, double cutoff_rsq,
+        int *d_atom_types, double *d_gaussian_weights,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        double *d_group_dminneigh, int *d_neigh_in_cutoff_r, 
+        double *d_stru_factor);
+
+__global__ void structure_factor_chem_dcv_AVE_kernel(
+        int group_count, int groupbit, int all_count, double cutoff_rsq,
+        int *d_mask, LAMMPS_NS::tagint *d_group_indices, 
+        int *d_atom_types, double *d_gaussian_weights, // 传入化学锁信息
+        LAMMPS_NS::tagint *d_calculated_numneigh,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
+        double q_factor, double *d_stru_factor, 
+        double *d_dcvdx);
+
+__global__ void cv_kernel_structure_factor_chem(
+        int group_count, double q_factor, double cutoff_rsq,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        double *d_group_dminneigh, 
+        LAMMPS_NS::tagint *d_group_indices,
+        int *d_firstneigh_ptrs, 
+        int *d_neigh_in_cutoff_r, 
+        int *d_atom_types, double *d_type_weights,
+        double *d_stru_factor);
+
+__global__ void dcv_AVE_kernel_structure_factor_chem(
+        int group_count, double q_factor, int groupbit, 
+        int all_count, double cutoff_rsq,
+        int *d_mask, LAMMPS_NS::tagint *d_group_indices, 
+        LAMMPS_NS::tagint *d_calculated_numneigh,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
+        double *d_stru_factor, 
+        int *d_atom_types, double *d_type_weights,
         double *d_dcvdx);

@@ -287,10 +287,6 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // p_gaussian->KB = lmp->force->boltz;
     // p_gaussian->WellT_bool = WellT_bool;
     // p_gaussian->cv_bound = cv_bound;
-
-    // 确认通讯
-    comm_forward=get_comm_forward_bytes();
-    comm_reverse=get_comm_reverse_bytes();
     
     
     // 输出文件
@@ -351,6 +347,10 @@ void FixMetadynamics::init() {
       cv_values[1] = 0.0;
       first_run = false;}
     // 续算
+
+    // 确认通讯
+    comm_forward=get_comm_forward_bytes();
+    comm_reverse=get_comm_reverse_bytes();
   }
 }
 
@@ -422,7 +422,7 @@ int FixMetadynamics::get_comm_forward_bytes() {
             total_size += obj->get_comm_forward_bytes();
         }
     }
-    printf("total_size=%d",total_size);
+    LOG("communicate: total_size=%d",total_size);
     return total_size;
 }
 
@@ -439,32 +439,43 @@ int FixMetadynamics::get_comm_reverse_bytes() {
 
 int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) {
     int slot_offset = 0; // 偏移量计数器，单位是“槽位(Slot)”，1个Slot = 1个double
-    
+    int cycle_offset = comm_forward;
+    DEBUG_LOG("Pack forward comm start");
+
     for (auto const& pair : cal_registry) {
         MetaD_zqc::CV* obj = pair.second;
         if (obj->need_forward_comm()) {
             // 每个 obj 传入 ubuf 总线，并在它专属的 slot_offset 位置开始平铺写入
             // 子 obj 内部写入了多少个 slot，就返回多少，累加给 slot_offset
-            slot_offset += obj->pack_comm_ubuf(n, list, buf, slot_offset);
+            slot_offset += obj->pack_comm_ubuf(n, list, buf, slot_offset, comm_forward);
         }
     }
-    return slot_offset;
+
+    
+
+    int expected_total = n * this->comm_forward; // 官方大管家认为你应该打包的总 double 数
+    DEBUG_LOG("Rank:%d,Pack forward comm: n=%d, comm_forward=%d, total packed=%d", lmp->comm->me,n, this->comm_forward, n*slot_offset);
+
+    return slot_offset*n;
 }
 
 void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
-    
     int slot_offset = 0;
-    
+    int cycle_offset = comm_forward;
+    DEBUG_LOG("UNPack forward comm start");
+
     for (auto const& pair : cal_registry) {
         MetaD_zqc::CV* obj = pair.second;
         if (obj->need_forward_comm()) {
             // 一模一样地把 ubuf 总线和起始槽位偏移量交还给子 CV 解包
-            obj->unpack_comm_ubuf(n, first, buf, slot_offset);
+            obj->unpack_comm_ubuf(n, first, buf, slot_offset, comm_forward);
             
             // 每一个 CV 占用的总槽位数 = 原子数 n * 单个原子需要的槽位数
-            slot_offset += n * obj->get_comm_forward_bytes();
+            slot_offset +=  obj->get_comm_forward_bytes();
         }
     }
+    int expected_total = n * this->comm_forward; // 基类预期解包的总 double 数
+    DEBUG_LOG("Rank:%d,Unpack forward comm: n=%d, comm_forward=%d, total unpacked=%d", lmp->comm->me, n, this->comm_forward, slot_offset*n);
 }
 
 // 工厂函数：创建FixZeroForce对象

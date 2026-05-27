@@ -52,6 +52,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
     req.cutoff_r = 8.0;
     req.d_block_size = 128;
     int iarg=2 + i;
+    printf("im in Stru_factor::create, with group_name=%s, group_id=%d\n", req.group_name, req.group_id);
     while (iarg < narg) {
         if (strcmp(arg[iarg], "cutoff_r") == 0) {
             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
@@ -67,43 +68,95 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
             req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
             iarg += 2;
+        } else if (strcmp(arg[iarg], "Chemical") == 0) {
+            req.use_chemical_lock = true;
+            iarg += 1;
+        } else if (strcmp(arg[iarg], "Chem_ctarget") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'Chem_ctarget\' keyword requires a number");
+            req.c_target = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            iarg += 2;
+        } else if (strcmp(arg[iarg], "sigma") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'sigma\' keyword requires a number");
+            req.sigma = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            iarg += 2;
         } else {
             break;
         }
     }
-    LOG("Logging: set STRU_FACTOR as group_name=%s q_factor=%g cutoff_r=%f d_block_size=%d.",
-                        req.group_name, req.q_factor, req.cutoff_r, req.d_block_size);
+
     // We need full neighbor list to get cuda run faster
     NeighRequest *full_request;
     full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
     full_request->set_id(2);
-    // create Structure factor CV
-    // env for CV
-    MetaD_zqc::Stru_fact_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
-                            f_check, Fixmetad, req.group_id, req.cutoff_r);
-    DEBUG_LOG("Stru_fact_env is %p", temp_env);
-    std::string env_setNum = temp_env->get_env_key();
-    i = iarg;
-    // return Stru_fact cv
-    return new MetaD_zqc::Stru_factor(lmp, Fixmetad, f_check, 
-                            env_setNum, req.group_id, temp_env,
-                            req.q_factor, req.d_block_size);
+
+    if (req.use_chemical_lock) {
+        LOG("Logging: set STRU_FACTOR as group_name=%s q_factor=%g cutoff_r=%f d_block_size=%d.\n         Chemical lock is ON, with c_target=%g and sigma=%g.",
+            req.group_name, req.q_factor, req.cutoff_r, req.d_block_size,
+            req.c_target, req.sigma);
+        // create Structure factor CV
+        // env for CV
+        // MetaD_zqc::Stru_fact_chem_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
+        //                         f_check, Fixmetad, req);
+        MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
+                                    MetaD_zqc::Stru_fact_env::get_or_create(lmp, f_check, Fixmetad, req)
+                                );
+        DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
+        std::string env_setNum = temp_env->get_env_key();
+        i = iarg;
+        // return Stru_fact cv
+        return new MetaD_zqc::Stru_factor_chem(lmp, Fixmetad, f_check, 
+                                env_setNum, req.group_id, temp_env,
+                                req.q_factor, req.d_block_size);
+    } else {
+        LOG("Logging: set STRU_FACTOR as group_name=%s q_factor=%g cutoff_r=%f d_block_size=%d.",
+                            req.group_name, req.q_factor, req.cutoff_r, req.d_block_size);
+        // create Structure factor CV
+        // env for CV
+        MetaD_zqc::Stru_fact_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
+                                f_check, Fixmetad, req);
+        DEBUG_LOG("Stru_fact_env is %p", temp_env);
+        std::string env_setNum = temp_env->get_env_key();
+        i = iarg;
+        // return Stru_fact cv
+        return new MetaD_zqc::Stru_factor(lmp, Fixmetad, f_check, 
+                                env_setNum, req.group_id, temp_env,
+                                req.q_factor, req.d_block_size);
+    }
 }
 
 MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
                                             LAMMPS_NS::FixMetadynamics *Fixmetad,
-                                            int group_id, double cutoff_r) {
-    // 1. generate a unique key for the environment based on its parameters
-    std::string key = std::to_string(group_id) + "_" + std::to_string(cutoff_r);
-    // 2. check if the envioronment already exist in the pool
-    if (env_pool.count(key)) {
-        return env_pool[key]; // if exits, return the existing envioronment
+                                            StruFactorRequest req) {
+    printf("In Stru_fact_env::get_or_create with group_id=%d, cutoff_r=%g, use_chemical_lock=%d, c_target=%g, sigma=%g\n",
+            req.group_id, req.cutoff_r, req.use_chemical_lock, req.c_target, req.sigma);
+    if (!req.use_chemical_lock){
+        // 1. generate a unique key for the environment based on its parameters
+        std::string key = std::to_string(req.group_id) + "_" + std::to_string(req.cutoff_r)
+                            + "_";
+        // 2. check if the envioronment already exist in the pool
+        if (env_pool.count(key)) {
+            return env_pool[key]; // if exits, return the existing envioronment
+        }
+        // 3. new envioronment and store it in the pool if not exist
+        MetaD_zqc::Stru_fact_env *new_env = new Stru_fact_env(lmp, f_check, Fixmetad,
+                                                    req.group_id, req.cutoff_r);
+        env_pool[key] = new_env; // store the new envioronment in the pool
+        return new_env;
+    } else {
+        // 1. generate a unique key for the environment based on its parameters
+        std::string key = std::to_string(req.group_id) + "_" + std::to_string(req.cutoff_r)
+                            + "_" + std::to_string(req.use_chemical_lock)
+                            + "_" + std::to_string(req.c_target) + "_" + std::to_string(req.sigma);
+        // 2. check if the envioronment already exist in the pool
+        if (env_pool.count(key)) {
+            return env_pool[key]; // if exits, return the existing envioronment
+        }
+        // 3. new envioronment and store it in the pool if not exist
+        MetaD_zqc::Stru_fact_chem_env *new_env = new Stru_fact_chem_env(lmp, f_check, Fixmetad,
+                                                    req.group_id, req.cutoff_r, req.c_target, req.sigma);
+        env_pool[key] = new_env; // store the new envioronment in the pool
+        return new_env;
     }
-    // 3. new envioronment and store it in the pool if not exist
-    MetaD_zqc::Stru_fact_env *new_env = new Stru_fact_env(lmp, f_check, Fixmetad, 
-                                                group_id, cutoff_r);
-    env_pool[key] = new_env; // store the new envioronment in the pool
-    return new_env;
 }
 
 std::string MetaD_zqc::Stru_fact_env::get_env_key(){
@@ -415,8 +468,8 @@ void MetaD_zqc::Stru_fact_env::get_env(){
 
     // return the array for neigh
     DEBUG_LOG("copy result array to cpu: group_dminneigh, neigh_in_cutoff_r, neigh_both_in_r_N");
-    DEBUG_LOG((group_dminneigh == NULL),"group_dminneigh list not initialized");
-    DEBUG_LOG((neigh_in_cutoff_r == NULL),"neigh_in_cutoff_r list not initialized");
+    // DEBUG_LOG((group_dminneigh == NULL),"group_dminneigh list not initialized");
+    // DEBUG_LOG((neigh_in_cutoff_r == NULL),"neigh_in_cutoff_r list not initialized");
     // delete[] group_dminneigh;
     // group_dminneigh = new double [h_group_numneigh[group_count]*4];
     lmp->memory->grow(group_dminneigh, (h_group_numneigh[group_count]*4), "STRU_FACTOR:group_dminneigh");

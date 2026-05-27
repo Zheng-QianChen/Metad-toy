@@ -7,6 +7,8 @@
 #define POW6(a) (POW3(a) * POW3(a))
 #define POW7(a) (POW3(a) * POW4(a))
 
+#define MAX_ATOMS_PER_PACK 150
+
 #define PI 3.1415926535897932385
 
 #ifndef REGISTER_CV_MACRO
@@ -26,7 +28,7 @@
 #endif
 
 
-// #define DEBUG
+#define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
         int _me = lmp->comm->me; \

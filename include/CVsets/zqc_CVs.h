@@ -223,8 +223,8 @@ namespace MetaD_zqc {
         // communication for Ghost atoms
         bool need_forward_comm() override { return true; }
         int get_comm_forward_bytes() override;
-        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset) override;
-        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset) override;
+        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
+        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
     };
 
     Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,

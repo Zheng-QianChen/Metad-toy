@@ -47,8 +47,8 @@ namespace MetaD_zqc {
       virtual bool need_forward_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
       virtual int get_comm_forward_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
       virtual int get_comm_reverse_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
-      virtual int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset) { return 0; } // 具体 CV 自己的打包逻辑
-      virtual void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset) {} // 具体 CV 自己的解包逻辑
+      virtual int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
+      virtual void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
   };
 
   class MetaDimensionManager;
@@ -102,7 +102,6 @@ namespace LAMMPS_NS {
     // int continue_from_file;
     // double *bias_grid;
     int cv_dim,nbin_num;
-    int comm_forward,comm_reverse;
     MetaD_zqc::Gaussian_Hill_Base *p_gaussian;
     int pace,rec_pace;
     bool first_run;
