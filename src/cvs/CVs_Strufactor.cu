@@ -51,6 +51,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
     // default values
     req.cutoff_r = 8.0;
     req.d_block_size = 128;
+    req.custom_weights.clear();
     int iarg=2 + i;
     printf("im in Stru_factor::create, with group_name=%s, group_id=%d\n", req.group_name, req.group_id);
     while (iarg < narg) {
@@ -75,10 +76,53 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
             ERR_COND((iarg + 1 >= narg), "Error: \'Chem_ctarget\' keyword requires a number");
             req.c_target = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
-        } else if (strcmp(arg[iarg], "sigma") == 0) {
+        } else if (strcmp(arg[iarg], "Chem_sigma") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'sigma\' keyword requires a number");
             req.sigma = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
+        } else if (strcmp(arg[iarg], "Chem_map") == 0) {
+            iarg += 1; // 跳过 "Chem_map" 关键字
+            req.use_custom_weight = true;
+            // 循环读取后面所有的 (type weight) 括号对
+            while (iarg < narg && arg[iarg][0] == '(') {
+                std::string pair_str = arg[iarg];
+                
+                // 健壮性处理：如果长字符串包含了空格分裂（某些系统传参导致的分离）
+                // 或者形如 "(1" "5.0)" 的情况，为了安全，我们要求输入必须是紧凑的 "(1,1.0)" 或 "(1 1.0)"
+                // 并在内部去除左右括号
+                if (pair_str.front() == '(' && pair_str.back() == ')') {
+                    pair_str = pair_str.substr(1, pair_str.size() - 2); // 掐头去尾
+                    
+                    // 兼容空格或逗号分隔
+                    size_t sep = pair_str.find_first_of(" ,"); 
+                    if (sep != std::string::npos) {
+                        std::string type_s = pair_str.substr(0, sep);
+                        std::string weight_s = pair_str.substr(sep + 1);
+                        
+                        // 去除可能残余的空格
+                        int a_type = std::stoi(type_s);
+                        double a_weight = std::stod(weight_s);
+                        
+                        req.custom_weights[a_type] = a_weight;
+                    }
+                } else {
+                    // 如果 LAMMPS 把 (1 1.0) 拆成了两个 token: "(1" 和 "1.0)"
+                    // 我们通过向前探测来组合它们
+                    std::string part1 = arg[iarg];
+                    ERR_COND(iarg + 1 >= narg, "Error: Invalid Chem_map format near %s", arg[iarg]);
+                    std::string part2 = arg[iarg+1];
+                    
+                    if (part1.front() == '(' && part2.back() == ')') {
+                        int a_type = std::stoi(part1.substr(1));
+                        double a_weight = std::stod(part2.substr(0, part2.size() - 1));
+                        req.custom_weights[a_type] = a_weight;
+                        iarg += 1; // 额外消费一个参数
+                    } else {
+                        error->all(FLERR, "Error: Chem_map pairs must be formatted as (type weight)");
+                    }
+                }
+                iarg += 1;
+            }
         } else {
             break;
         }
@@ -153,7 +197,7 @@ MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAM
         }
         // 3. new envioronment and store it in the pool if not exist
         MetaD_zqc::Stru_fact_chem_env *new_env = new Stru_fact_chem_env(lmp, f_check, Fixmetad,
-                                                    req.group_id, req.cutoff_r, req.c_target, req.sigma);
+                                                    req.group_id, req.cutoff_r, req.c_target, req.sigma, req.custom_weights);
         env_pool[key] = new_env; // store the new envioronment in the pool
         return new_env;
     }

@@ -28,7 +28,7 @@
 #endif
 
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
     #define DEBUG_LOG(format, ...) do { \
         int _me = lmp->comm->me; \

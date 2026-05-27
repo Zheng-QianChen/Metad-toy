@@ -26,7 +26,9 @@ namespace MetaD_zqc {
         bool use_chemical_lock = false;
         double c_target = 0.0;
         double sigma = 1.0;
-        std::vector<double> chemical_gaussmap; // 如果认为哪种化学成分的原子相近，可以给出一个相似的map值
+
+        bool use_custom_weight = false;
+        std::map<int, double> custom_weights; // 如果认为哪种化学成分的原子相近，可以给出一个相似的map值
     };
 
     class Stru_fact_env{
@@ -190,7 +192,8 @@ namespace MetaD_zqc {
         //                    const std::vector<double>& type_table);
         Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
                            LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
-                           double cutoff_r, double c_target, double sigma);
+                           double cutoff_r, double c_target, double sigma, 
+                           const std::map<int, double>& custom_weights);
         ~Stru_fact_chem_env() override;
         void refresh_lmpbox() override;
     };

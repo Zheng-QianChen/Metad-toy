@@ -31,7 +31,7 @@ using namespace LAMMPS_NS;
 
 MetaD_zqc::Stru_fact_chem_env::Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
              LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, double cutoff_r,
-             double c_target, double sigma)
+             double c_target, double sigma, const std::map<int, double>& custom_weights)
     :Stru_fact_env(lmp, f_check, Fixmetad, group_id, cutoff_r),
     c_target(c_target),
     sigma(sigma)
@@ -44,10 +44,24 @@ MetaD_zqc::Stru_fact_chem_env::Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *
     int ntypes = lmp->atom->ntypes;
     lmp->memory->grow(h_type_weights, ntypes+1, "metad:Stru_fact_env:h_type_weights");
     d_type_weights.grow_to(ntypes+1, f_check, __FILE__, __LINE__);
+
     h_type_weights[0] = 0.0; // type index starts from 1 in LAMMPS, so we set the weight of type 0 to 0
+    
     for (int i=1; i<=ntypes; i++){
-        double delta = (double(i)-c_target); // default weight is 1.0 for all types
-        h_type_weights[i] = exp(-POW2(delta)/(2*POW2(sigma))); // Gaussian weight based on the distance from c_target
+        // 检查用户是否在 Chem_map 中显式指定了该类型的权重
+        auto it = custom_weights.find(i);
+        if (it != custom_weights.end()) {
+            // A. 找到了：直接采用用户赋予的硬编码映射权重 (例如 1.0 或 -3.0)
+            h_type_weights[i] = it->second;
+        } else {
+            // B. 没找到：退回到原先默认的高斯衰减函数逻辑
+            double delta = (double(i)-c_target); // default weight is 1.0 for all types
+            h_type_weights[i] = exp(-POW2(delta)/(2*POW2(sigma))); // Gaussian weight based on the distance from c_target
+        }
+
+        if (lmp->comm->me == 0) {
+            LOG("atom_type=%d, type_weights=%g", i, h_type_weights[i]);
+        }
     }
 
     SAFE_CUDA_MEMCPY(d_type_weights.ptr, h_type_weights, (ntypes+1)*sizeof(double), cudaMemcpyHostToDevice, f_check);
