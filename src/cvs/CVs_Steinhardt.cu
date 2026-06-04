@@ -126,14 +126,14 @@ MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::L
                                             int group_id, double cutoff_r, int cutoff_Natoms) {
     // 1. generate a unique key for the environment based on its parameters
     std::string key = std::to_string(group_id) + "_" + std::to_string(cutoff_r) + "_" + std::to_string(cutoff_Natoms);
-    // 2. check if the envioronment already exist in the pool
+    // 2. check if the environment already exist in the pool
     if (env_pool.count(key)) {
-        return env_pool[key]; // if exits, return the existing envioronment
+        return env_pool[key]; // if exits, return the existing environment
     }
-    // 3. new envioronment and store it in the pool if not exist
+    // 3. new environment and store it in the pool if not exist
     MetaD_zqc::Steinhardt_env *new_env = new Steinhardt_env(lmp, f_check, Fixmetad, 
                                                 group_id, cutoff_r, cutoff_Natoms);
-    env_pool[key] = new_env; // store the new envioronment in the pool
+    env_pool[key] = new_env; // store the new environment in the pool
     return new_env;
 }
 
@@ -225,6 +225,9 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
     // Q_per_atoms_value = new double [2]; //inintial
     // stein_q = nullptr;
     lmp->memory->create(stein_q, 0, "metad:STEIN_QL:cv_bound");
+    int Threads_own_atoms = lmp->atom->nlocal;
+    lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:cv_bound");
+
     error = lmp->error;
 
     
@@ -350,10 +353,10 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     box_y = (pbc_y) ? lmp->domain->yprd : INFINITY;
     box_z = (pbc_z) ? lmp->domain->zprd : INFINITY;
 
-    // utilize different envioronment set
+    // utilize different environment set
     // such as neighbor list, atom position, box size, to get the local structure information for each atom in the group
     if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&((numneigh != nullptr))&&(init_flag)){
-        DEBUG_LOG("we skip rebuild in envioronment when %lld.", (long long)lmp->neighbor->lastcall);
+        DEBUG_LOG("we skip rebuild in environment when %lld.", (long long)lmp->neighbor->lastcall);
     } else {
         // =========================================================================
         // neighbour list and its copy to devise
@@ -508,7 +511,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
     // cudaDeviceSynchronize(); //catch kernel done
     launchErr = cudaGetLastError();
-    get_envioronment<<<block_num,d_block_size>>>
+    get_environment<<<block_num,d_block_size>>>
       ( cutoff_Natoms, cutoff_rsq, box_x, box_y, box_z, 
       group_count, d_group_indices.ptr, d_group_numneigh.ptr, d_firstneigh_ptrs.ptr, d_x_flat.ptr,
       d_group_dminneigh.ptr, d_neigh_in_cutoff_r.ptr, d_neigh_both_in_r_N.ptr, d_calculated_numneigh.ptr) ;
@@ -517,7 +520,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     // int *h_neigh_in_cutoff_r = new int [group_count];
     // int *h_neigh_both_in_r_N = new int [group_count];
     // int atomsnumber = (atom->nlocal + atom->nghost);
-    // get_envioronment_temp
+    // get_environment_temp
     //   ( cutoff_Natoms, cutoff_rsq, box_x, box_y, box_z, 
     //   group_count, h_group_indices, h_group_numneigh, h_firstneigh_ptrs, h_x_flat,
     //   h_group_dminneigh, h_neigh_in_cutoff_r, h_neigh_both_in_r_N,atomsnumber) ;
@@ -591,12 +594,12 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::envioronment(){
+void MetaD_zqc::STEIN_QL<L>::environment(){
     DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
     if (lmp->update->ntimestep > my_env->last_update_step){
         my_env->get_env();
     }
-    // DEBUG_LOG("envioronment function in, env_setNum is %s, get_env done",env_setNum);
+    // DEBUG_LOG("environment function in, env_setNum is %s, get_env done",env_setNum);
     DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
 }
 
@@ -684,10 +687,10 @@ void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
     }
     DEBUG_LOG("group_count=%lld",(long long)my_env->group_count);
 
-    // 2. calculate atoms' envioronment
-    DEBUG_LOG("envioronment function in, env_setNum is %s",env_setNum.c_str());
-    envioronment();
-    DEBUG_LOG("envioronment function out");
+    // 2. calculate atoms' environment
+    DEBUG_LOG("environment function in, env_setNum is %s",env_setNum.c_str());
+    environment();
+    DEBUG_LOG("environment function out");
 
     // 3. calculate atoms' other things
     // steinhardt_param(Q_hybrid);
@@ -786,8 +789,8 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
     comm_mode=true;
     lmp->comm->forward_comm(Fixmetad);
     comm_mode=false;
-    DEBUG_LOG("[Rank:%d][Before Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
-    DEBUG_LOG("[Rank:%d][Before Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
+    DEBUG_LOG("[Rank:%d][After Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
+    DEBUG_LOG("[Rank:%d][After Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
     // for (int i=0; i<((Threads_own_atoms)*(L + 1)*2); i++){
     //     printf("stein_qlm[%d] = %f\n", i, h_stein_qlm[i]);
     // }
@@ -1162,16 +1165,21 @@ void MetaD_zqc::STEIN_QL<L>::unpack_comm_ubuf(int n, int first, double *u_buf, i
     }
 }
 
+template <int L>
+double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
+    if (prop_name == "stein_q") {
+        return stein_q;
+    }
+    return nullptr;
+}
 
-
-
-__global__ void get_envioronment(int cutoff_Natoms, double cutoff_rsq,
+__global__ void get_environment(int cutoff_Natoms, double cutoff_rsq,
     double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
     double *d_group_dminneigh, int *d_neigh_in_cutoff_r, int *d_neigh_both_in_r_N,
     LAMMPS_NS::tagint *d_calculated_numneigh){
-    // get_envioronment in GPU
+    // get_environment in GPU
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     if(c_atom<group_count){
         double r2,temp_r2,temp_x,temp_y,temp_z,neigh_x,neigh_y,neigh_z;

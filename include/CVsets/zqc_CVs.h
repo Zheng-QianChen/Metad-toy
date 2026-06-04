@@ -42,7 +42,6 @@ namespace MetaD_zqc {
         double dx, dy, dz;
         double *my_qlm_data; 
         int num_elements; // 比如 (2l+1)*2
-        bool comm_mode=false;               // 当前正在处于哪种通信状态
     private:
     public:
         static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
@@ -68,24 +67,24 @@ namespace MetaD_zqc {
         int original_arg_index; 
     };
 
-    // Steinhardt envioronment
+    // Steinhardt environment
     class Steinhardt_env{
         friend class Steinhardt;
         template <int U> friend class STEIN_QL;
     private:
-        // use env_pool to save envioronment, 
-        // avoid repeatly construct envioronment when multiple steinhardt CVs exist
+        // use env_pool to save environment, 
+        // avoid repeatly construct environment when multiple steinhardt CVs exist
         static std::map<std::string, Steinhardt_env*> env_pool;
         int ref_count = 0; // 引用计数，用于管理生命周期
         LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
 
-        // vars for envioronment calculate
+        // vars for environment calculate
         FILE *f_check = nullptr;
         LAMMPS_NS::LAMMPS *lmp = nullptr;
         LAMMPS_NS::Error *error = nullptr;
         LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
-        double cutoff_r;          // envioronment_cutoff radius
-        int cutoff_Natoms;        // envioronment_cutoff natoms
+        double cutoff_r;          // environment_cutoff radius
+        int cutoff_Natoms;        // environment_cutoff natoms
         int last_group_count, group_count, group_id, groupbit;
         int init_flag=0;
         bool pbc_x, pbc_y, pbc_z;
@@ -219,12 +218,14 @@ namespace MetaD_zqc {
         void call_steinhardt_dcv_kernel();
         void call_steinhardt_cv_LOCAL_kernel();
         void call_steinhardt_dcv_LOCAL_kernel();
-        void envioronment();
+        void environment();
         // communication for Ghost atoms
         bool need_forward_comm() override { return true; }
         int get_comm_forward_bytes() override;
         int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
         void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+        // compute
+        double* get_peratom_ptr(const std::string &prop_name) override;
     };
 
     Steinhardt* create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,

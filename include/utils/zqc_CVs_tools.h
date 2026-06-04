@@ -58,7 +58,7 @@ struct GpuBuffer {
     ~GpuBuffer() { if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, __FILE__, __LINE__); }
 };
 
-__global__ void get_envioronment(
+__global__ void get_environment(
     int cutoff_Natoms, double cutoff_rsq, double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,

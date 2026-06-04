@@ -6,9 +6,11 @@
 #include "neigh_request.h"
 #include "neigh_list.h"
 #include "zqc_CVs_tools.h"
+#include "zqc_switch_function.h"
 
 namespace MetaD_zqc {
     struct StruFactorRequest;
+    struct SwitchFunctionRequest;
     class Stru_fact_env;
     class Stru_fact_chem_env;
     class Stru_factor;
@@ -29,6 +31,9 @@ namespace MetaD_zqc {
 
         bool use_custom_weight = false;
         std::map<int, double> custom_weights; // 如果认为哪种化学成分的原子相近，可以给出一个相似的map值
+
+        bool use_sw_func=false;
+        SwitchFunctionRequest sw_func_req;
     };
 
     class Stru_fact_env{
@@ -36,14 +41,15 @@ namespace MetaD_zqc {
         friend class Stru_fact_chem_env;
         friend class Stru_factor_chem;
 
-    private:
-        // use env_pool to save envioronment, 
-        // avoid repeatly construct envioronment when multiple steinhardt CVs exist
+    public:
+    // private:
+        // use env_pool to save environment, 
+        // avoid repeatly construct environment when multiple steinhardt CVs exist
         static std::map<std::string, Stru_fact_env*> env_pool;
         LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
         bool use_chemical_lock=false;
 
-        // vars for envioronment calculate
+        // vars for environment calculate
         FILE *f_check = nullptr;
         LAMMPS_NS::LAMMPS *lmp = nullptr;
         LAMMPS_NS::Error *error = nullptr;
@@ -102,7 +108,7 @@ namespace MetaD_zqc {
         Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
              LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
              double cutoff_r);
-        public:
+    // public:
         // 工厂函数：内部自动合并相同参数的环境
         static Stru_fact_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check, 
                                             LAMMPS_NS::FixMetadynamics *Fixmetad, 
@@ -135,6 +141,11 @@ namespace MetaD_zqc {
         LAMMPS_NS::tagint all_count;
         size_t N;
         double cv_value;
+
+        bool use_sw_func = false;
+        SwitchFunctionRequest sw_params;
+        SwitchFunction* h_sw_func;
+
         // [stru_factor] = stru_factor per atoms
         double                                      *h_stru_factor = nullptr;
         GpuBuffer<double>                           d_stru_factor;
@@ -159,22 +170,35 @@ namespace MetaD_zqc {
         void base_calc() override;
         virtual void call_structure_factor_cv_kernel();
         virtual void call_structure_factor_dcv_AVE_kernel();
+        virtual void call_structure_factor_dcv_COUNT_kernel();
 
         void compute_Q_peratoms();
         double compute_cv_AVE();
         void bias_force_AVE(double dVdcv);
-        void summary(FILE* f) override;
         void get_dcvdx_AVE(double cv_value, double *dcvdx);
+        double compute_cv_COUNT();
+        void bias_force_COUNT(double dVdcv);
+        void get_dcvdx_COUNT(double cv_value, double *dcvdx);
+        
+        void summary(FILE* f) override;
         void steinhardt_param_calc(double *);
         void get_numneigh_full_pair_ABANDON_();
         void compute_stru_factor_peratoms();
         void sf_param_calc(double *h_stru_factor);
-        void envioronment();
+        void environment();
+        // communication for Ghost atoms
+        bool need_forward_comm() override { return true; }
+        int get_comm_forward_bytes() override;
+        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
+        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+        // compute
+        virtual double* get_peratom_ptr(const std::string &prop_name) override;
     };
 
     class Stru_fact_chem_env : public Stru_fact_env {
         friend class Stru_factor_chem;
-    private:
+    // private:
+    public:
         double c_target;
         double sigma;
         // GPU 端常驻的高斯权重映射表（下标对应 LAMMPS 的原子 type）
@@ -185,7 +209,7 @@ namespace MetaD_zqc {
         int                                         *atom_types = nullptr;
         GpuBuffer<int>                              d_atom_types;
 
-    public:
+    // public:
         // Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
         //                    LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
         //                    double cutoff_r, double c_target, double sigma, 
@@ -210,7 +234,7 @@ namespace MetaD_zqc {
     };
 }
 
-__global__ void get_envioronment_Strufactor(double cutoff_rsq,
+__global__ void get_environment_Strufactor(double cutoff_rsq,
     double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
@@ -219,6 +243,7 @@ __global__ void get_envioronment_Strufactor(double cutoff_rsq,
 
 __global__ void structure_factor_cv_kernel(
         int group_count, double q_factor, double cutoff_rsq,
+        int *d_group_indices,
         LAMMPS_NS::tagint *d_group_numneigh,
         double *d_group_dminneigh, int *d_neigh_in_cutoff_r, 
         double *d_stru_factor);
@@ -231,6 +256,19 @@ __global__ void structure_factor_dcv_AVE_kernel(
         int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
         double q_factor, double *d_stru_factor, 
         double *d_dcvdx);
+
+
+__global__ void structure_factor_dcv_COUNT_kernel(
+        MetaD_zqc::SwitchFunctionRequest p,
+        // MetaD_zqc::SwitchFunctionRequest sw_func,
+        int group_count, int groupbit, int all_count, double cutoff_rsq,
+        int *d_mask, LAMMPS_NS::tagint *d_group_indices, 
+        LAMMPS_NS::tagint *d_calculated_numneigh,
+        LAMMPS_NS::tagint *d_group_numneigh,
+        int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
+        double q_factor, double *d_stru_factor, 
+        double *d_dcvdx);
+
 
 __global__ void structure_factor_chem_cv_kernel(
         int group_count, double q_factor, double cutoff_rsq,

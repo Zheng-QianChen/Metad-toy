@@ -14,9 +14,11 @@ RANDOM_SEED=$(date +%s%N | cut -b 11-18)
 METAD_PLUGIN_PATH=~/work/Metad-toy/build
 
 LMP_FILE="in.test-structurefactor"
+LMP_FILE="in.test-steinhardt"
+
 
 #mpirun -np 8 lmp -var seed ${RANDOM_SEED} -in in.test-steinhardt
-mpirun -np 4 lmp \
+mpirun -np 1 lmp \
     -var seed ${RANDOM_SEED} \
     -var METAD_PLUGIN_PATH ${METAD_PLUGIN_PATH} \
     -in ${LMP_FILE}

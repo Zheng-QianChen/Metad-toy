@@ -23,6 +23,7 @@ namespace MetaD_zqc {
     protected:
       FILE *f_check;
       LAMMPS_NS::LAMMPS *lmp;
+      bool comm_mode=false;               // 当前正在处于哪种通信状态
       double cv_value;
       double *dcvdx;
       double dVdcv;
@@ -44,11 +45,26 @@ namespace MetaD_zqc {
       // virtual void bias_force(double dVdcv) = 0; // 计算梯度
       virtual void summary(FILE* f) = 0;
       // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
+
+      // 通信
       virtual bool need_forward_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
       virtual int get_comm_forward_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
       virtual int get_comm_reverse_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
       virtual int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
       virtual void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
+
+      // 返回该 CV 是否有“每个原子”的数据
+      virtual bool has_per_atom_data() { return false; }
+      virtual double* get_per_atom_data() { return nullptr; }
+      virtual std::string get_per_atom_name() { return ""; }
+
+      // 返回该 CV 是否有“整个体系”的标量数据
+      virtual bool has_global_data() { return false; }
+      virtual double get_global_data() { return 0.0; }
+      virtual std::string get_global_name() { return ""; }
+
+      // Compute接口
+      virtual double* get_peratom_ptr(const std::string &prop_name) { return nullptr; }
   };
 
   class MetaDimensionManager;
@@ -91,6 +107,7 @@ namespace LAMMPS_NS {
     int get_cv_dim() const;
     void get_cvspace_loc(double* , int* );
     double get_total_bias(int* );
+    void *extract(const char *key, int &dim);
     NeighList *listhalf, *listfull;
   private:
     // double sigma, height0, biasf, kBT;

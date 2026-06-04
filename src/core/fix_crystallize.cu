@@ -1,6 +1,8 @@
+#include <cmath>
+#include <cstdio>
 
+#include <cuda_runtime.h>
 
-#include "fix_crystallize.h"
 #include "lammpsplugin.h"
 #include "atom.h"
 #include "comm.h"
@@ -13,16 +15,16 @@
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
-// #include "compute.h"
-#include <cmath>
-#include <cstdio>
+#include "compute.h"
+
+#include "fix_crystallize.h"
+#include "compute_MetaDToy.h"
 #include "zqc_CVs.h"
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
 #include "zqc_gaussian.h"
 #include "zqc_mlcvs.h"
 
-#include <cuda_runtime.h>
 using namespace LAMMPS_NS;
 
 
@@ -50,8 +52,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     int i = 3; // 从第 4 个参数开始，即 style 名之后
     // std::vector<MetaD_zqc::SteinhardtRequest> steinh_requests;
     cv_configs = new MetaD_zqc::MetaDimensionManager();
-    double *cv_bound;
-    int *nbin;
+    double *cv_bound = nullptr;
+    int *nbin = nullptr;
     int Gaussian_Hill_type = 0;
     double sigma, height0, biasf, KB;
     sigma     = 0.05;
@@ -65,6 +67,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // 1: 稀疏网格
     // 2: KDTree
     // }
+    // Check dim configuration:
+    // bool *has_dim_configured = nullptr;
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
@@ -112,6 +116,9 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
             memory->create(nbin, cv_dim, "metad:nbin_size");
             memory->create(cv_bound, cv_dim*2, "metad:GaussianHill:cv_bound");
+
+            std::vector<bool> has_dim_configured(cv_dim, false);
+
             i += 2;
         } else if (strcmp(arg[i], "CAL") == 0){
           ERR_COND(strcmp(arg[i+1], "NAME") != 0, "Error: CAL requires NAME keyword.");
@@ -213,7 +220,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             // DIM 1 0 40 1600 (v1+v2)/2 -> DIM index, lower_bound, upper_bound, bins, cv_expr
             ERR_COND(i + 5 >= narg, "Error: DIM command requires 5 arguments: index, lower, upper, bins, cv_expr.");
             int dim_idx = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
-            ERR_COND(dim_idx >= cv_dim, "Error: DIM index out of range or unsupported dimension.");
+            ERR_COND(dim_idx > cv_dim, "Error: DIM index out of range or unsupported dimension.");
             cv_bound[dim_idx * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
             cv_bound[dim_idx * 2 + 1] = utils::numeric(FLERR, arg[i+3], false, lmp); // upper
             int nbin_num = utils::inumeric(FLERR, arg[i+4], false, lmp); // 将 bins 数量赋给 nbin_num (仅用于单维度)
@@ -222,6 +229,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             LOG("Logging: cv_compute=%d bound set expr as %s", dim_idx+1, arg[i+5]);
             // reg_expression(int dim_idx, const std::string& expr_str);
             cv_configs->reg_expression(dim_idx, arg[i+5]);
+            // 【标记该维度已配置，后续检查是否所有维度都配置了表达式
+            // has_dim_configured[dim_idx] = true;
             i += 6;
         } else if (strcmp(arg[i], "Gaussian_Hill_type") == 0) {
             ERR_COND(i + 1 >= narg, "Error: Gaussian_Hill_type command requires 1 argument: 0(均匀网格) or 1(稀疏网格) or 2(KDTree).");
@@ -240,6 +249,12 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         }
     }
     LOG("init calc set end, start to define Gaussian.");
+
+    // for (int j = 0; j < cv_dim; ++j) {
+    //     if (!has_dim_configured[j]) {
+    //         error->all(FLERR, "Error: CV_dim is set to %d, but DIM %d is missing in the input script!", cv_dim, j + 1);
+    //     }
+    // }
 
     // 定义Gaussian
     if (Gaussian_Hill_type==0){
@@ -450,9 +465,7 @@ int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int /*pbc_
             slot_offset += obj->pack_comm_ubuf(n, list, buf, slot_offset, comm_forward);
         }
     }
-
     
-
     int expected_total = n * this->comm_forward; // 官方大管家认为你应该打包的总 double 数
     DEBUG_LOG("Rank:%d,Pack forward comm: n=%d, comm_forward=%d, total packed=%d", lmp->comm->me,n, this->comm_forward, n*slot_offset);
 
@@ -478,9 +491,35 @@ void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
     DEBUG_LOG("Rank:%d,Unpack forward comm: n=%d, comm_forward=%d, total unpacked=%d", lmp->comm->me, n, this->comm_forward, slot_offset*n);
 }
 
+void * FixMetadynamics::extract(const char *key, int &dim){
+  std::string keystr(key);
+  // 处理每原子数据请求
+  if (keystr.rfind("colvar_peratom:", 0) == 0) {
+    std::string full_query = keystr.substr(15); // 拿到 "Q4.stein_q"
+    
+    // 🔍 寻找点号位置进行切片
+    size_t dot_pos = full_query.find('.');
+    if (dot_pos == std::string::npos) return nullptr;
+    
+    std::string cv_instance_name = full_query.substr(0, dot_pos); // "Q4"
+    std::string prop_name = full_query.substr(dot_pos + 1);       // "stein_q"
+    
+    // 从你 Fix 的自注册 Map 容器中路由找到 Q4 实例
+    if (cal_registry.find(cv_instance_name) != cal_registry.end()) {
+      dim = 1;
+      // 调用该 CV 内部由属性名驱动的公共接口（或者让各个 CV 自己解析属性）
+      return cal_registry[cv_instance_name]->get_peratom_ptr(prop_name); 
+    }
+  }
+  return nullptr;
+}
+
 // 工厂函数：创建FixZeroForce对象
 static Fix *fix_metad(LAMMPS *lmp, int narg, char **arg) {
     return new FixMetadynamics(lmp, narg, arg);
+}
+static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg) {
+    return new ComputeMetaDToy(lmp, narg, arg);
 }
 
 // 插件注册函数（必须命名为 lammpsplugin_init）
@@ -497,4 +536,13 @@ extern "C" void lammpsplugin_init(void *lmp, void *handle, void *regfunc) {
     plugin.creator.v2 = (lammpsplugin_factory2 *)fix_metad; // v2工厂函数
     plugin.handle = handle;
     (*register_plugin)(&plugin, lmp);     // 注册插件
+
+    // 注册compute类型的插件
+    plugin.style = "compute";             // 🚨 切换插件类型为 compute
+    plugin.name = "metad/atom";           // 🚨 设定样式名（用户在 in 脚本里调用的样式）
+    plugin.info = "Metadynamics CV Diagnostic Bus Probe v1.0";
+    plugin.author = "ZQC";
+    plugin.creator.v2 = (lammpsplugin_factory2 *)compute_MetaD_toy; // 🚨 绑定 Compute 的工厂函数
+    plugin.handle = handle;               // 共享相同的句柄
+    (*register_plugin)(&plugin, lmp);     // 再次调用注册，将其挂载到 LAMMPS 核心总线上
 }

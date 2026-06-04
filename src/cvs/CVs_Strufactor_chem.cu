@@ -205,7 +205,6 @@ __global__ void dcv_AVE_kernel_structure_factor_chem(
         double *d_dcvdx){
     
     double r_on = 0.8*cutoff_rsq;
-    double s = 1.0;
     // devise version=============
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     if(c_atom<group_count){
@@ -228,6 +227,8 @@ __global__ void dcv_AVE_kernel_structure_factor_chem(
             neigh_max=neigh_min=0;
         }
         for(int neigh_atom=neigh_min; neigh_atom<neigh_max; neigh_atom++){
+            double s = 1.0;
+            double ds = 0.0;
             double dx, dy, dz, r2, r;
             double theta, sin_theta, cos_theta;
             double chem_weight;
@@ -246,12 +247,15 @@ __global__ void dcv_AVE_kernel_structure_factor_chem(
             }
             if (r2 > r_on){
                 s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
+                ds = - 3*POW2((r2-r_on)/(cutoff_rsq-r_on)) * (2.0*r) / (cutoff_rsq-r_on);
             } else {
                 s = 1.0;
+                ds = 0.0;
             }
             chem_weight = chem_weight_catoms*d_type_weights[(int)d_atom_types[neigh_tag]];
-            temp = (NeighInGroupWeight * q_factor/ all_count)
-                        *(cos_theta/theta - sin_theta/POW2(theta)) *s;
+            temp = (NeighInGroupWeight / all_count)*(
+                        (cos_theta/theta - sin_theta/POW2(theta)) *s * q_factor
+                        + ds*sin_theta/theta);
             dcvdx_local[0] -= chem_weight*(temp)*dx/r;
             dcvdx_local[1] -= chem_weight*(temp)*dy/r;
             dcvdx_local[2] -= chem_weight*(temp)*dz/r;

@@ -63,6 +63,7 @@
                 fprintf(f_check, "[Rank:%d][%s:%d] " format "\n", _me, __FILE__, __LINE__, ##__VA_ARGS__); \
                 fflush(f_check); \
             } \
+            exit(1);\
         } \
     } while(0)
 #else
@@ -281,6 +282,7 @@
                 fprintf(f_check, "  Size: %.2f MB\n", (double)(size_bytes) / (1024 * 1024)); \
                 fflush(f_check); \
                 (error)->all(FLERR, "CUDA memory copy operation failed"); \
+                exit(1); \
             } \
         } while(0)
 #else
@@ -288,8 +290,8 @@
             cudaGetLastError(); \
             cudaError_t _err = cudaMemcpy((dst), (src), (size_bytes), (kind)); \
             if (_err != cudaSuccess) { \
-                exit(1);\
                 (error)->all(FLERR, "CUDA memory copy operation failed"); \
+                exit(1); \
             } \
         } while(0)
 #endif
