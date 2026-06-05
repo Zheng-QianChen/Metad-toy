@@ -69,8 +69,10 @@
 #else
     #define ERR_COND(cond, format, ...) do { \
         if (cond) { \
-            error->all(FLERR,format"\n"); \
-            exit(1);\
+            char _err_buf[512]; \
+            snprintf(_err_buf, sizeof(_err_buf), format, ##__VA_ARGS__); \
+            error->all(FLERR, _err_buf); \
+            exit(1); \
         } \
     } while(0)
 #endif

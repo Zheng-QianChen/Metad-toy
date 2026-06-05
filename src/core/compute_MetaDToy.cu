@@ -9,6 +9,7 @@
 #include "fix.h" // 🚨 只需要引入 LAMMPS 原生 Fix 基类，保持去中心化解耦
 
 #include "compute_MetaDToy.h"
+#include "zqc_debug.h"
 
 
 using namespace LAMMPS_NS;
@@ -21,7 +22,7 @@ ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg), id_fix(nullptr)
 {
   // 基础参数校验：至少需要 5 个参数
-  if (narg < 5) utils::missing_cmd_args(FLERR, "compute metad/atom", error);
+  ERR_COND((narg < 5),"compute metad/atom need args more than 5.");
 
   // 1. 缓存被绑定的元动力学 Fix 的 ID (例如 "my_md")
   id_fix = utils::strdup(arg[3]);
@@ -66,15 +67,9 @@ void ComputeMetaDToy::init()
 {
   // 1. 运行时动态查找脚本中指定的那个 Fix 实例
   Fix *ifix = modify->get_fix_by_id(id_fix);
-  if (!ifix){
-    std::string err_msg = "Fix ID '" + std::string(id_fix) + "' specified in compute metad/atom does not exist";
-    error->all(FLERR, err_msg);  
-  }
+  ERR_COND((!ifix),"Fix ID %s specified in compute metad/atom does not exist",id_fix);
   // 2. 校验该 Fix 的注册样式是否是你的元动力学核心 (假设叫 "metad")
-  if (strcmp(ifix->style, "metad") != 0){
-    std::string err_msg = "Fix '" + std::string(id_fix) + "' is not a valid 'metad' style fix";
-    error->all(FLERR, err_msg);
-  }
+  ERR_COND((strcmp(ifix->style, "metad") != 0),"Fix  %s is not a valid 'metad' style fix",std::string(id_fix));
 }
 
 /* ----------------------------------------------------------------------
@@ -100,9 +95,7 @@ void ComputeMetaDToy::compute_peratom()
 
   // 2. 再次获取 Fix 指针
   Fix *ifix = modify->get_fix_by_id(id_fix);
-  if (!ifix){
-    error->all(FLERR, "Internal error pulling metadata fix instance");
-  } 
+  ERR_COND((!ifix),"Internal error pulling metadata fix instance");
 
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
@@ -132,10 +125,11 @@ void ComputeMetaDToy::compute_peratom()
     double *fix_stein_q = (double *) ifix->extract(request_key.c_str(), dim);
 
     // 健壮性报错：如果用户在 compute 中错拼了 CV 名字，或者该 CV 没被编译进系统
-    if (!fix_stein_q) {
-      std::string err_msg = "Fix '" + std::string(id_fix) + "' specified in compute metad/atom does not exist";
-      error->all(FLERR, err_msg);
-    }
+    // if (!fix_stein_q) {
+    //   std::string err_msg = "Fix '" + std::string(id_fix) + "' specified in compute metad/atom does not exist";
+    //   error->all(FLERR, err_msg);
+    // }
+    ERR_COND((!fix_stein_q),"Fix %s specified in compute metad/atom does not exist",id_fix);
     // 4. 极速将数据拉取并拷贝进 Compute 的缓存区
     for (int i = 0; i < nlocal; i++, ptr += nstride) {
       *ptr = 0.0;

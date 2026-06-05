@@ -116,9 +116,6 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, LAM
                     break;
                 }
             }
-        } else if (strcmp(arg[iarg], "User_Chem_weight") == 0) {
-            req.use_chemical_lock = true;
-            iarg += 1;
         } else if (strcmp(arg[iarg], "Chem_ctarget") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'Chem_ctarget\' keyword requires a number");
             req.c_target = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
@@ -174,6 +171,7 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, LAM
             break;
         }
     }
+    i = iarg;
     
     // We need full neighbor list to get cuda run faster
     NeighRequest *full_request;
@@ -181,23 +179,21 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, LAM
     full_request->set_id(2);
 
     MetaD_zqc::Weighted_chem_pair* Weighed_chem = nullptr;
-    if (req.use_chemical_lock) {
-        LOG("Logging: set CHEM_PAIR as group_name=%s cutoff_r=%f d_block_size=%d.\n         Chemical lock is ON, with c_target=%g and sigma=%g.",
-            req.group_name, req.cutoff_r, req.d_block_size,
-            req.c_target, req.sigma);
-        // create Structure factor CV
-        // env for CV
-        MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
-                                    MetaD_zqc::Stru_fact_env::get_or_create(lmp, f_check, Fixmetad, req)
-                                );
-        DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
-        std::string env_setNum = temp_env->get_env_key();
-        i = iarg;
-        // return Stru_fact cv
-        Weighed_chem = new MetaD_zqc::Weighted_chem_pair(lmp, Fixmetad, f_check, 
-                                env_setNum, req.group_id, temp_env,
-                                req.d_block_size);
-    }
+    LOG("Logging: set CHEM_PAIR as group_name=%s cutoff_r=%f d_block_size=%d.\n         Chemical lock is ON, with c_target=%g and sigma=%g.",
+        req.group_name, req.cutoff_r, req.d_block_size,
+        req.c_target, req.sigma);
+    // create Structure factor CV
+    // env for CV
+    req.use_chemical_lock=true;
+    MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
+                                MetaD_zqc::Stru_fact_env::get_or_create(lmp, f_check, Fixmetad, req)
+                            );
+    DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
+    std::string env_setNum = temp_env->get_env_key();
+    // return Stru_fact cv
+    Weighed_chem = new MetaD_zqc::Weighted_chem_pair(lmp, Fixmetad, f_check, 
+                            env_setNum, req.group_id, temp_env,
+                            req.d_block_size);
 
     if (req.use_sw_func){
         auto temp_sw = new MetaD_zqc::SwitchFunction(req.sw_func_req.type, req.sw_func_req.r_0, req.sw_func_req.d_0, 
@@ -244,6 +240,8 @@ MetaD_zqc::Weighted_chem_pair::Weighted_chem_pair(LAMMPS_NS::LAMMPS *lmp, LAMMPS
     lmp->memory->create(h_dcvdx, 0, "metad:Weighted_chem_pair:h_dcvdx");
     error = lmp->error;
 
+    int Threads_own_atoms = lmp->atom->nlocal;
+    lmp->memory->grow(h_chem_pair_r, Threads_own_atoms, "metad:Weighted_chem_pair:h_chem_pair_r");
     
     // comment name
     d_chem_pair_r.set_name("d_chem_pair_r");
@@ -299,13 +297,13 @@ double MetaD_zqc::Weighted_chem_pair::compute_cv_AVE(){
     int group_count = my_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal;
     DEBUG_LOG("group_count = %d",group_count);
-    double sf_ave_local=0;
+    double cv_ave_local=0;
     DEBUG_LOG_COND((h_chem_pair_r == NULL),"h_chem_pair_r list not initialized");
     if (group_count != 0) {
         my_averager->compute(Threads_own_atoms, all_count, h_chem_pair_r, 
-            lmp->atom->mask, my_env->groupbit, sf_ave_local);
+            lmp->atom->mask, my_env->groupbit, cv_ave_local);
     }
-    MPI_Allreduce(&sf_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+    MPI_Allreduce(&cv_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
     return cv_value;
 }
@@ -761,3 +759,6 @@ __global__ void Weighted_chem_pair_dcv_AVE_kernel(
         d_dcvdx[c_atom * 3 + 2] = dcvdx_local[2];
     }
 }
+
+
+REGISTER_CV("WEIGHT_CHEM", MetaD_zqc::Weighted_chem_pair::create);

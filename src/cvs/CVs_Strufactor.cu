@@ -181,6 +181,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
             break;
         }
     }
+    i = iarg;
 
     // We need full neighbor list to get cuda run faster
     NeighRequest *full_request;
@@ -215,7 +216,6 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
                                 f_check, Fixmetad, req);
         DEBUG_LOG("Stru_fact_env is %p", temp_env);
         std::string env_setNum = temp_env->get_env_key();
-        i = iarg;
         // return Stru_fact cv
         struc_factor =  new MetaD_zqc::Stru_factor(lmp, Fixmetad, f_check, 
                                 env_setNum, req.group_id, temp_env,
@@ -974,10 +974,6 @@ void MetaD_zqc::Stru_factor::unpack_comm_ubuf(int n, int first, double *u_buf, i
 
 double* MetaD_zqc::Stru_factor::get_peratom_ptr(const std::string &prop_name) {
     if (prop_name == "stru_f") {
-        if(h_stru_factor){
-            int Threads_own_atoms = lmp->atom->nlocal;
-            lmp->memory->grow(h_stru_factor, Threads_own_atoms, "metad:Stru_factor:cv_bound");
-        }
         return h_stru_factor;
     }
     return nullptr;

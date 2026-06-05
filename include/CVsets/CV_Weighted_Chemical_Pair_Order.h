@@ -27,7 +27,7 @@ namespace MetaD_zqc {
 
         std::string env_setNum;
         MetaD_zqc::Averager* my_averager;
-        bool init_flag;
+        bool init_flag=false;
 
         bool use_sw_func = false;
         SwitchFunctionRequest sw_params;

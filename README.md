@@ -111,6 +111,12 @@ fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
 
 ---
 
+## 使用文档 / Documentation
+
+详细参数配置与命令说明请参阅：[用户使用手册](docs/User_Manual.md)
+
+---
+
 ## 🤝 贡献与反馈
 
 如果有任何问题或建议，请联系 **ZQC**。

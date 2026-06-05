@@ -1,0 +1,44 @@
+site_name: MetaD-toy Documentation
+site_url: https://github.com/Zheng-QianChen/Metad-toy/
+
+# 1. 启用高端的 Material 主题与色彩、功能配置
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal        # 科技感青色
+      accent: deep orange
+    - scheme: slate        # 支持夜间暗黑模式切换
+      primary: teal
+      accent: deep orange
+  features:
+    - navigation.tabs      # 启用顶部大标签页导航
+    - navigation.sections  # 侧边栏分块折叠
+    - search.share         # 搜索结果可分享
+    - content.code.copy    # 代码块一键复制按钮
+
+# 2. 启用多语言插件 (实现中英双语切换)
+plugins:
+  - search
+  - i18n:
+      languages:
+        - code: en
+          locale: en
+          name: English
+          default: true   # 显式指定英文为默认语种
+          build: true     # 显式允许编译该语种
+        - code: zh
+          locale: zh
+          name: 简体中文
+          default: false  # 非默认语种
+          build: true     # 显式允许编译该语种
+
+# 3. 定义全局导航菜单栏 (多语言环境下，各语言会映射对应后缀的文件)
+nav:
+  - Home: index.md
+  - User Manual: 
+    - basic: manuals/User_Manual.md
+    - CV: 
+      - list: manuals/CV_List.md
+      - Weight Chem: manuals/CV_Weight_Chem.md
+  - Technical Theory: theory/Steinh_Q.md
