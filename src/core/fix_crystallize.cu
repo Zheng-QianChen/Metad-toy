@@ -24,6 +24,7 @@
 #include "zqc_DimSet.h"
 #include "zqc_gaussian.h"
 #include "zqc_mlcvs.h"
+#include "zqc_switch_function.h"
 
 using namespace LAMMPS_NS;
 
@@ -126,75 +127,29 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
           std::string type = arg[i+3];
           LOG("Dueling with %s",cal_name.c_str());
           i += 3;
-          cal_registry[cal_name] = MetaD_zqc::CVFactory::create(type, lmp, this, narg, arg, i, f_check);
-          // if (strcmp(arg[i], "DISTANCE") == 0) {
-          //     DEBUG_LOG("In DISTANCE settings");
-          //     // DISTANCE 1 2 -> cv_values: 1-2 距离
-          //     ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
-          //     int id1   = utils::inumeric(FLERR, arg[i+1], false, lmp);
-          //     int id2   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-          //     cal_registry[cal_name] = new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
-          //     // DEBUG_LOG("debug: %d %d", id1, id2);
-          //     i += 3;
-          // } else if (strcmp(arg[i], "STEINH") == 0) {
-          //     DEBUG_LOG("In STEINH settings");
-          //     MetaD_zqc::SteinhardtRequest req;
-          //     req.cal_name = cal_name;
-          //     // 原子环境分析-初始设置
-          //     // Usage: STEINH <Q/L> <4/6/8/12> <group>
-          //     ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <4/6/8/12> <group> \".");
-          //     req.Q_type_str = arg[i+1];
-          //     req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
-          //     req.group_name = arg[i+3];
-          //     req.group_id = lmp->group->find(req.group_name);
-          //     ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
-          //     //参数有效性
-          //     ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6 && req.Q_num != 8 && req.Q_num != 12),"Error: Steinhardt order L must be 3, 4, 6, 8, or 12.");
-          //     ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (local) or 'L' (global).");
-          //     // 进阶设置
-          //     // default values
-          //     req.cutoff_r = 4.0;
-          //     req.cutoff_Natoms = 12;
-          //     req.d_block_size = 128;
-          //     int iarg=4 + i;
-          //     while (iarg < narg) {
-          //         if (strcmp(arg[iarg], "cutoff_r") == 0) {
-          //             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
-          //             req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-          //             iarg += 2;
-          //         }
-          //         else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
-          //             ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
-          //             req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-          //             iarg += 2;
-          //         }
-          //         else if (strcmp(arg[iarg], "d_block_size") == 0) {
-          //             ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
-          //             req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-          //             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
-          //             iarg += 2;
-          //         }
-          //         else {
-          //           break;
-          //         }
-          //     }
-          //     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
-          //                       req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
-          //     NeighRequest *full_request;
-          //     full_request = neighbor->add_request(this, NeighConst::REQ_FULL);
-          //     full_request->set_id(2);
-          //     steinh_requests.push_back(req);
-          //     // // 创建 CV 对象
-          //     // TODO: 需要处理相同envs的合并问题
-          //     MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
-          //                           f_check, this, req.group_id, req.cutoff_r, req.cutoff_Natoms);
-          //     DEBUG_LOG("Steinhardt_env is %p", temp_env);
-          //     std::string env_setNum = temp_env->get_env_key();
-          //     cal_registry[cal_name]= MetaD_zqc::create_steinhardt_cv(lmp, this, f_check, 
-          //                           env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
-          //                           req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
-          //     i = iarg;
-          // }
+          if (strcmp(type.c_str(), "SW_FUNC") == 0) {
+            if (sw_registry.find(cal_name) != sw_registry.end()) {
+              error->all(FLERR, "Error: CAL name '%s' is duplicated.", cal_name.c_str());
+            } else {
+               LOG("Creating switch function %s", cal_name.c_str());
+            }
+            // SW_FUNC 也将由 CAL 指定
+            sw_registry[cal_name] = MetaD_zqc::SwitchFunction::create(lmp, this, narg, arg, i, f_check);
+          } else {
+            if (cal_registry.find(cal_name) != cal_registry.end()) {
+              error->all(FLERR, "Error: CAL name '%s' is duplicated.", cal_name.c_str());
+            } else {
+               LOG("Creating switch function %s", cal_name.c_str());
+            }
+            // 通过工厂方法创建 CV 对象，并注册到 cal_registry 中
+            auto new_cv = MetaD_zqc::CVFactory::create(type, lmp, this, narg, arg, i, f_check);
+            if (new_cv == nullptr) {
+              error->all(FLERR, "Metad-toy Error: Unknown or unregistered object type '%s' specified in CAL '%s'. "
+                                "Please register it in CVFactory or check your input script.",
+                        type.c_str(), cal_name.c_str());
+            }
+            cal_registry[cal_name] = new_cv;
+          }
       } else if (strcmp(arg[i], "SYMBOL") == 0) {
             // SYMBOL v1 Q6.AVE -> SYMBOL <symbol_name> <cv_method>
             ERR_COND(i + 2 >= narg, "Error: DIM command requires 2 arguments: SYMBOL <symbol_name> <cv_method>.");
@@ -330,7 +285,6 @@ FixMetadynamics::~FixMetadynamics() {
   }
   // memory->destroy(cv_bound);
   // memory->destroy(nbin);
-  MetaD_zqc::Steinhardt_env::clear_pool();
 }
 
 int FixMetadynamics::setmask() {
@@ -510,6 +464,14 @@ void * FixMetadynamics::extract(const char *key, int &dim){
       // 调用该 CV 内部由属性名驱动的公共接口（或者让各个 CV 自己解析属性）
       return cal_registry[cv_instance_name]->get_peratom_ptr(prop_name); 
     }
+  }
+  return nullptr;
+}
+
+MetaD_zqc::SwitchFunction* FixMetadynamics::get_switching_function(const std::string& name) const {
+  auto it = sw_registry.find(name);
+  if (it != sw_registry.end()) {
+    return it->second; 
   }
   return nullptr;
 }

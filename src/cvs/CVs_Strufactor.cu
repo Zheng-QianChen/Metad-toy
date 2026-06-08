@@ -1018,7 +1018,7 @@ __global__ void get_environment_Strufactor(double cutoff_rsq,
     int *d_firstneigh_ptrs, double *d_x_flat,
     double *d_group_dminneigh, int *d_neigh_in_cutoff_r,
     LAMMPS_NS::tagint *d_calculated_numneigh){
-    // get_environment in GPU
+    // get_environment_Strufactor in GPU
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     if(c_atom<group_count){
         double r2,temp_r2,temp_x,temp_y,temp_z,neigh_x,neigh_y,neigh_z;

@@ -41,4 +41,5 @@ nav:
     - CV: 
       - list: manuals/CV_List.md
       - Weight Chem: manuals/CV_Weight_Chem.md
+      - Steinhardt Q: manuals/CVs_Steinhardt.md
   - Technical Theory: theory/Steinh_Q.md

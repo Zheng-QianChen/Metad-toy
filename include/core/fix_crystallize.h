@@ -72,6 +72,8 @@ namespace MetaD_zqc {
   class Gaussian_Hill_Base;
   // class GH_t0_uniformGrid;
 
+  class SwitchFunction;
+
   class CVFactory {
     typedef CV* (*CreatorFunc)(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics *,
                    int, char**, int&, FILE*);
@@ -109,6 +111,9 @@ namespace LAMMPS_NS {
     double get_total_bias(int* );
     void *extract(const char *key, int &dim);
     NeighList *listhalf, *listfull;
+
+    // get_parameters
+    MetaD_zqc::SwitchFunction* get_switching_function(const std::string& name) const;
   private:
     // double sigma, height0, biasf, kBT;
     // double KB;
@@ -128,6 +133,7 @@ namespace LAMMPS_NS {
       std::string name;
       std::string func;
     };
+    std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
     MetaD_zqc::MetaDimensionManager *cv_configs;
     // FILE *file;

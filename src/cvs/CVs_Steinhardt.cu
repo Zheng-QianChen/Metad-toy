@@ -1,8 +1,12 @@
-#include "fix_crystallize.h"
+#include <cstring>
+#include <algorithm>
+#include <sstream>
+#include <iomanip>
 
-#include "lammpsplugin.h"
+#include <cuda_runtime.h>
 
 #include "lammps.h"
+#include "lammpsplugin.h"
 #include "update.h"
 #include "atom.h"
 #include "comm.h"
@@ -18,13 +22,11 @@
 #include "neigh_list.h"        // 定义NeighList结构
 #include "pair.h"
 
+#include "fix_crystallize.h"
 #include "zqc_debug.h"
-#include "zqc_CVs.h"
+#include "CV_Steinhardt.h"
 #include "CV_Steinhardt_math.h"
-
-#include <cuda_runtime.h>
-#include <cstring>
-#include <algorithm>
+#include "zqc_switch_function.h"
 
 using namespace LAMMPS_NS;
 
@@ -60,27 +62,42 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::
             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
             req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
-        }
-        else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
+        } else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
             req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
-        }
-        else if (strcmp(arg[iarg], "d_block_size") == 0) {
+        } else if (strcmp(arg[iarg], "d_block_size") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
             req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
             iarg += 2;
-        }
-        else {
+        // } else if (strcmp(arg[iarg], "SW_FUNC") == 0) {
+        //     ERR_COND((iarg + 1 >= narg), "Error: \'SW_FUNC\' keyword requires a value");
+        //     req.SW_FUNC = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+        //     iarg += 2;
+        } else {
             break;
         }
     }
     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
                         req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+
+    // 请求lammps提供全近邻列表（full neighbor list），并设置ghost原子范围为 cutoff_r + neighbor->skin
     NeighRequest *full_request;
     full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
     full_request->set_id(2);
+    double temp_neigh_cutoff;
+    if (strcmp(req.Q_type_str, "Q") == 0){
+        temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
+    } else if (strcmp(req.Q_type_str, "L") == 0){
+        temp_neigh_cutoff = (2.0 * req.cutoff_r + lmp->neighbor->skin);
+    }
+    if (lmp->comm->get_comm_cutoff() < temp_neigh_cutoff) {
+        lmp->comm->cutghostuser = temp_neigh_cutoff;
+        LOG_COND(lmp->comm->me == 0, "Increasing communication cutoff to %g for GPU pair style",
+                  lmp->comm->cutghostuser);
+    }
+
     // steinh_requests.push_back(req);
     // // 创建 CV 对象
     // TODO: 需要处理相同envs的合并问题
@@ -109,9 +126,9 @@ MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
         } else if (Q_num==6){
             return new MetaD_zqc::STEIN_QL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, d_block_size);
         }
-    } else if (strcmp(Q_type_str,"L")){
+    } else if (strcmp(Q_type_str,"L") == 0){
         if (Q_num==4){
-            // return new STEIN_LQ4(lmp, f_check, group_id, cutoff_r, cutoff_Natoms, d_block_size);
+            // return new MetaD_zqc::STEIN_LocalQL<4>(lmp, f_check, group_id, cutoff_r, cutoff_Natoms, d_block_size);
         } else if (Q_num==6){
             // return new STEIN_LQ6(lmp, f_check, group_id, cutoff_r, cutoff_Natoms, d_block_size);
         }
@@ -125,27 +142,24 @@ MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::L
                                             LAMMPS_NS::FixMetadynamics *Fixmetad,
                                             int group_id, double cutoff_r, int cutoff_Natoms) {
     // 1. generate a unique key for the environment based on its parameters
-    std::string key = std::to_string(group_id) + "_" + std::to_string(cutoff_r) + "_" + std::to_string(cutoff_Natoms);
+    std::ostringstream oss;
+    oss << group_id << "_" << cutoff_r << "_" << cutoff_Natoms;
+    std::string key = oss.str(); // 比如 cutoff_r=5.5 时，Key 为 "1_5.5_128"
     // 2. check if the environment already exist in the pool
-    if (env_pool.count(key)) {
-        return env_pool[key]; // if exits, return the existing environment
+    if (!(env_pool.count(key))) {
+        // 3. new environment and store it in the pool if not exist
+        MetaD_zqc::Steinhardt_env *new_env = new Steinhardt_env(lmp, f_check, Fixmetad, 
+                                                    group_id, cutoff_r, cutoff_Natoms);
+        env_pool[key] = new_env; // store the new environment in the pool
     }
-    // 3. new environment and store it in the pool if not exist
-    MetaD_zqc::Steinhardt_env *new_env = new Steinhardt_env(lmp, f_check, Fixmetad, 
-                                                group_id, cutoff_r, cutoff_Natoms);
-    env_pool[key] = new_env; // store the new environment in the pool
-    return new_env;
+    env_pool[key]->register_env(); // increase reference count
+    return env_pool[key]; // if exits, return the existing environment
 }
 
 
 std::string MetaD_zqc::Steinhardt_env::get_env_key(){
     std::string key = std::to_string(this->group_id) + "_" + std::to_string(this->cutoff_r) + "_" + std::to_string(this->cutoff_Natoms);
     return key;
-}
-
-void MetaD_zqc::Steinhardt_env::clear_pool() {
-    for (auto& pair : env_pool) delete pair.second;
-    env_pool.clear();
 }
 
 MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
@@ -511,7 +525,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
     // cudaDeviceSynchronize(); //catch kernel done
     launchErr = cudaGetLastError();
-    get_environment<<<block_num,d_block_size>>>
+    get_environment_Steinhardt_Q<<<block_num,d_block_size>>>
       ( cutoff_Natoms, cutoff_rsq, box_x, box_y, box_z, 
       group_count, d_group_indices.ptr, d_group_numneigh.ptr, d_firstneigh_ptrs.ptr, d_x_flat.ptr,
       d_group_dminneigh.ptr, d_neigh_in_cutoff_r.ptr, d_neigh_both_in_r_N.ptr, d_calculated_numneigh.ptr) ;
@@ -605,63 +619,64 @@ void MetaD_zqc::STEIN_QL<L>::environment(){
 
 template <int L>
 auto MetaD_zqc::STEIN_QL<L>::set_CV_calculate(std::string func_name) -> CV_Calculation {
-    if (func_name == "AVE") {
-        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_AVE);
-    } else if (func_name == "LOC_AVE") {
-        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_LOC_AVE);
+    // 1. 按照 "." 分割 func_name
+    std::string main_func = func_name;
+    std::string sub_param = "";
+    
+    size_t dot_pos = func_name.find('.');
+    if (dot_pos != std::string::npos) {
+        main_func = func_name.substr(0, dot_pos);   // 拿到 "." 前面的部分，如 "SW_FUNC"
+        sub_param = func_name.substr(dot_pos + 1);  // 拿到 "." 后面的部分，如 "Fermi" 或 "Cubic"
     }
-    return nullptr;
+
+
+    if (main_func == "AVE") {
+        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_AVE);
+    } else if (main_func == "LOC_AVE") {
+        // return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_LOC_AVE);
+    } else if (main_func == "SW_FUNC") {
+        auto it = Fixmetad->get_switching_function(sub_param);
+        if (it != nullptr) {
+            // 成功让类中的成员指针指向已经构造好的 SW1 (RATIONAL 实例)
+            this->my_cv_SWfunc = it;
+        } else {
+            // 如果脚本里写错了名字（比如写成了 SW2 却没声明），直接让 LAMMPS 报错
+            ERR_COND(1, "Switching function %s used in SYMBOL but not defined in CAL!", sub_param.c_str());
+        }
+        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_SW_FUNC);
+    } else {
+        ERR_COND(1, "We can't find the func %s.", main_func.c_str());
+        return nullptr;
+    }
 }
 
 template <int L>
 auto MetaD_zqc::STEIN_QL<L>::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
-    if (func_name == "AVE") {
-        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_AVE);
-    } else if (func_name == "LOC_AVE") {
-        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_LOC_AVE);
+    // 1. 按照 "." 分割 func_name
+    std::string main_func = func_name;
+    std::string sub_param = "";
+    
+    size_t dot_pos = func_name.find('.');
+    if (dot_pos != std::string::npos) {
+        main_func = func_name.substr(0, dot_pos);   // 拿到 "." 前面的部分，如 "SW_FUNC"
+        sub_param = func_name.substr(dot_pos + 1);  // 拿到 "." 后面的部分，如 "Fermi" 或 "Cubic"
     }
-    return nullptr;
+
+    if (main_func == "AVE") {
+        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_AVE);
+    } else if (main_func == "LOC_AVE") {
+        // return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_LOC_AVE);
+    } else if (main_func == "SW_FUNC") {
+        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_SW_FUNC);
+    } else {
+        ERR_COND(1, "We can't find the func %s.", main_func.c_str());
+        return nullptr;
+    }
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::base_calc(){
     compute_Q_peratoms();
-}
-
-template <int L>
-double MetaD_zqc::STEIN_QL<L>::compute_cv_AVE(){
-    DEBUG_LOG("im in compute_cv_AVE.");
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal;
-    DEBUG_LOG("group_count = %d",group_count);
-    double ql_ave_local=0;
-    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
-    if (group_count != 0) {
-        my_averager->compute(Threads_own_atoms, all_count, stein_q, lmp->atom->mask, 
-            my_env->groupbit, ql_ave_local);
-    }
-    MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
-    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
-    return cv_value;
-}
-
-template <int L>
-double MetaD_zqc::STEIN_QL<L>::compute_cv_LOC_AVE(){
-    call_steinhardt_cv_LOCAL_kernel();
-    
-    DEBUG_LOG("im in compute_cv_AVE.");
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal;
-    DEBUG_LOG("group_count = %d",group_count);
-    double ql_ave_local=0;
-    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
-    if (group_count != 0) {
-        my_averager->compute(Threads_own_atoms, all_count, stein_q, lmp->atom->mask, 
-            my_env->groupbit, ql_ave_local);
-    }
-    MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
-    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
-    return cv_value;
 }
 
 template <int L>
@@ -705,6 +720,23 @@ void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
                     DEBUG_LOG("stein_ql[%lld] = %f",(long long)c_atom,stein_q[c_atom]);
                 });
     DEBUG_LOG("post_force function end");
+}
+
+template <int L>
+double MetaD_zqc::STEIN_QL<L>::compute_cv_AVE(){
+    DEBUG_LOG("im in compute_cv_AVE.");
+    int group_count = my_env->group_count;
+    int Threads_own_atoms = lmp->atom->nlocal;
+    DEBUG_LOG("group_count = %d",group_count);
+    double ql_ave_local=0;
+    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
+    if (group_count != 0) {
+        my_averager->compute(Threads_own_atoms, all_count, stein_q, lmp->atom->mask, 
+            my_env->groupbit, ql_ave_local);
+    }
+    MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
+    return cv_value;
 }
 
 template <int L>
@@ -812,7 +844,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
     //     h_dYlm_dr, h_dcvdx);
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
-    call_steinhardt_dcv_kernel();
+    call_steinhardt_dcv_AVE_kernel();
     cudaDeviceSynchronize(); // waiting memory
     DEBUG_LOG("i am out");
 
@@ -825,14 +857,33 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::bias_force_LOC_AVE(double dVdcv){
+double MetaD_zqc::STEIN_QL<L>::compute_cv_SW_FUNC(){
+    DEBUG_LOG("im in compute_cv_SW_FUNC.");
+    int group_count = my_env->group_count;
+    DEBUG_LOG("group_count = %d",group_count);
+    double ql_ave_local=0;
+    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
+    if (group_count != 0) {
+        for (int c_atom=0; c_atom<group_count; c_atom++){
+            int c_tag = (my_env->h_group_indices)[c_atom];
+            double Si = stein_q[c_tag];
+            ql_ave_local += my_cv_SWfunc->f(Si);
+        }
+    }
+    MPI_Allreduce(&ql_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
+    DEBUG_LOG("group_count = %d, compute_cv_SW_FUNC = %g",group_count, cv_value);
+    return cv_value;
+}
+
+template <int L>
+void MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC(double dVdcv){
     // pass
-    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_AVE");
+    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC");
     double **f = lmp->atom->f;
     double **x = lmp->atom->x;
     int c_tag;
-    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_AVE");
-    this->get_dcvdx_LOC_AVE(cv_value, h_dcvdx);
+    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC");
+    this->get_dcvdx_SW_FUNC(cv_value, h_dcvdx);
     // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
     // DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
     for (int c_atom=0; c_atom<(my_env->group_count); c_atom++){
@@ -840,10 +891,12 @@ void MetaD_zqc::STEIN_QL<L>::bias_force_LOC_AVE(double dVdcv){
         DEBUG_LOG("dVdcv  = %g", dVdcv);
         c_tag = (my_env->h_group_indices)[c_atom];
         DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
-            printf("error: force is infinity, check your system or cv_value.\n");
-             error->all(FLERR, "STEIN_QL CV error: force is infinity, check your system or cv_value.");
-        }
+        // if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
+        //     LOG("error: force is infinity, check your system or cv_value.\n");
+        //      error->all(FLERR, "STEIN_QL CV error: force is infinity, check your system or cv_value.");
+        // }
+        ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])), 
+                "STEIN_QL CV error: force is infinity, check your system or cv_value.");
         f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
         f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
         f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
@@ -853,30 +906,83 @@ void MetaD_zqc::STEIN_QL<L>::bias_force_LOC_AVE(double dVdcv){
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::get_dcvdx_LOC_AVE(double cv_value, double *dcvdx){
+void MetaD_zqc::STEIN_QL<L>::get_dcvdx_SW_FUNC(double cv_value, double *dcvdx){
     int group_count = my_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
     int last_group_count = my_env->last_group_count;
     size_t datalen = 0;
     
+
     // DEBUG_RUN(
     datalen = (Threads_own_atoms * (stein_l + 1) * 2);
     lmp->memory->grow(h_stein_qlm, datalen, "STEIN_QL:h_stein_qlm");
+    // if (last_group_count < group_count){
+    //     delete[] h_stein_qlm;
+    //     h_stein_qlm = new double[datalen];
+    // }
     SAFE_CUDA_MEMCPY(h_stein_qlm, d_stein_qlm.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
+    // );
+
 
     datalen = (group_count*3);
     lmp->memory->grow(h_dcvdx, datalen, "STEIN_QL:h_dcvdx");
+    // if (last_group_count < group_count){
+    //     delete[] h_dcvdx;
+    //     h_dcvdx = nullptr;
+    //     h_dcvdx = new double[datalen];
+    // }
+    // SAFE_CUDA_FREE(d_dcvdx);
+    // SAFE_CUDA_MALLOC(&d_dcvdx, datalen*sizeof(double), f_check);
     d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
+
     datalen = (group_count*3*2);
     lmp->memory->grow(h_dYlm_dr, datalen, "STEIN_QL:h_dYlm_dr");
+    // if (last_group_count < group_count){
+    //     delete[] h_dYlm_dr;
+    //     h_dYlm_dr = nullptr;
+    //     h_dYlm_dr = new double[(group_count*3*2)];
+    // }
+    // SAFE_CUDA_FREE(d_dYlm_dr);
+    // SAFE_CUDA_MALLOC(&d_dYlm_dr, datalen*sizeof(double), f_check);
     d_dYlm_dr.grow_to(datalen, f_check, __FILE__, __LINE__);
+    // SAFE_CUDA_MEMCPY(d_dYlm_dr,h_dYlm_dr,datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
+
+    // sync Stein_qlm and stein_q with communication
+    // then we can directly use the data in device to calculate dcvdx, 
+    // without worrying about the data consistency between MPI processes.
+    DEBUG_LOG("[Rank:%d][Before Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
+    DEBUG_LOG("[Rank:%d][Before Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
+    cudaDeviceSynchronize(); // waiting memory
+    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
+    comm_mode=true;
+    lmp->comm->forward_comm(Fixmetad);
+    comm_mode=false;
+    DEBUG_LOG("[Rank:%d][After Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
+    DEBUG_LOG("[Rank:%d][After Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
+    // for (int i=0; i<((Threads_own_atoms)*(L + 1)*2); i++){
+    //     LOG("stein_qlm[%d] = %f\n", i, h_stein_qlm[i]);
+    // }
+    // for (int i=0; i<((Threads_own_atoms)); i++){
+    //     LOG("my_env->neigh_both_in_r_N[%d] = %d\n", i, my_env->neigh_both_in_r_N[i]);
+    // }
+
+    SAFE_CUDA_MEMCPY(d_stein_qlm.ptr, h_stein_qlm, ((Threads_own_atoms)*(L + 1)*2)*sizeof(double), cudaMemcpyHostToDevice,f_check);
+    SAFE_CUDA_MEMCPY(d_stein_ql.ptr, stein_q, Threads_own_atoms*sizeof(double), cudaMemcpyHostToDevice,f_check);
+    SAFE_CUDA_MEMCPY(my_env->d_neigh_both_in_r_N.ptr, my_env->neigh_both_in_r_N, Threads_own_atoms*sizeof(int), cudaMemcpyHostToDevice,f_check);
 
 
+
+    // dcv_steinhardt_param_calc_kernel_q4(
+    //     file, cutoff_Natoms, group_count, groupbit,
+    //     mask, h_group_indices, calculated_numneigh,
+    //     neigh_both_in_r_N, group_dminneigh,
+    //     h_stein_qlm, h_stein_Ylm, stein_q,
+    //     h_dYlm_dr, h_dcvdx);
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
-    call_steinhardt_dcv_LOCAL_kernel();
+    call_steinhardt_dcv_SW_FUNC_kernel();
     cudaDeviceSynchronize(); // waiting memory
     DEBUG_LOG("i am out");
 
@@ -885,11 +991,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_LOC_AVE(double cv_value, double *dcvdx){
     //   (group_count*3)*sizeof(double), cudaMemcpyDeviceToHost, file);
     cudaDeviceSynchronize(); // waiting memory
     DEBUG_LOG("1");
-}
 
-template <int L>
-void MetaD_zqc::STEIN_QL<L>::get_dcvdx(double cv_value, double *dcvdx){
-    // pass
 }
 
 
@@ -929,7 +1031,7 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
 
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
-    call_steinhardt_cv_kernel();
+    call_steinhardt_cv_AVE_kernel();
     // steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
     //     group_count, cutoff_Natoms,
     //     d_neigh_both_in_r_N, d_group_dminneigh,
@@ -963,8 +1065,8 @@ void MetaD_zqc::STEIN_QL<L>::summary(FILE* f){}
 
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_kernel(){ 
-    dcv_steinhardt_param_calc_kernel<L> <<<block_num,d_block_size>>>(
+void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_AVE_kernel(){ 
+    steinhardt_dcv_AVE_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
@@ -974,8 +1076,9 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_kernel(){
 
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_kernel(){
-    steinhardt_param_calc_kernel<L> <<<block_num,d_block_size>>>(
+void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_AVE_kernel(){
+    ERR_COND((my_env == nullptr),"my_env is NULL! Cannot launch kernel.");
+    steinhardt_cv_AVE_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->group_count), (my_env->cutoff_Natoms), (my_env->d_group_indices.ptr),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
         d_stein_qlm.ptr, d_stein_Ylm.ptr,
@@ -983,131 +1086,29 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_kernel(){
 }
 
 
-// template <>
-// void MetaD_zqc::STEIN_QL<4>::call_steinhardt_cv_kernel(){
-//     steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
-//         (my_env->group_count), (my_env->cutoff_Natoms),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
-//         d_stein_ql.ptr) ;
-// }
-
-// template <>
-// void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_kernel(){
-//     // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-//     dcv_steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
-//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-//         d_dYlm_dr.ptr, d_dcvdx.ptr);
-// }
-
-
-// template <>
-// void MetaD_zqc::STEIN_QL<6>::call_steinhardt_cv_kernel(){
-//     steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
-//         (my_env->group_count), (my_env->cutoff_Natoms),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
-//         d_stein_ql.ptr) ;
-// }
-
-// template <>
-// void MetaD_zqc::STEIN_QL<6>::call_steinhardt_dcv_kernel(){
-//     dcv_steinhardt_param_calc_kernel_q6<<<block_num,d_block_size>>>(
-//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-//         d_dYlm_dr.ptr, d_dcvdx.ptr);
-// }
-
-
-// template <>
-// void MetaD_zqc::STEIN_QL<3>::call_steinhardt_cv_kernel(){
-//     steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
-//         (my_env->group_count), (my_env->cutoff_Natoms),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
-//         d_stein_ql.ptr) ;
-// }
-
-// template <>
-// void MetaD_zqc::STEIN_QL<3>::call_steinhardt_dcv_kernel(){
-//     dcv_steinhardt_param_calc_kernel_q3<<<block_num,d_block_size>>>(
-//         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-//         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-//         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-//         d_dYlm_dr.ptr, d_dcvdx.ptr);
-// }
-
-// LOCAL_AVE
-
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_LOCAL_kernel(){
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    int stein_l = L;
-    int datalen = (Threads_own_atoms * (stein_l + 1) * 2);
-    lmp->memory->grow(h_stein_LQlm, datalen, "STEIN_QL:h_stein_LQlm");
-    SAFE_CUDA_MEMCPY(h_stein_LQlm, d_stein_LQlm.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    // );
-
-    steinhardt_param_calc_LOCAL_kernel<<<block_num,d_block_size>>>(
-        (my_env->group_count), (my_env->cutoff_Natoms), L, (my_env->groupbit), 
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr),
-        (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_neigh_both_in_r_N.ptr), 
-        d_stein_qlm.ptr, d_stein_LQlm.ptr,
-        d_stein_ql.ptr);
-        
-    SAFE_CUDA_MEMCPY(stein_q, d_stein_ql.ptr,
-      (Threads_own_atoms) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    SAFE_CUDA_MEMCPY(h_stein_LQlm, d_stein_LQlm.ptr,
-      (datalen) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    // steinhardt_param_calc_LOCAL_kernel<<<block_num,d_block_size>>>(
-    //     (my_env->group_count), (my_env->cutoff_Natoms),
-    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,
-    //     d_stein_ql.ptr) ;
+void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_SW_FUNC_kernel(){ 
+    auto sw_params = my_cv_SWfunc->params;
+    steinhardt_dcv_SW_FUNC_kernel<L> <<<block_num,d_block_size>>>(
+        sw_params,
+        (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
+        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
+        (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+        d_dYlm_dr.ptr, d_dcvdx.ptr);
 }
 
 
+// // 直接在求均值那里做了，不需要写新的kernel
+// template <int L>
+// void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_SW_FUNC_kernel(){
+//     steinhardt_cv_SW_FUNC_kernel<L> <<<block_num,d_block_size>>>(
+//         (my_env->group_count), (my_env->cutoff_Natoms), (my_env->d_group_indices.ptr),
+//         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
+//         d_stein_qlm.ptr, d_stein_Ylm.ptr,
+//         d_stein_ql.ptr) ;
+// }
 
-template <>
-void MetaD_zqc::STEIN_QL<3>::call_steinhardt_dcv_LOCAL_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    // dcv_steinhardt_param_calc_LOCAL_kernel_q3<<<block_num,d_block_size>>>(
-    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
-}
-
-template <>
-void MetaD_zqc::STEIN_QL<4>::call_steinhardt_dcv_LOCAL_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    // dcv_steinhardt_param_calc_LOCAL_kernel_q4<<<block_num,d_block_size>>>(
-    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
-}
-
-template <>
-void MetaD_zqc::STEIN_QL<6>::call_steinhardt_dcv_LOCAL_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    // dcv_steinhardt_param_calc_LOCAL_kernel_q6<<<block_num,d_block_size>>>(
-    //     (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
-    //     (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
-    //     (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
-    //     d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-    //     d_dYlm_dr.ptr, d_dcvdx.ptr);
-}
 
 template <int L>
 int MetaD_zqc::STEIN_QL<L>::get_comm_forward_bytes(){ 
@@ -1173,13 +1174,13 @@ double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
     return nullptr;
 }
 
-__global__ void get_environment(int cutoff_Natoms, double cutoff_rsq,
+__global__ void get_environment_Steinhardt_Q(int cutoff_Natoms, double cutoff_rsq,
     double box_x, double box_y, double box_z,
     int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
     double *d_group_dminneigh, int *d_neigh_in_cutoff_r, int *d_neigh_both_in_r_N,
     LAMMPS_NS::tagint *d_calculated_numneigh){
-    // get_environment in GPU
+    // get_environment_Steinhardt_Q in GPU
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
     if(c_atom<group_count){
         double r2,temp_r2,temp_x,temp_y,temp_z,neigh_x,neigh_y,neigh_z;
@@ -1260,7 +1261,7 @@ __global__ void get_environment(int cutoff_Natoms, double cutoff_rsq,
 
 
 template <int L>
-__global__ void steinhardt_param_calc_kernel(
+__global__ void steinhardt_cv_AVE_kernel(
     int group_count, int cutoff_Natoms, int *d_group_indices,
     int *d_neigh_both_in_r_N, double *d_group_dminneigh,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql) {
@@ -1379,13 +1380,13 @@ __global__ void steinhardt_param_calc_kernel(
 
     d_stein_ql[c_atom_tag] = sqrt(ql_sq * 12.56637061435917295385/double(2*L + 1));
 }
-template __global__ void steinhardt_param_calc_kernel<3>(int, int, int*, int*, double*, double*, double*, double*);
-template __global__ void steinhardt_param_calc_kernel<4>(int, int, int*, int*, double*, double*, double*, double*);
-template __global__ void steinhardt_param_calc_kernel<6>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_AVE_kernel<3>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_AVE_kernel<4>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_AVE_kernel<6>(int, int, int*, int*, double*, double*, double*, double*);
 
 
 template <int L>
-__global__ void dcv_steinhardt_param_calc_kernel(
+__global__ void steinhardt_dcv_AVE_kernel(
     int cutoff_Natoms, int group_count, int groupbit, int all_count, 
     int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *d_calculated_numneigh, 
     int *d_neigh_both_in_r_N, double *d_group_dminneigh,
@@ -1536,141 +1537,306 @@ __global__ void dcv_steinhardt_param_calc_kernel(
     // 【完全通用】最后的总偏导汇总
     for (int i = 0; i < 3; i++) {
         d_dcvdx[c_atom * 3 + i] = d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1];
-        d_dcvdx[c_atom * 3 + i] = -(d_dcvdx[c_atom * 3 + i] * 2 * M_PI) / (all_count * (2 * L + 1));
+        d_dcvdx[c_atom * 3 + i] = -(d_dcvdx[c_atom * 3 + i] * 2 * PI) / (all_count * (2 * L + 1));
     }
 }
-template __global__ void dcv_steinhardt_param_calc_kernel<3>(int, int, int, int,
+template __global__ void steinhardt_dcv_AVE_kernel<3>(int, int, int, int,
     int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, double*, double*, double*, double*, double*, double*);
-template __global__ void dcv_steinhardt_param_calc_kernel<4>(int, int, int, int,
+template __global__ void steinhardt_dcv_AVE_kernel<4>(int, int, int, int,
     int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, double*, double*, double*, double*, double*, double*);
-template __global__ void dcv_steinhardt_param_calc_kernel<6>(int, int, int, int,
+template __global__ void steinhardt_dcv_AVE_kernel<6>(int, int, int, int,
     int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, double*, double*, double*, double*, double*, double*);
 
 
-__global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
-                    int stein_l, int groupbit,
-                    int *d_mask, LAMMPS_NS::tagint *d_group_indices,
-                    LAMMPS_NS::tagint *d_calculated_numneigh, 
-                    int *d_neigh_both_in_r_N,
-                    double *d_stein_qlm, double *d_stein_LQlm,
-                    double *d_stein_ql){
+template <int L>
+__global__ void steinhardt_dcv_SW_FUNC_kernel(
+    MetaD_zqc::SwitchFunctionRequest sw_params,
+    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
+    int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *d_calculated_numneigh, 
+    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_dYlm_dr, double *d_dcvdx) {
+
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    if(c_atom<group_count){
-        // steinhardt_param_calc_kernel_q4
-        // int stein_l=4;
-        int neigh_num, neigh_tag;
-        double temp4pi_2lplus1;
-        temp4pi_2lplus1 = 12.5663706143591729538505735331/(2*stein_l+1);
-        neigh_num = d_neigh_both_in_r_N[c_atom];
-        int base_LQlm_neigh_id,LQlm_neigh_id;
-        base_LQlm_neigh_id=c_atom*(stein_l + 1)*2;
-        d_stein_ql[c_atom] = 0;
-        if (neigh_num == 0) {
-            return;
+    auto sw_f = [&](double S_val) {
+        return MetaD_zqc::SwitchFunction::f(sw_params, S_val);
+    };
+    auto sw_df = [&](double S_val) {
+        return MetaD_zqc::SwitchFunction::df(sw_params, S_val);
+    };
+    if (c_atom >= group_count) return;
+    double Factor_Y, Factor_Ydx, Factor_Ydy, Factor_Ydz;
+    double tdx_r, tdx_i, tdy_r, tdy_i, tdz_r, tdz_i;
+
+    int c_atom_tag = d_group_indices[c_atom];
+
+    // 【完全通用】框架：近邻、数组清零、寻址逻辑
+    int neigh_num = d_neigh_both_in_r_N[c_atom];
+    for(int i = 0; i < 3; i++) {
+        d_dcvdx[c_atom * 3 + i] = 0.0;
+        d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] = 0.0;
+        d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1] = 0.0;
+    }
+    if (neigh_num == 0) return;
+
+    double ql_c = d_stein_ql[c_atom];
+    double catom_ql_timesN = (sw_f(ql_c)+ql_c*sw_df(ql_c)) / (ql_c * neigh_num);
+    int stein_qlm_base_id = c_atom * (L + 1) * 2;
+
+    for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
+        // 【完全通用】的坐标读取与基础三角函数
+        double dx = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 0];
+        double dy = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 1];
+        double dz = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 2];
+        double r2 = d_group_dminneigh[c_atom * cutoff_Natoms * 4 + neigh_atom * 4 + 3];
+        double r  = sqrt(r2);
+        
+        double theta = acos(dz / r);
+        double phi = atan2(dy, dx);
+
+        double sin_theta, cos_theta, sin_phi, cos_phi;
+        double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
+        double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
+        double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
+        double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
+        double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
+        sincos(theta, &sin_theta, &cos_theta);
+        sincos(phi, &sin_phi, &cos_phi);
+        
+        // 【完全通用】的三角函数倍角级联
+        if constexpr (L >= 2) {
+            sincos(2 * theta, &sin_2theta, &cos_2theta);
+            sincos(2 * phi, &sin_2phi, &cos_2phi);
         }
-        for(int i=0; i<(stein_l + 1)*2; i++){
-            d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_qlm[c_atom + i];
+        // 如果 L >= 3，才编译 3 倍角
+        if constexpr (L >= 3) {
+            sincos(3 * phi, &sin_3phi, &cos_3phi);
+            sincos(4 * theta, &sin_4theta, &cos_4theta);
         }
-        for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
-            neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
-            if (d_mask[neigh_tag]&groupbit){
-                // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
-                // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
-                int left = 0;
-                int right = group_count - 1;
-                // neigh_q4_deN default is 0
-                while (left <= right) {
-                    int mid = left + (right - left) / 2;
-                    if (d_group_indices[mid] == neigh_tag) {
-                        LQlm_neigh_id = mid * (stein_l + 1) * 2;
-                        for(int i=0; i<(stein_l + 1)*2; i++){
-                            d_stein_LQlm[base_LQlm_neigh_id + i] += d_stein_qlm[LQlm_neigh_id + i];
-                        }
-                        break;
-                    } else if (d_group_indices[mid] < neigh_tag) {
-                        left = mid + 1;
-                    } else {
-                        right = mid - 1;
-                    }
-                }
-            }
+        // 如果 L >= 4，才编译 4 倍角
+        if constexpr (L >= 4) {
+            sincos(3 * theta, &sin_3theta, &cos_3theta);
+            sincos(4 * phi, &sin_4phi, &cos_4phi);
+            sincos(5 * theta, &sin_5theta, &cos_5theta);
+            sincos(5 * phi, &sin_5phi, &cos_5phi);
+            sincos(6 * theta, &sin_6theta, &cos_6theta);
         }
-        int i=0;
-        d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-        d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
-        i=1;
-        d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-        d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
-        for(int i=2; i<(stein_l + 1)*2; i++){
-            d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-            d_stein_ql[c_atom] += 2*d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+        if constexpr (L >= 6) {
+            sincos(6 * phi, &sin_6phi, &cos_6phi);
         }
-        d_stein_ql[c_atom] = sqrt(d_stein_ql[c_atom]*temp4pi_2lplus1);
+
+        // 【完全通用】的近邻查找逻辑
+        int Neigh_Nb = 0;
+        double neigh_ql_timesN = 0.0;
+        int stein_qlm_neigh_id = 0;
+        int neigh_tag = d_calculated_numneigh[c_atom * cutoff_Natoms + neigh_atom];
+        
+        if (d_mask[neigh_tag] & groupbit) {
+            Neigh_Nb = d_neigh_both_in_r_N[neigh_tag];
+            double ql_n = d_stein_ql[neigh_tag];
+            neigh_ql_timesN = (sw_f(ql_n)+ql_n*sw_df(ql_n)) / (d_stein_ql[neigh_tag] * Neigh_Nb);
+            stein_qlm_neigh_id = neigh_tag * (L + 1) * 2;
+        }
+
+        // ==========================================================
+        //  利用编译期静态判断条件！
+        // ==========================================================
+        if constexpr (L == 3) {
+            // 当编译指定该模板为 <3> 时，编译器在这一步会直接盲切到 L3 函数。
+            // 此时 L==6 的分支、以及计算 q6 所需的其他高阶 sin_5theta 变量，
+            // 会被编译器判定为“死代码”彻底移除。最终生成的 GPU 二进制指令纯净无污染。
+            compute_Ylm_gradient_L3(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, 
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        } else if constexpr (L == 4) {
+            // 针对计算 q4，这里在前面额外多算两个高阶级联分量即可
+            compute_Ylm_gradient_L4(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
+                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
+                cos_6theta, sin_6theta,
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        } else if constexpr (L == 6) {
+            // 针对计算 q6，这里在前面额外多算两个高阶级联分量即可
+            compute_Ylm_gradient_L6(
+                r, 
+                cos_theta, sin_theta, cos_phi, sin_phi,
+                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
+                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
+                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
+                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
+                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
+                catom_ql_timesN, neigh_ql_timesN,
+                stein_qlm_base_id, stein_qlm_neigh_id,
+                d_stein_qlm, &d_dYlm_dr[c_atom * 3 * 2]
+            );
+        }
+        // printf("c_atom=%d, neigh_atom=%d, neigh_tag=%d, Neigh_Nb=%d, d_stein_ql[neigh_tag]=%g\n",
+        //         c_atom, neigh_atom, neigh_tag, Neigh_Nb, d_stein_ql[neigh_tag]);
+        double fx = (d_dYlm_dr[c_atom * 3 * 2 + 0 * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + 0 * 2 + 1]);
+        double fy = (d_dYlm_dr[c_atom * 3 * 2 + 1 * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + 1 * 2 + 1]);
+        double fz = (d_dYlm_dr[c_atom * 3 * 2 + 2 * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + 2 * 2 + 1]);
+        if (isnan(fx) || isnan(fy) || isnan(fz)) {
+            // 只有崩成 NaN 的线程才会触发打印，不影响整体速度
+            printf("[NaN Detected] c_atom = %d, neigh_tag = %d, Neigh_Nb=%d, d_stein_ql[neigh_tag]=%g, d_stein_qlm[stein_qlm_neigh_id + 0]=%g r = %f, dx = %f, dy = %f, dz = %f, sin_theta = %f\n", 
+                    c_atom, neigh_tag, Neigh_Nb, d_stein_ql[neigh_tag],d_stein_qlm[stein_qlm_neigh_id + 0], r, dx, dy, dz, sin_theta);
+        }
+    }
+
+    // 【完全通用】最后的总偏导汇总
+    for (int i = 0; i < 3; i++) {
+        d_dcvdx[c_atom * 3 + i] = d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1];
+        d_dcvdx[c_atom * 3 + i] = -(d_dcvdx[c_atom * 3 + i] * 2 * PI) / (2 * L + 1);
     }
 }
+template __global__ void steinhardt_dcv_SW_FUNC_kernel<3>(MetaD_zqc::SwitchFunctionRequest, 
+    int, int, int, int, int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, 
+    double*, double*, double*, double*, double*, double*);
+template __global__ void steinhardt_dcv_SW_FUNC_kernel<4>(MetaD_zqc::SwitchFunctionRequest, 
+    int, int, int, int, int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, 
+    double*, double*, double*, double*, double*, double*);
+template __global__ void steinhardt_dcv_SW_FUNC_kernel<6>(MetaD_zqc::SwitchFunctionRequest, 
+    int, int, int, int, int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, 
+    double*, double*, double*, double*, double*, double*);
 
 
-__global__ void dcv_steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
-                    int stein_l, int groupbit,
-                    int *d_mask, LAMMPS_NS::tagint *d_group_indices,
-                    LAMMPS_NS::tagint *d_calculated_numneigh, 
-                    int *d_neigh_both_in_r_N,
-                    double *d_stein_qlm, double *d_stein_LQlm,
-                    double *d_stein_ql){
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    if(c_atom<group_count){
-        // steinhardt_param_calc_kernel_q4
-        // int stein_l=4;
-        int neigh_num, neigh_tag;
-        double temp4pi_2lplus1;
-        temp4pi_2lplus1 = 12.5663706143591729538505735331/(2*stein_l+1);
-        neigh_num = d_neigh_both_in_r_N[c_atom];
-        int base_LQlm_neigh_id,LQlm_neigh_id;
-        base_LQlm_neigh_id=c_atom*(stein_l + 1)*2;
-        d_stein_ql[c_atom] = 0;
-        if (neigh_num == 0) {
-            return;
-        }
-        for(int i=0; i<(stein_l + 1)*2; i++){
-            d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_qlm[c_atom + i];
-        }
-        for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
-            neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
-            if (d_mask[neigh_tag]&groupbit){
-                // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
-                // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
-                int left = 0;
-                int right = group_count - 1;
-                // neigh_q4_deN default is 0
-                while (left <= right) {
-                    int mid = left + (right - left) / 2;
-                    if (d_group_indices[mid] == neigh_tag) {
-                        LQlm_neigh_id = mid * (stein_l + 1) * 2;
-                        for(int i=0; i<(stein_l + 1)*2; i++){
-                            d_stein_LQlm[base_LQlm_neigh_id + i] += d_stein_qlm[LQlm_neigh_id + i];
-                        }
-                        break;
-                    } else if (d_group_indices[mid] < neigh_tag) {
-                        left = mid + 1;
-                    } else {
-                        right = mid - 1;
-                    }
-                }
-            }
-        }
-        int i=0;
-        d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-        d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
-        i=1;
-        d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-        d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
-        for(int i=2; i<(stein_l + 1)*2; i++){
-            d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
-            d_stein_ql[c_atom] += 2*d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
-        }
-        d_stein_ql[c_atom] = sqrt(d_stein_ql[c_atom]*temp4pi_2lplus1);
-    }
-}
+// __global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
+//                     int stein_l, int groupbit,
+//                     int *d_mask, LAMMPS_NS::tagint *d_group_indices,
+//                     LAMMPS_NS::tagint *d_calculated_numneigh, 
+//                     int *d_neigh_both_in_r_N,
+//                     double *d_stein_qlm, double *d_stein_LQlm,
+//                     double *d_stein_ql){
+//     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+//     if(c_atom<group_count){
+//         // steinhardt_param_calc_kernel_q4
+//         // int stein_l=4;
+//         int neigh_num, neigh_tag;
+//         double temp4pi_2lplus1;
+//         temp4pi_2lplus1 = 12.5663706143591729538505735331/(2*stein_l+1);
+//         neigh_num = d_neigh_both_in_r_N[c_atom];
+//         int base_LQlm_neigh_id,LQlm_neigh_id;
+//         base_LQlm_neigh_id=c_atom*(stein_l + 1)*2;
+//         d_stein_ql[c_atom] = 0;
+//         if (neigh_num == 0) {
+//             return;
+//         }
+//         for(int i=0; i<(stein_l + 1)*2; i++){
+//             d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_qlm[c_atom + i];
+//         }
+//         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
+//             neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
+//             if (d_mask[neigh_tag]&groupbit){
+//                 // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
+//                 // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
+//                 int left = 0;
+//                 int right = group_count - 1;
+//                 // neigh_q4_deN default is 0
+//                 while (left <= right) {
+//                     int mid = left + (right - left) / 2;
+//                     if (d_group_indices[mid] == neigh_tag) {
+//                         LQlm_neigh_id = mid * (stein_l + 1) * 2;
+//                         for(int i=0; i<(stein_l + 1)*2; i++){
+//                             d_stein_LQlm[base_LQlm_neigh_id + i] += d_stein_qlm[LQlm_neigh_id + i];
+//                         }
+//                         break;
+//                     } else if (d_group_indices[mid] < neigh_tag) {
+//                         left = mid + 1;
+//                     } else {
+//                         right = mid - 1;
+//                     }
+//                 }
+//             }
+//         }
+//         int i=0;
+//         d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//         d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         i=1;
+//         d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//         d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         for(int i=2; i<(stein_l + 1)*2; i++){
+//             d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//             d_stein_ql[c_atom] += 2*d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         }
+//         d_stein_ql[c_atom] = sqrt(d_stein_ql[c_atom]*temp4pi_2lplus1);
+//     }
+// }
+
+
+// __global__ void dcv_steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
+//                     int stein_l, int groupbit,
+//                     int *d_mask, LAMMPS_NS::tagint *d_group_indices,
+//                     LAMMPS_NS::tagint *d_calculated_numneigh, 
+//                     int *d_neigh_both_in_r_N,
+//                     double *d_stein_qlm, double *d_stein_LQlm,
+//                     double *d_stein_ql){
+//     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
+//     if(c_atom<group_count){
+//         // steinhardt_param_calc_kernel_q4
+//         // int stein_l=4;
+//         int neigh_num, neigh_tag;
+//         double temp4pi_2lplus1;
+//         temp4pi_2lplus1 = 12.5663706143591729538505735331/(2*stein_l+1);
+//         neigh_num = d_neigh_both_in_r_N[c_atom];
+//         int base_LQlm_neigh_id,LQlm_neigh_id;
+//         base_LQlm_neigh_id=c_atom*(stein_l + 1)*2;
+//         d_stein_ql[c_atom] = 0;
+//         if (neigh_num == 0) {
+//             return;
+//         }
+//         for(int i=0; i<(stein_l + 1)*2; i++){
+//             d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_qlm[c_atom + i];
+//         }
+//         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
+//             neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
+//             if (d_mask[neigh_tag]&groupbit){
+//                 // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
+//                 // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
+//                 int left = 0;
+//                 int right = group_count - 1;
+//                 // neigh_q4_deN default is 0
+//                 while (left <= right) {
+//                     int mid = left + (right - left) / 2;
+//                     if (d_group_indices[mid] == neigh_tag) {
+//                         LQlm_neigh_id = mid * (stein_l + 1) * 2;
+//                         for(int i=0; i<(stein_l + 1)*2; i++){
+//                             d_stein_LQlm[base_LQlm_neigh_id + i] += d_stein_qlm[LQlm_neigh_id + i];
+//                         }
+//                         break;
+//                     } else if (d_group_indices[mid] < neigh_tag) {
+//                         left = mid + 1;
+//                     } else {
+//                         right = mid - 1;
+//                     }
+//                 }
+//             }
+//         }
+//         int i=0;
+//         d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//         d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         i=1;
+//         d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//         d_stein_ql[c_atom] += d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         for(int i=2; i<(stein_l + 1)*2; i++){
+//             d_stein_LQlm[base_LQlm_neigh_id + i] = d_stein_LQlm[base_LQlm_neigh_id + i] / (neigh_num+1);
+//             d_stein_ql[c_atom] += 2*d_stein_LQlm[base_LQlm_neigh_id + i] * d_stein_LQlm[base_LQlm_neigh_id + i];
+//         }
+//         d_stein_ql[c_atom] = sqrt(d_stein_ql[c_atom]*temp4pi_2lplus1);
+//     }
+// }
 
 
 REGISTER_CV("STEINH", MetaD_zqc::Steinhardt::create);

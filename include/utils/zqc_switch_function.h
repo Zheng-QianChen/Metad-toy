@@ -25,24 +25,28 @@ namespace MetaD_zqc {
 
     class SwitchFunction {
     public:
-        SwitchType type;
-        double r_0;    // 基础特征距离/阈值（对应 Fermi 里的 q_bar 或 Rational 里的 r_0）
-        double d_0;
-        double alpha;  // 陡峭系数（针对 Fermi/Tanh）
-        int n;         // 针对 Rational 的分子幂次（通常为 6）
-        int m;         // 针对 Rational 的分母幂次（通常为 12）
+        // SwitchType type;
+        // double r_0;    // 基础特征距离/阈值（对应 Fermi 里的 q_bar 或 Rational 里的 r_0）
+        // double d_0;
+        // double alpha;  // 陡峭系数（针对 Fermi/Tanh）
+        // int n;         // 针对 Rational 的分子幂次（通常为 6）
+        // int m;         // 针对 Rational 的分母幂次（通常为 12）
+        SwitchFunctionRequest params;
 
         std::string get_summary_string() const {
             char buf[256];
-            switch (type) {
+            switch (params.type) {
                 case FERMI:
-                    std::snprintf(buf, sizeof(buf), "Type=FERMI, r_0=%g, alpha=%g", r_0, alpha);
+                    std::snprintf(buf, sizeof(buf), "Type=FERMI, r_0=%g, alpha=%g", 
+                                    params.r_0, params.alpha);
                     break;
                 case TANH_TYPE:
-                    std::snprintf(buf, sizeof(buf), "Type=TANH, r_0=%g, alpha=%g", r_0, alpha);
+                    std::snprintf(buf, sizeof(buf), "Type=TANH, r_0=%g, alpha=%g", 
+                                    params.r_0, params.alpha);
                     break;
                 case RATIONAL:
-                    std::snprintf(buf, sizeof(buf), "Type=RATIONAL, r_0=%g, d_0=%g, n=%d, m=%d", r_0, d_0, n, m);
+                    std::snprintf(buf, sizeof(buf), "Type=RATIONAL, r_0=%g, d_0=%g, n=%d, m=%d", 
+                                    params.r_0, params.d_0, params.n, params.m);
                     break;
                 default:
                     std::snprintf(buf, sizeof(buf), "Type=Unknown");
@@ -53,12 +57,95 @@ namespace MetaD_zqc {
 
         // 默认构造函数
         SwitchFunction() 
-            : type(RATIONAL), r_0(1.25), d_0(0.0), alpha(20.0), n(6), m(12) {}
+            : params({RATIONAL, 1.25, 0.0, 20.0, 6, 12}) {}
 
         // 动态全参数构造函数
         SwitchFunction(SwitchType _type, double _r_0, double _d_0, 
                 double _alpha, int _n = 6, int _m = 12)
-            : type(_type), r_0(_r_0), d_0(_d_0), alpha(_alpha), n(_n), m(_m) {}
+            : params({_type, _r_0, _d_0, _alpha, _n, _m}) {}
+
+        static inline SwitchFunction* create(LAMMPS_NS::LAMMPS *lmp, class LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                                        int narg, char **arg, int &i, FILE *f_check) {
+            DEBUG_LOG("In SW_FUNC settings");
+            LAMMPS_NS::Error *error = lmp->error;
+
+            i++;
+
+            // 1. 初始化一个默认请求参数包（由于放弃多态，直接在栈上初始化默认结构体）
+            SwitchFunctionRequest req;
+            req.type = RATIONAL;
+            req.r_0 = 1.25;
+            req.d_0 = 0.0;
+            req.alpha = 20.0;
+            req.n = 6;
+            req.m = 12;
+
+            // 🚨 此时 arg[i] 应该是开关函数子类型的关键字（例如：FERMI, TANH, RATIONAL）
+            ERR_COND(i >= narg, "Error: SW_FUNC command requires a type (FERMI, TANH, RATIONAL).");
+            std::string sw_type_str = arg[i];
+            
+            if (sw_type_str == "FERMI") {
+                req.type = FERMI;
+                req.r_0 = 1.0; 
+                req.alpha = 20.0;
+            } else if (sw_type_str == "TANH") {
+                req.type = TANH_TYPE;
+                req.r_0 = 1.0;
+                req.alpha = 20.0;
+            } else if (sw_type_str == "RATIONAL") {
+                req.type = RATIONAL;
+                req.r_0 = 1.25;
+                req.d_0 = 0.0;
+                req.n = 6;
+                req.m = 12;
+            } else {
+                error->all(FLERR, "Error: Unknown SW_func type. Choose from FERMI, TANH, RATIONAL.");
+            }
+
+            // 2. 仿照你的风格，使用 iarg 从 i+1 开始向后解析亚参数
+            int iarg = i + 1;
+            printf("im in SwitchFunction::create, with type=%s\n", sw_type_str.c_str());
+
+            while (iarg < narg) {
+                if (strcmp(arg[iarg], "r_0") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: 'r_0' requires a numeric value");
+                    req.r_0 = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                } else if (strcmp(arg[iarg], "d_0") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: 'd_0' requires a numeric value");
+                    req.d_0 = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                } else if (strcmp(arg[iarg], "alpha") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: 'alpha' requires a numeric value");
+                    req.alpha = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                } else if (strcmp(arg[iarg], "n") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: 'n' requires an integer value");
+                    req.n = LAMMPS_NS::utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                } else if (strcmp(arg[iarg], "m") == 0) {
+                    ERR_COND((iarg + 1 >= narg), "Error: 'm' requires an integer value");
+                    req.m = LAMMPS_NS::utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+                    iarg += 2;
+                } else {
+                    // 遇到不属于当前开关函数的参数（例如到了下一个主关键字 CAL 等），退出当前解析
+                    break;
+                }
+            }
+
+            // 3. 🚨【核心】同步更新外层的参数索引指针 `i`，确保外层大循环不会乱
+            i = iarg;
+
+            LOG("[Metad-toy LOG] SW_FUNC parsed: %s, r_0=%g, d_0=%g, alpha=%g, n=%d, m=%d",
+                        sw_type_str.c_str(), req.r_0, req.d_0, req.alpha, req.n, req.m);
+
+            // 4. 通过动态全参数构造函数，new 出统一的计算类实例，返回并注册到 sw_registry 中
+            return new MetaD_zqc::SwitchFunction(req.type, req.r_0, req.d_0, req.alpha, req.n, req.m);
+        }
+
+        __host__ __forceinline__ double f(double S_i) const {
+            return SwitchFunction::f(this->params, S_i); 
+        }
         
         // 🌟 1. 计算 f_sw(S_i)
         static __host__ __device__ __forceinline__ double f(const SwitchFunctionRequest& p, double S_i) {

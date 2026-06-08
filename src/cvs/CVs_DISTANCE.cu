@@ -1,9 +1,5 @@
 #include <cstdio>
 
-#include "fix_crystallize.h"
-#include "zqc_CVs.h"
-#include "zqc_debug.h"
-
 #include "lammpsplugin.h"
 #include "atom.h"
 #include "comm.h"
@@ -13,6 +9,10 @@
 #include "error.h"
 #include "force.h"
 #include "group.h"
+
+#include "fix_crystallize.h"
+#include "zqc_CVs.h"
+#include "zqc_debug.h"
 
 
 MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp, 
