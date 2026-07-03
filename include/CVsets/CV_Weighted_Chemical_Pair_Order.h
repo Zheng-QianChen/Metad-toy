@@ -42,7 +42,7 @@ namespace MetaD_zqc {
         // device local
     public:
         static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
-                         int narg, char **arg, int &i, FILE *f_check);
+                         FILE *f_check, int narg, char **arg, int &i);
         Weighted_chem_pair(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
                     std::string env_setNum, int group_id, MetaD_zqc::Stru_fact_chem_env* my_env,
                     int d_block_size);
@@ -66,8 +66,8 @@ namespace MetaD_zqc {
 
         bool need_forward_comm() override { return true; }
         int get_comm_forward_bytes() override;
-        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
-        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+        int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
+        void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
 
         void call_Weighted_chem_pair_cv_kernel();
         void call_Weighted_chem_pair_dcv_COUNT_kernel();

@@ -19,17 +19,43 @@ namespace LAMMPS_NS {
 }
 
 namespace MetaD_zqc {
+  template<typename T> struct GpuBuffer;
+
+  class CV_info {
+    protected:
+      FILE *f_check;
+      LAMMPS_NS::LAMMPS *lmp;
+      LAMMPS_NS::Error *error = nullptr;
+      LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
+    public:
+      CV_info(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
+          : lmp(lmp), f_check(f_check), Fixmetad(Fixmetad) {error=lmp->error; }
+      ~CV_info(){};
+
+      // GPU buffer manager
+      template<typename T>
+      void register_buffer(GpuBuffer<T>& buf, const char* name, int size = 0) {
+          error = lmp->error;
+          buf.set_name(name, this->f_check, this->error, this->lmp);
+          if (size > 0) {
+              buf.grow_to(size, __FILE__, __LINE__);
+          }
+      }
+  };
+
   class CV {
     protected:
       FILE *f_check;
       LAMMPS_NS::LAMMPS *lmp;
+      LAMMPS_NS::Error *error = nullptr;
+      LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
       bool comm_mode=false;               // 当前正在处于哪种通信状态
       double cv_value;
       double *dcvdx;
       double dVdcv;
     public:
-      CV(LAMMPS_NS::LAMMPS *lmp, FILE* f_check) 
-          : lmp(lmp), f_check(f_check) {}
+      CV(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
+          : lmp(lmp), f_check(f_check), Fixmetad(Fixmetad) {error=lmp->error; }
       virtual ~CV() {
           if (dcvdx != nullptr) {
               delete[] dcvdx; 
@@ -46,12 +72,25 @@ namespace MetaD_zqc {
       virtual void summary(FILE* f) = 0;
       // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
 
+      // GPU buffer manager
+      template<typename T>
+      void register_buffer(GpuBuffer<T>& buf, const char* name, int size = 0) {
+          buf.set_name(name, f_check, error, lmp);
+          if (size > 0) {
+              buf.grow_to(size, __FILE__, __LINE__);
+          }
+      }
+
       // 通信
       virtual bool need_forward_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
       virtual int get_comm_forward_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
+      virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
+      virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
+      
+      virtual bool need_reverse_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
       virtual int get_comm_reverse_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
-      virtual int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
-      virtual void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
+      virtual int pack_comm_reverse_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
+      virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
 
       // 返回该 CV 是否有“每个原子”的数据
       virtual bool has_per_atom_data() { return false; }
@@ -75,8 +114,9 @@ namespace MetaD_zqc {
   class SwitchFunction;
 
   class CVFactory {
-    typedef CV* (*CreatorFunc)(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics *,
-                   int, char**, int&, FILE*);
+    typedef CV* (*CreatorFunc)(LAMMPS_NS::LAMMPS*,
+                    LAMMPS_NS::FixMetadynamics *, FILE*, 
+                   int, char**, int&);
     private:
       // 用静态方法包裹 map，确保初始化顺序安全
       static std::map<std::string, CreatorFunc>& get_registry();
@@ -85,8 +125,9 @@ namespace MetaD_zqc {
       CVFactory(const CVFactory&) = delete;
       CVFactory& operator=(const CVFactory&) = delete;
       static void register_cv(std::string name, CreatorFunc func);
-      static CV* create(std::string name, LAMMPS_NS::LAMMPS* lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                        int narg, char** arg, int &i, FILE *f_check);
+      static CV* create(std::string name, LAMMPS_NS::LAMMPS* lmp, 
+                        LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                        int narg, char** arg, int &i);
   };
 }
 
@@ -102,6 +143,8 @@ namespace LAMMPS_NS {
     int get_comm_reverse_bytes();
     int pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) override;
     void unpack_forward_comm(int n, int first, double *buf) override;
+    int pack_reverse_comm(int n, int first, double *buf) override;
+    void unpack_reverse_comm(int n, int *list, double *buf) override;
     void post_force(int) override;
     void add_hill(double *);
     void checkmax(double *cv, double *cv_max);
@@ -114,6 +157,7 @@ namespace LAMMPS_NS {
 
     // get_parameters
     MetaD_zqc::SwitchFunction* get_switching_function(const std::string& name) const;
+    std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
   private:
     // double sigma, height0, biasf, kBT;
     // double KB;
@@ -133,7 +177,6 @@ namespace LAMMPS_NS {
       std::string name;
       std::string func;
     };
-    std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
     MetaD_zqc::MetaDimensionManager *cv_configs;
     // FILE *file;

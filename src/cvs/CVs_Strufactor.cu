@@ -1,5 +1,3 @@
-#include "fix_crystallize.h"
-
 #include "lammpsplugin.h"
 
 #include "lammps.h"
@@ -18,8 +16,8 @@
 #include "neigh_list.h"        // 定义NeighList结构
 #include "pair.h"
 
+#include "fix_crystallize.h"
 #include "zqc_debug.h"
-#include "zqc_CVs.h"
 #include "CV_Stru_factor.h"
 #include "zqc_switch_function.h"
 
@@ -33,8 +31,9 @@ using namespace LAMMPS_NS;
 
 std::map<std::string, MetaD_zqc::Stru_fact_env*> MetaD_zqc::Stru_fact_env::env_pool;
 
-MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                            int narg, char **arg, int &i, FILE *f_check){
+MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, 
+                                          LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                                            int narg, char **arg, int &i){
     DEBUG_LOG("In STRU_FACTOR settings");
     LAMMPS_NS::Error *error = lmp->error;
 
@@ -198,7 +197,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
         // MetaD_zqc::Stru_fact_chem_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
         //                         f_check, Fixmetad, req);
         MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
-                                    MetaD_zqc::Stru_fact_env::get_or_create(lmp, f_check, Fixmetad, req)
+                                    MetaD_zqc::Stru_fact_env::get_or_create(lmp, Fixmetad, f_check, req)
                                 );
         DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
         std::string env_setNum = temp_env->get_env_key();
@@ -213,7 +212,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
         // create Structure factor CV
         // env for CV
         MetaD_zqc::Stru_fact_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
-                                f_check, Fixmetad, req);
+                                    Fixmetad, f_check, req);
         DEBUG_LOG("Stru_fact_env is %p", temp_env);
         std::string env_setNum = temp_env->get_env_key();
         // return Stru_fact cv
@@ -235,8 +234,8 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS:
     return struc_factor;
 }
 
-MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-                                            LAMMPS_NS::FixMetadynamics *Fixmetad,
+MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAMMPS *lmp,
+                                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
                                             StruFactorRequest req) {
     printf("In Stru_fact_env::get_or_create with group_id=%d, cutoff_r=%g, use_chemical_lock=%d, c_target=%g, sigma=%g\n",
             req.group_id, req.cutoff_r, req.use_chemical_lock, req.c_target, req.sigma);
@@ -249,7 +248,7 @@ MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAM
             return env_pool[key]; // if exits, return the existing environment
         }
         // 3. new environment and store it in the pool if not exist
-        MetaD_zqc::Stru_fact_env *new_env = new Stru_fact_env(lmp, f_check, Fixmetad,
+        MetaD_zqc::Stru_fact_env *new_env = new Stru_fact_env(lmp, Fixmetad, f_check, 
                                                     req.group_id, req.cutoff_r);
         env_pool[key] = new_env; // store the new environment in the pool
         return new_env;
@@ -263,7 +262,7 @@ MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAM
             return env_pool[key]; // if exits, return the existing environment
         }
         // 3. new environment and store it in the pool if not exist
-        MetaD_zqc::Stru_fact_chem_env *new_env = new Stru_fact_chem_env(lmp, f_check, Fixmetad,
+        MetaD_zqc::Stru_fact_chem_env *new_env = new Stru_fact_chem_env(lmp, Fixmetad, f_check, 
                                                     req.group_id, req.cutoff_r, req.c_target, req.sigma, req.custom_weights);
         env_pool[key] = new_env; // store the new environment in the pool
         return new_env;
@@ -280,11 +279,9 @@ void MetaD_zqc::Stru_fact_env::clear_pool() {
     env_pool.clear();
 }
 
-MetaD_zqc::Stru_fact_env::Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, double cutoff_r)
-    : lmp(lmp),
-      f_check(f_check),
-      Fixmetad(Fixmetad),
+MetaD_zqc::Stru_fact_env::Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
+            FILE *f_check, int group_id, double cutoff_r)
+    : CV_info(lmp, Fixmetad, f_check),
       group_id(group_id),
       cutoff_r(cutoff_r)
 {
@@ -305,23 +302,22 @@ MetaD_zqc::Stru_fact_env::Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
     init_flag = false;
 
     // comment name
-    d_group_numneigh.set_name("d_group_numneigh");
-    d_x_flat.set_name("d_x_flat");
-    d_mask.set_name("d_mask");
-    d_group_indices.set_name("d_group_indices");
-    d_firstneigh_ptrs.set_name("d_firstneigh_ptrs");
-    d_group_dminneigh.set_name("d_group_dminneigh");
-    d_neigh_in_cutoff_r.set_name("d_neigh_in_cutoff_r");
-    d_neigh_both_in_r_N.set_name("d_neigh_both_in_r_N");
-    d_calculated_numneigh.set_name("d_calculated_numneigh");
+    register_buffer(d_group_numneigh,"d_group_numneigh");
+    register_buffer(d_x_flat,"d_x_flat");
+    register_buffer(d_mask,"d_mask");
+    register_buffer(d_group_indices,"d_group_indices");
+    register_buffer(d_firstneigh_ptrs,"d_firstneigh_ptrs");
+    register_buffer(d_group_dminneigh,"d_group_dminneigh");
+    register_buffer(d_neigh_in_cutoff_r,"d_neigh_in_cutoff_r");
+    register_buffer(d_neigh_both_in_r_N,"d_neigh_both_in_r_N");
+    register_buffer(d_calculated_numneigh,"d_calculated_numneigh");
 }
 
 MetaD_zqc::Stru_factor::Stru_factor(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
                              std::string env_setNum, int group_id,
                              MetaD_zqc::Stru_fact_env* my_env,
                              double q_factor, int d_block_size)
-                        : CV(lmp, f_check),
-                            Fixmetad(Fixmetad),
+                        : CV(lmp, Fixmetad, f_check),
                             env_setNum(env_setNum),
                             q_factor(q_factor),
                         //   group_id(group_id),
@@ -352,8 +348,8 @@ MetaD_zqc::Stru_factor::Stru_factor(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetady
     lmp->memory->grow(h_stru_factor, Threads_own_atoms, "metad:Stru_factor:cv_bound");
     
     // comment name
-    d_stru_factor.set_name("d_stru_factor");
-    d_dcvdx.set_name("d_dcvdx");
+    register_buffer(d_stru_factor,"d_stru_factor");
+    register_buffer(d_dcvdx,"d_dcvdx");
 }
 
 MetaD_zqc::Stru_fact_env::~Stru_fact_env(){
@@ -401,7 +397,7 @@ void MetaD_zqc::Stru_fact_env::refresh_lmpbox(){
     }
     DEBUG_LOG("group_count=%lld",((long long)group_count));
 
-    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), f_check, __FILE__, __LINE__);
+    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(((atom)->nlocal+(atom)->nghost))*sizeof(int),cudaMemcpyHostToDevice,f_check);
 
     // set up nvidia thread number
@@ -438,7 +434,7 @@ void MetaD_zqc::Stru_fact_env::get_env(){
         // int *d_group_indices;
         // SAFE_CUDA_FREE(d_group_indices);
         // SAFE_CUDA_MALLOC(&d_group_indices, (group_count)*sizeof(int), f_check);
-        d_group_indices.grow_to(group_count, f_check, __FILE__, __LINE__);
+        d_group_indices.grow_to(group_count, __FILE__, __LINE__);
         SAFE_CUDA_MEMCPY(d_group_indices.ptr,h_group_indices,(group_count)*sizeof(int),cudaMemcpyHostToDevice,f_check);
         // alloc
         DEBUG_LOG_COND((d_group_indices.ptr == NULL),"d_group_indices list not initialized");
@@ -459,7 +455,7 @@ void MetaD_zqc::Stru_fact_env::get_env(){
         // LAMMPS_NS::tagint *d_group_numneigh;
         datalen = group_count + 1;
         lmp->memory->grow(h_group_numneigh, datalen, "STRU_FACTOR:h_group_numneigh");
-        d_group_numneigh.grow_to(datalen, f_check, __FILE__, __LINE__);
+        d_group_numneigh.grow_to(datalen, __FILE__, __LINE__);
         DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
         // 3. 逐原子拷贝邻居列表数据到GPU
         DEBUG_LOG("group_count=%d" ,group_count);
@@ -484,7 +480,7 @@ void MetaD_zqc::Stru_fact_env::get_env(){
         int i;
         // SAFE_CUDA_FREE(d_firstneigh_ptrs);
         // SAFE_CUDA_MALLOC(&d_firstneigh_ptrs, (h_group_numneigh[group_count]) * sizeof(int),f_check); // 分配设备端指针数组
-        d_firstneigh_ptrs.grow_to(h_group_numneigh[group_count], f_check, __FILE__, __LINE__);
+        d_firstneigh_ptrs.grow_to(h_group_numneigh[group_count], __FILE__, __LINE__);
         DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[group_count + 1]=%d",h_group_numneigh[group_count]);
         for (int gr_i = 0; gr_i < group_count; gr_i++) {
             i = h_group_indices[gr_i]; // 获取原子索引
@@ -522,7 +518,7 @@ void MetaD_zqc::Stru_fact_env::get_env(){
     DEBUG_LOG("there are %d, h_x_flat[10]=%f",(atom->nlocal + atom->nghost),h_x_flat[10]);
     // SAFE_CUDA_FREE(d_x_flat); 
     // SAFE_CUDA_MALLOC(&d_x_flat, ((atom->nlocal + atom->nghost) * 3)*sizeof(double),f_check);
-    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, f_check, __FILE__, __LINE__);
+    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_x_flat.ptr,h_x_flat,((atom->nlocal + atom->nghost) * 3)*sizeof(double),cudaMemcpyHostToDevice, f_check);
     // check the pointer
     // DEBUG_LOG("alloc h_x,h_tag.....");
@@ -540,9 +536,9 @@ void MetaD_zqc::Stru_fact_env::get_env(){
     DEBUG_LOG("release end");
     // beacause we cant foresee how many atoms will be in with a c_atoms neighbor
     // so we just allocate a large memory for the result, which is group_count*cutoff_Natoms*4 for d_group_dminneigh and group_count*cutoff_Natoms for d_calculated_numneigh 
-    d_group_dminneigh.grow_to(h_group_numneigh[group_count]*4, f_check, __FILE__, __LINE__);
-    d_neigh_in_cutoff_r.grow_to(N, f_check, __FILE__, __LINE__);
-    d_calculated_numneigh.grow_to(h_group_numneigh[group_count]*2, f_check, __FILE__, __LINE__);
+    d_group_dminneigh.grow_to(h_group_numneigh[group_count]*4, __FILE__, __LINE__);
+    d_neigh_in_cutoff_r.grow_to(N, __FILE__, __LINE__);
+    d_calculated_numneigh.grow_to(h_group_numneigh[group_count]*2, __FILE__, __LINE__);
 
     // box_x=box_y=box_z=40.0;
     DEBUG_LOG("box_lim x:%f y:%f z:%f max:%f" ,box_x,box_y,box_z,box_x+box_y+box_z );
@@ -795,7 +791,7 @@ void MetaD_zqc::Stru_factor::get_dcvdx_AVE(double cv_value, double *dcvdx){
 
     datalen = (group_count*3);
     lmp->memory->grow(h_dcvdx, datalen, "Stru_factor:h_dcvdx");
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -875,7 +871,7 @@ void MetaD_zqc::Stru_factor::get_dcvdx_COUNT(double cv_value, double *dcvdx){
 
     datalen = (group_count*3);
     lmp->memory->grow(h_dcvdx, datalen, "Stru_factor:h_dcvdx");
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -911,7 +907,7 @@ void MetaD_zqc::Stru_factor::sf_param_calc(double *h_stru_factor){
     int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
     cudaStream_t lammps_stream = 0; // Assuming you want to use the default stream. Adjust if you have a specific stream.
 
-    d_stru_factor.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_stru_factor.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     cudaMemsetAsync(d_stru_factor.ptr, 0, (Threads_own_atoms)*sizeof(double), lammps_stream);
 
     DEBUG_LOG("i will start a kernel of ql");
@@ -934,7 +930,6 @@ void MetaD_zqc::Stru_factor::sf_param_calc(double *h_stru_factor){
 
     SAFE_CUDA_MEMCPY(h_stru_factor, d_stru_factor.ptr,
       (Threads_own_atoms) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-
 }
 
 void MetaD_zqc::Stru_factor::summary(FILE* f){}
@@ -943,7 +938,7 @@ int MetaD_zqc::Stru_factor::get_comm_forward_bytes(){
     return 1; // Structure_factor
 }
 
-int MetaD_zqc::Stru_factor::pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
+int MetaD_zqc::Stru_factor::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return 1;
     }
@@ -958,7 +953,7 @@ int MetaD_zqc::Stru_factor::pack_comm_ubuf(int n, int *list, double *u_buf, int 
     return 1;
 }
 
-void MetaD_zqc::Stru_factor::unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
+void MetaD_zqc::Stru_factor::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return;
     }

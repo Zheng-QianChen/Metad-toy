@@ -1,5 +1,3 @@
-#include "fix_crystallize.h"
-
 #include "lammpsplugin.h"
 
 #include "lammps.h"
@@ -18,8 +16,8 @@
 #include "neigh_list.h"        // 定义NeighList结构
 #include "pair.h"
 
+#include "fix_crystallize.h"
 #include "zqc_debug.h"
-#include "zqc_CVs.h"
 #include "CV_Stru_factor.h"
 
 #include <cuda_runtime.h>
@@ -29,21 +27,22 @@
 
 using namespace LAMMPS_NS;
 
-MetaD_zqc::Stru_fact_chem_env::Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, double cutoff_r,
-             double c_target, double sigma, const std::map<int, double>& custom_weights)
-    :Stru_fact_env(lmp, f_check, Fixmetad, group_id, cutoff_r),
+MetaD_zqc::Stru_fact_chem_env::Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp,
+             LAMMPS_NS::FixMetadynamics *Fixmetad,  FILE *f_check,
+             int group_id, double cutoff_r, double c_target, double sigma, 
+             const std::map<int, double>& custom_weights)
+    :Stru_fact_env(lmp, Fixmetad, f_check, group_id, cutoff_r),
     c_target(c_target),
     sigma(sigma)
 {    
     lmp->memory->create(h_type_weights, 0, "metad:Stru_fact_env:h_type_weights");
 
-    d_atom_types.set_name("d_atom_types");
-    d_type_weights.set_name("d_type_weights");
+    register_buffer(d_atom_types,"d_atom_types");
+    register_buffer(d_type_weights,"d_type_weights");
 
     int ntypes = lmp->atom->ntypes;
     lmp->memory->grow(h_type_weights, ntypes+1, "metad:Stru_fact_env:h_type_weights");
-    d_type_weights.grow_to(ntypes+1, f_check, __FILE__, __LINE__);
+    d_type_weights.grow_to(ntypes+1, __FILE__, __LINE__);
 
     h_type_weights[0] = 0.0; // type index starts from 1 in LAMMPS, so we set the weight of type 0 to 0
     
@@ -110,11 +109,11 @@ void MetaD_zqc::Stru_fact_chem_env::refresh_lmpbox(){
     }
     DEBUG_LOG("group_count=%lld",((long long)group_count));
 
-    d_mask.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_mask.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(Threads_own_atoms)*sizeof(int),cudaMemcpyHostToDevice,f_check);
 
     
-    d_atom_types.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_atom_types.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_atom_types.ptr, atom_types, Threads_own_atoms*sizeof(int), cudaMemcpyHostToDevice, f_check);
 
 

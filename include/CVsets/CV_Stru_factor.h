@@ -36,7 +36,7 @@ namespace MetaD_zqc {
         SwitchFunctionRequest sw_func_req;
     };
 
-    class Stru_fact_env{
+    class Stru_fact_env: public CV_info{
         friend class Stru_factor;
         friend class Stru_fact_chem_env;
         friend class Stru_factor_chem;
@@ -50,10 +50,10 @@ namespace MetaD_zqc {
         bool use_chemical_lock=false;
 
         // vars for environment calculate
-        FILE *f_check = nullptr;
-        LAMMPS_NS::LAMMPS *lmp = nullptr;
-        LAMMPS_NS::Error *error = nullptr;
-        LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
+        // FILE *f_check = nullptr;
+        // LAMMPS_NS::LAMMPS *lmp = nullptr;
+        // LAMMPS_NS::Error *error = nullptr;
+        // LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
         double q_factor;
         double cutoff_r;
         int last_group_count, group_count, group_id, groupbit;
@@ -105,14 +105,12 @@ namespace MetaD_zqc {
         GpuBuffer<LAMMPS_NS::tagint>                d_calculated_numneigh;
         
         void get_env();
-        Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
-             double cutoff_r);
+        Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
+             FILE *f_check, int group_id, double cutoff_r);
     // public:
         // 工厂函数：内部自动合并相同参数的环境
-        static Stru_fact_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check, 
-                                            LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                            StruFactorRequest req);
+        static Stru_fact_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
+                                            FILE *f_check, StruFactorRequest req);
         // Stru_factor* create_Stru_fact(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
         //      LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
         //      double cutoff_r);
@@ -127,8 +125,8 @@ namespace MetaD_zqc {
         friend class Stru_factor_chem;
     private:
         // FILE *f_check = nullptr;
-        LAMMPS_NS::Error *error = nullptr;
-        LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
+        // LAMMPS_NS::Error *error = nullptr;
+        // LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
         int init_flag=false;
         std::string env_setNum;
         MetaD_zqc::Averager* my_averager;
@@ -155,7 +153,7 @@ namespace MetaD_zqc {
         // device local
     public:
         static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
-                         int narg, char **arg, int &i, FILE *f_check);
+                         FILE *f_check, int narg, char **arg, int &i);
         Stru_factor(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
                     std::string env_setNum, int group_id, MetaD_zqc::Stru_fact_env* my_env,
                     double q_factor, int d_block_size);
@@ -189,8 +187,8 @@ namespace MetaD_zqc {
         // communication for Ghost atoms
         bool need_forward_comm() override { return true; }
         int get_comm_forward_bytes() override;
-        int pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
-        void unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+        int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
+        void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
         // compute
         virtual double* get_peratom_ptr(const std::string &prop_name) override;
     };
@@ -214,9 +212,8 @@ namespace MetaD_zqc {
         //                    LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
         //                    double cutoff_r, double c_target, double sigma, 
         //                    const std::vector<double>& type_table);
-        Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-                           LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id, 
-                           double cutoff_r, double c_target, double sigma, 
+        Stru_fact_chem_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
+                           int group_id, double cutoff_r, double c_target, double sigma, 
                            const std::map<int, double>& custom_weights);
         ~Stru_fact_chem_env() override;
         void refresh_lmpbox() override;

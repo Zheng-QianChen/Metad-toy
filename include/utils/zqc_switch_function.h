@@ -4,14 +4,20 @@
 #include <cuda_runtime.h>
 #include <math.h>
 #include <cmath>
+
+#include "error.h"
+#include "comm.h"
+
 #include "zqc_debug.h"
+#include "fix_crystallize.h"
 
 namespace MetaD_zqc {
 
     enum SwitchType {
-        FERMI = 0,
-        TANH_TYPE = 1,
-        RATIONAL = 2  // 标准 PLUMED 经典有理函数
+        STEP = 0,
+        FERMI = 1,
+        TANH_TYPE = 2,
+        RATIONAL = 3  // 标准 PLUMED 经典有理函数
     };
 
     struct SwitchFunctionRequest {
@@ -36,6 +42,9 @@ namespace MetaD_zqc {
         std::string get_summary_string() const {
             char buf[256];
             switch (params.type) {
+                case STEP:
+                    std::snprintf(buf, sizeof(buf), "Type=STEP, f=1, df=0");
+                    break;
                 case FERMI:
                     std::snprintf(buf, sizeof(buf), "Type=FERMI, r_0=%g, alpha=%g", 
                                     params.r_0, params.alpha);
@@ -64,8 +73,8 @@ namespace MetaD_zqc {
                 double _alpha, int _n = 6, int _m = 12)
             : params({_type, _r_0, _d_0, _alpha, _n, _m}) {}
 
-        static inline SwitchFunction* create(LAMMPS_NS::LAMMPS *lmp, class LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                        int narg, char **arg, int &i, FILE *f_check) {
+        static inline SwitchFunction* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
+                         FILE *f_check, int narg, char **arg, int &i) {
             DEBUG_LOG("In SW_FUNC settings");
             LAMMPS_NS::Error *error = lmp->error;
 
@@ -99,7 +108,7 @@ namespace MetaD_zqc {
                 req.n = 6;
                 req.m = 12;
             } else {
-                error->all(FLERR, "Error: Unknown SW_func type. Choose from FERMI, TANH, RATIONAL.");
+                ERR_COND(1, "Error: Unknown SW_func type. Choose from FERMI, TANH, RATIONAL.");
             }
 
             // 2. 仿照你的风格，使用 iarg 从 i+1 开始向后解析亚参数
@@ -152,36 +161,19 @@ namespace MetaD_zqc {
             int n = p.n;
             int m = p.m;
             switch (p.type) {
+                case STEP: {
+                    return 1.0;
+                }
                 case FERMI: {
-                    return 1.0 / (1.0 + exp(-p.alpha * (S_i - p.r_0)));
+                    return f_fermi(p, S_i);
                 }
                 case TANH_TYPE: {
-                    return 0.5 * (1.0 + tanh(p.alpha * (S_i - p.r_0)));
+                    return f_tanh(p, S_i);
                 }
                 case RATIONAL: {
-                    double x = (S_i-p.d_0) / p.r_0;
-                    if (n == 6 && m == 12) {
-                        // PLUMED 标准有理函数的优化版本：
-                        double x2 = POW2(x);       // x^2
-                        double x6 = POW3(x2);     // x^6
-                        return 1.0 / (1.0 + x6); // (1-x^6)/(1-x^12)=1/(1+x^6)
-                    } else if (n==4 && m==8) {
-                        // 4-8 有理函数的优化版本：
-                        double x2 = POW2(x);       // x^2
-                        double x4 = POW2(x2);     // x^4
-                        return 1.0 / (1.0 + x4); // (1-x^4)/(1-x^8)=1/(1+x^4)
-                    } else if (2*n==m){
-                        // m=2n 的特殊情况优化：
-                        double x_n = std::pow(x, n);   // x^n
-                        return 1.0 / (1.0 + x_n); // (1-x^n)/(1-x^(2m))=1/(1+x^n)
-                    } else if (n==2*m){
-                        // n=2m 的特殊情况优化：
-                        double x_m = std::pow(x, m);   // x^m
-                        return (1.0 + x_m); // (1-x^m)/(1-x^(2m))=1/(1+x^m)
-                    }
-                    return (1-std::pow(x, n))/(1-std::pow(x, m));
+                    return f_rational(p, S_i);
                 }
-                default: return 0.0;
+                default: return 1.0;
             }
         }
 
@@ -190,52 +182,108 @@ namespace MetaD_zqc {
             int n = p.n;
             int m = p.m;
             switch (p.type) {
+                case STEP: {
+                    return 0.0;
+                }
                 case FERMI: {
-                    double exp_term = exp(-p.alpha * (S_i - p.r_0));
-                    double denom = 1.0 + exp_term;
-                    return (p.alpha * exp_term) / (denom * denom);
+                    return df_fermi(p, S_i);
                 }
                 case TANH_TYPE: {
-                    double t = tanh(p.alpha * (S_i - p.r_0));
-                    return 0.5 * p.alpha * (1.0 - t * t);
+                    return df_tanh(p, S_i);
                 }
                 case RATIONAL: {
-                    double x = (S_i-p.d_0) / p.r_0;
-                    if (n == 6 && m == 12) {
-                        // PLUMED 标准有理函数的优化版本：
-                        double x2 = POW2(x);       // x^2
-                        double x5 = POW2(x2)*x;     // x^5
-                        double x6 = POW3(x2);     // x^6
-                        return -n*x5 / POW2(1.0 + x6) / p.r_0; // (1-x^6)/(1-x^12)=1/(1+x^6)
-                    } else if (n==4 && m==8) {
-                        // 4-8 有理函数的优化版本：
-                        double x2 = POW2(x);       // x^2
-                        double x3 = x2 * x;        // x^3
-                        double x4 = POW2(x2);     // x^4
-                        return -(double)n*x3 / POW2(1.0 + x4) / p.r_0; // (1-x^4)/(1-x^8)=1/(1+x^4)
-                    } else if (2*n==m){
-                        // m=2n 的特殊情况优化：
-                        double x_nm1 = std::pow(x, n-1);   // x^n
-                        double x_n = std::pow(x, n);   // x^n
-                        return -(double)n*x_nm1 / POW2(1.0 + x_n) / p.r_0; // (1-x^n)/(1-x^(2m))=1/(1+x^n)
-                    } else if (n==2*m){
-                        // n=2m 的特殊情况优化：
-                        double x_mm1 = std::pow(x, m-1);   // x^n
-                        return (double)m*x_mm1 / p.r_0; // (1-x^m)/(1-x^(2m))=1/(1+x^m)
-                    }
-                    double x_mm1 = std::pow(x, m-1);       // x^(m-1)
-                    double x_m = x_mm1 * x;       // x^m
-
-                    if (std::fabs(1.0 - x_m) < 1e-12) {
-                        return -0.5 * (double)(n * (n - m)) / (double)m / p.r_0;
-                    }
-
-                    double x_nm1 = std::pow(x, n - 1); // x^(n-1)
-                    double x_n = x_nm1 * x;       // x^n
-                    return ((double)(n-m)*x_nm1*x_m + m*x_mm1 - n*x_nm1)/POW2(1-x_m) / p.r_0; // (m*x^(m-1) - n*x^(n-1) + (n-m)*x^(n+m-1)) / (1-x^m)^2
+                    return df_rational(p, S_i);
                 }
                 default: return 0.0;
             }
+        }
+
+        static SwitchFunction* get_default_step() {
+            static SwitchFunction instance(STEP, 0.0, 0.0, 0.0, 0, 0);
+            return &instance;
+        }
+
+        static __host__ __device__ __forceinline__ double f_fermi(const SwitchFunctionRequest& p, double S_i) {
+            return 1.0 / (1.0 + exp(-p.alpha * (S_i - p.r_0)));
+        }
+
+        static __host__ __device__ __forceinline__ double df_fermi(const SwitchFunctionRequest& p, double S_i) {
+            double exp_term = exp(-p.alpha * (S_i - p.r_0));
+            double denom = 1.0 + exp_term;
+            return (p.alpha * exp_term) / (denom * denom);
+        }
+
+        static __host__ __device__ __forceinline__ double f_tanh(const SwitchFunctionRequest& p, double S_i) {
+            return 0.5 * (1.0 + tanh(p.alpha * (S_i - p.r_0)));
+        }
+
+        static __host__ __device__ __forceinline__ double df_tanh(const SwitchFunctionRequest& p, double S_i) {
+            double t = tanh(p.alpha * (S_i - p.r_0));
+            return 0.5 * p.alpha * (1.0 - t * t);
+        }
+
+        static __host__ __device__ __forceinline__ double f_rational(const SwitchFunctionRequest& p, double S_i) {
+            int n = p.n;
+            int m = p.m;
+            double x = (S_i-p.d_0) / p.r_0;
+            if (n == 6 && m == 12) {
+                // PLUMED 标准有理函数的优化版本：
+                double x2 = POW2(x);       // x^2
+                double x6 = POW3(x2);     // x^6
+                return 1.0 / (1.0 + x6); // (1-x^6)/(1-x^12)=1/(1+x^6)
+            } else if (n==4 && m==8) {
+                // 4-8 有理函数的优化版本：
+                double x2 = POW2(x);       // x^2
+                double x4 = POW2(x2);     // x^4
+                return 1.0 / (1.0 + x4); // (1-x^4)/(1-x^8)=1/(1+x^4)
+            } else if (2*n==m){
+                // m=2n 的特殊情况优化：
+                double x_n = std::pow(x, n);   // x^n
+                return 1.0 / (1.0 + x_n); // (1-x^n)/(1-x^(2m))=1/(1+x^n)
+            } else if (n==2*m){
+                // n=2m 的特殊情况优化：
+                double x_m = std::pow(x, m);   // x^m
+                return (1.0 + x_m); // (1-x^m)/(1-x^(2m))=1/(1+x^m)
+            }
+            return (1-std::pow(x, n))/(1-std::pow(x, m));
+        }
+
+        static __host__ __device__ __forceinline__ double df_rational(const SwitchFunctionRequest& p, double S_i) {
+            int n = p.n;
+            int m = p.m;
+            double x = (S_i-p.d_0) / p.r_0;
+            if (n == 6 && m == 12) {
+                // PLUMED 标准有理函数的优化版本：
+                double x2 = POW2(x);       // x^2
+                double x5 = POW2(x2)*x;     // x^5
+                double x6 = POW3(x2);     // x^6
+                return -n*x5 / POW2(1.0 + x6) / p.r_0; // (1-x^6)/(1-x^12)=1/(1+x^6)
+            } else if (n==4 && m==8) {
+                // 4-8 有理函数的优化版本：
+                double x2 = POW2(x);       // x^2
+                double x3 = x2 * x;        // x^3
+                double x4 = POW2(x2);     // x^4
+                return -(double)n*x3 / POW2(1.0 + x4) / p.r_0; // (1-x^4)/(1-x^8)=1/(1+x^4)
+            } else if (2*n==m){
+                // m=2n 的特殊情况优化：
+                double x_nm1 = std::pow(x, n-1);   // x^n
+                double x_n = std::pow(x, n);   // x^n
+                return -(double)n*x_nm1 / POW2(1.0 + x_n) / p.r_0; // (1-x^n)/(1-x^(2m))=1/(1+x^n)
+            } else if (n==2*m){
+                // n=2m 的特殊情况优化：
+                double x_mm1 = std::pow(x, m-1);   // x^n
+                return (double)m*x_mm1 / p.r_0; // (1-x^m)/(1-x^(2m))=1/(1+x^m)
+            }
+            double x_mm1 = std::pow(x, m-1);       // x^(m-1)
+            double x_m = x_mm1 * x;       // x^m
+
+            if (std::fabs(1.0 - x_m) < 1e-12) {
+                return -0.5 * (double)(n * (n - m)) / (double)m / p.r_0;
+            }
+
+            double x_nm1 = std::pow(x, n - 1); // x^(n-1)
+            double x_n = x_nm1 * x;       // x^n
+            return ((double)(n-m)*x_nm1*x_m + m*x_mm1 - n*x_nm1)/POW2(1-x_m) / p.r_0; // (m*x^(m-1) - n*x^(n-1) + (n-m)*x^(n+m-1)) / (1-x^m)^2
         }
     };
 }

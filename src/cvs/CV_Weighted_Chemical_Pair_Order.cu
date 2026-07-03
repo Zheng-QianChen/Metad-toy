@@ -19,7 +19,6 @@
 #include "pair.h"
 
 #include "zqc_debug.h"
-#include "zqc_CVs.h"
 #include "CV_Stru_factor.h"
 #include "CV_Weighted_Chemical_Pair_Order.h"
 
@@ -31,8 +30,9 @@
 
 using namespace LAMMPS_NS;
 
-MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                            int narg, char **arg, int &i, FILE *f_check){
+MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, 
+                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                            int narg, char **arg, int &i){
     DEBUG_LOG("In Weighted_chem_pair settings");
     LAMMPS_NS::Error *error = lmp->error;
 
@@ -186,7 +186,7 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp, LAM
     // env for CV
     req.use_chemical_lock=true;
     MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
-                                MetaD_zqc::Stru_fact_env::get_or_create(lmp, f_check, Fixmetad, req)
+                                MetaD_zqc::Stru_fact_env::get_or_create(lmp, Fixmetad, f_check, req)
                             );
     DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
     std::string env_setNum = temp_env->get_env_key();
@@ -212,8 +212,7 @@ MetaD_zqc::Weighted_chem_pair::Weighted_chem_pair(LAMMPS_NS::LAMMPS *lmp, LAMMPS
                              std::string env_setNum, int group_id,
                              MetaD_zqc::Stru_fact_chem_env* my_env,
                              int d_block_size)
-                        : CV(lmp, f_check),
-                            Fixmetad(Fixmetad),
+                        : CV(lmp, Fixmetad, f_check),
                             env_setNum(env_setNum),
                             // q_factor(q_factor),
                             // group_id(group_id),
@@ -244,8 +243,8 @@ MetaD_zqc::Weighted_chem_pair::Weighted_chem_pair(LAMMPS_NS::LAMMPS *lmp, LAMMPS
     lmp->memory->grow(h_chem_pair_r, Threads_own_atoms, "metad:Weighted_chem_pair:h_chem_pair_r");
     
     // comment name
-    d_chem_pair_r.set_name("d_chem_pair_r");
-    d_dcvdx.set_name("d_dcvdx");
+    register_buffer(d_chem_pair_r,"d_chem_pair_r");
+    register_buffer(d_dcvdx,"d_dcvdx");
 }
 
 MetaD_zqc::Weighted_chem_pair::~Weighted_chem_pair(){
@@ -419,7 +418,7 @@ void MetaD_zqc::Weighted_chem_pair::get_dcvdx_AVE(double cv_value, double *dcvdx
 
     datalen = (group_count*3);
     lmp->memory->grow(h_dcvdx, datalen, "Weighted_chem_pair:h_dcvdx");
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -500,7 +499,7 @@ void MetaD_zqc::Weighted_chem_pair::get_dcvdx_COUNT(double cv_value, double *dcv
 
     datalen = (group_count*3);
     lmp->memory->grow(h_dcvdx, datalen, "Weighted_chem_pair:h_dcvdx");
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -536,7 +535,7 @@ void MetaD_zqc::Weighted_chem_pair::wcp_param_calc(double *h_chem_pair_r){
     int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
     cudaStream_t lammps_stream = 0; // Assuming you want to use the default stream. Adjust if you have a specific stream.
 
-    d_chem_pair_r.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_chem_pair_r.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     cudaMemsetAsync(d_chem_pair_r.ptr, 0, (Threads_own_atoms)*sizeof(double), lammps_stream);
 
     DEBUG_LOG("i will start a kernel of ql");
@@ -568,7 +567,7 @@ int MetaD_zqc::Weighted_chem_pair::get_comm_forward_bytes(){
     return 1; // Weighted_chem_pair
 }
 
-int MetaD_zqc::Weighted_chem_pair::pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
+int MetaD_zqc::Weighted_chem_pair::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return 1;
     }
@@ -583,7 +582,7 @@ int MetaD_zqc::Weighted_chem_pair::pack_comm_ubuf(int n, int *list, double *u_bu
     return 1;
 }
 
-void MetaD_zqc::Weighted_chem_pair::unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
+void MetaD_zqc::Weighted_chem_pair::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return;
     }

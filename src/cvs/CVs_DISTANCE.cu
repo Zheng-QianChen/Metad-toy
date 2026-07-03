@@ -11,13 +11,13 @@
 #include "group.h"
 
 #include "fix_crystallize.h"
-#include "zqc_CVs.h"
+#include "CV_Distance.h"
 #include "zqc_debug.h"
 
 
 MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp, 
-                                          LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                          int narg, char **arg, int &i, FILE *f_check){
+                                          LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                                          int narg, char **arg, int &i){
   LAMMPS_NS::Error *error = lmp->error;
   DEBUG_LOG("In DISTANCE settings");
   // DISTANCE 1 2 -> cv_values: 1-2 距离
@@ -26,7 +26,7 @@ MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp,
   int id2   = LAMMPS_NS::utils::inumeric(FLERR, arg[i+2], false, lmp);
   // DEBUG_LOG("debug: %d %d", id1, id2);
   i += 3;
-  return new MetaD_zqc::Distance(lmp, id1-1, id2-1, f_check);
+  return new MetaD_zqc::Distance(lmp, Fixmetad, f_check, id1-1, id2-1);
 }
 
 MetaD_zqc::Distance::~Distance(){
@@ -34,7 +34,10 @@ MetaD_zqc::Distance::~Distance(){
   // delete[] dVdcv;
 }
 
-MetaD_zqc::Distance::Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2, FILE* f_check):CV(lmp, f_check), atom_id1(id1), atom_id2(id2) {
+MetaD_zqc::Distance::Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
+                              FILE* f_check, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2)
+                        : CV(lmp, Fixmetad, f_check),
+                         atom_id1(id1), atom_id2(id2) {
     // DEBUG_COND_LOG(lmp->domain == nullptr, "Domain not initialized when creating Distance CV.");
     LAMMPS_NS::Domain *domain = lmp->domain;
     // double **x = lmp->atom->x;

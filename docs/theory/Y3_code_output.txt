@@ -1,0 +1,83 @@
+// --- l=3, m=0 Hierarchical Derivatives ---
+Factor_Y = (0.1399411247212933/r);
+Factor_Ydx = -1.*cos_phi*(6.*sin_2theta+5.*sin_4theta);
+tdx_r = 1.;
+tdx_i = 0;
+Factor_Ydy = -1.*sin_phi*(6.*sin_2theta+5.*sin_4theta);
+tdy_r = 1.;
+tdy_i = 0;
+Factor_Ydz = 4.*(3.+5.*cos_2theta)*POW2(sin_theta);
+tdz_r = 1.;
+tdz_i = 0;
+
+// --- l=3, m=1 Hierarchical Derivatives ---
+Factor_Y = (0.08079504602853766/r);
+Factor_Ydx = 1.;
+tdx_r = -2.*(POW2(cos_phi)*POW2(cos_theta)*(-7.+15.*cos_2theta)+(3.+5.*cos_2theta)*POW2(sin_phi));
+tdx_i = (13.+15.*cos_2theta)*sin_2phi*POW2(sin_theta);
+Factor_Ydy = 1.;
+tdy_r = (13.+15.*cos_2theta)*sin_2phi*POW2(sin_theta);
+tdy_i = -2.*(POW2(cos_phi)*(3.+5.*cos_2theta)+POW2(cos_theta)*(-7.+15.*cos_2theta)*POW2(sin_phi));
+Factor_Ydz = (-7.+15.*cos_2theta)*sin_2theta;
+tdz_r = cos_phi;
+tdz_i = sin_phi;
+
+// --- l=3, m=-1 Hierarchical Derivatives ---
+Factor_Y = (0.08079504602853766/r);
+Factor_Ydx = 1.;
+tdx_r = 2.*(POW2(cos_phi)*POW2(cos_theta)*(-7.+15.*cos_2theta)+(3.+5.*cos_2theta)*POW2(sin_phi));
+tdx_i = (13.+15.*cos_2theta)*sin_2phi*POW2(sin_theta);
+Factor_Ydy = 1.;
+tdy_r = -1.*(13.+15.*cos_2theta)*sin_2phi*POW2(sin_theta);
+tdy_i = -2.*(POW2(cos_phi)*(3.+5.*cos_2theta)+POW2(cos_theta)*(-7.+15.*cos_2theta)*POW2(sin_phi));
+Factor_Ydz = (-7.+15.*cos_2theta)*sin_2theta;
+tdz_r = -1.*cos_phi;
+tdz_i = sin_phi;
+
+// --- l=3, m=2 Hierarchical Derivatives ---
+Factor_Y = (0.2554963691083206/r);
+Factor_Ydx = sin_2theta;
+tdx_r = cos_phi*(cos_2phi*(1.+3.*cos_2theta)+8.*POW2(sin_phi));
+tdx_i = -4.*cos_2phi*sin_phi+cos_phi*(1.+3.*cos_2theta)*sin_2phi;
+Factor_Ydy = Csc(phiB)*sin_2theta;
+tdy_r = -2.*POW2(sin_phi)*(2.+3.*cos_2phi*POW2(sin_theta));
+tdy_i = 2.*cos_phi*(1.+3.*cos_2theta)*POW3(sin_phi)+sin_4phi;
+Factor_Ydz = 2.*(1.+3.*cos_2theta)*POW2(sin_theta);
+tdz_r = -1.*cos_2phi;
+tdz_i = -2.*cos_phi*sin_phi;
+
+// --- l=3, m=-2 Hierarchical Derivatives ---
+Factor_Y = (0.2554963691083206/r);
+Factor_Ydx = sin_2theta;
+tdx_r = cos_phi*(cos_2phi*(1.+3.*cos_2theta)+8.*POW2(sin_phi));
+tdx_i = -2.*(-2.*cos_2phi+POW2(cos_phi)*(1.+3.*cos_2theta))*sin_phi;
+Factor_Ydy = Csc(phiB)*sin_2theta;
+tdy_r = -2.*POW2(sin_phi)*(2.+3.*cos_2phi*POW2(sin_theta));
+tdy_i = -2.*cos_phi*(1.+3.*cos_2theta)*POW3(sin_phi)-1.*sin_4phi;
+Factor_Ydz = 2.*(1.+3.*cos_2theta)*POW2(sin_theta);
+tdz_r = -1.*cos_2phi;
+tdz_i = sin_2phi;
+
+// --- l=3, m=3 Hierarchical Derivatives ---
+Factor_Y = ((1.251671470898352*POW2(sin_theta))/r);
+Factor_Ydx = 1.;
+tdx_r = -1.*cos_phi*cos_3phi*POW2(cos_theta)-1.*sin_phi*sin_3phi;
+tdx_i = cos_3phi*sin_phi-1.*cos_phi*POW2(cos_theta)*sin_3phi;
+Factor_Ydy = 1.;
+tdy_r = -1.*cos_3phi*POW2(cos_theta)*sin_phi+cos_phi*sin_3phi;
+tdy_i = -1.*cos_phi*cos_3phi-1.*POW2(cos_theta)*sin_phi*sin_3phi;
+Factor_Ydz = cos_theta*sin_theta;
+tdz_r = cos_3phi;
+tdz_i = sin_3phi;
+
+// --- l=3, m=-3 Hierarchical Derivatives ---
+Factor_Y = ((1.251671470898352*POW2(sin_theta))/r);
+Factor_Ydx = 1.;
+tdx_r = cos_phi*cos_3phi*POW2(cos_theta)+sin_phi*sin_3phi;
+tdx_i = cos_3phi*sin_phi-1.*cos_phi*POW2(cos_theta)*sin_3phi;
+Factor_Ydy = 1.;
+tdy_r = cos_3phi*POW2(cos_theta)*sin_phi-1.*cos_phi*sin_3phi;
+tdy_i = -1.*cos_phi*cos_3phi-1.*POW2(cos_theta)*sin_phi*sin_3phi;
+Factor_Ydz = cos_theta*sin_theta;
+tdz_r = -1.*cos_3phi;
+tdz_i = sin_3phi;

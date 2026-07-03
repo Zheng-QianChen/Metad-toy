@@ -8,11 +8,6 @@
 #include "zqc_CVs_tools.h"
 
 namespace MetaD_zqc {
-    class Distance;
-    class Steinhardt;
-    template <int L> class STEIN_QL;
-    class Steinhardt_env;
-
     // atoms distance
     class Distance : public CV {
     private:
@@ -22,8 +17,8 @@ namespace MetaD_zqc {
         double dx, dy, dz;
     public:
         static CV* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
-                         int narg, char **arg, int &i, FILE *f_check);
-        Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2, FILE *f_check);
+                         FILE *f_check, int narg, char **arg, int &i);
+        Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2);
         ~Distance() override;
         CV_Calculation set_CV_calculate(std::string func_name) override;
         CV_BiasForce set_CV_bias_force(std::string func_name) override;
@@ -34,5 +29,4 @@ namespace MetaD_zqc {
         void summary(FILE* f) override;
         void delta_x();
     };
-
 }

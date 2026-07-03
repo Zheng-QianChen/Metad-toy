@@ -15,10 +15,10 @@ void MetaD_zqc::CVFactory::register_cv(std::string name, CreatorFunc func) {
 }
 
 MetaD_zqc::CV* MetaD_zqc::CVFactory::create(std::string name, LAMMPS_NS::LAMMPS* lmp,
-                LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                int narg, char** arg, int &i, FILE *f_check) {
+                LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                int narg, char** arg, int &i) {
     if (get_registry().count(name)) {
-        return get_registry()[name](lmp, Fixmetad, narg, arg, i, f_check);
+        return get_registry()[name](lmp, Fixmetad, f_check, narg, arg, i);
     } else {
         LOG("Failed to create this instance: name=%s\n", name.c_str());
         for (auto const& [key, val] : get_registry()) {

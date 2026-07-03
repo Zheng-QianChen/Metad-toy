@@ -19,7 +19,6 @@
 
 #include "fix_crystallize.h"
 #include "compute_MetaDToy.h"
-#include "zqc_CVs.h"
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
 #include "zqc_gaussian.h"
@@ -134,7 +133,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                LOG("Creating switch function %s", cal_name.c_str());
             }
             // SW_FUNC 也将由 CAL 指定
-            sw_registry[cal_name] = MetaD_zqc::SwitchFunction::create(lmp, this, narg, arg, i, f_check);
+            sw_registry[cal_name] = MetaD_zqc::SwitchFunction::create(lmp, this, f_check, narg, arg, i);
           } else {
             if (cal_registry.find(cal_name) != cal_registry.end()) {
               error->all(FLERR, "Error: CAL name '%s' is duplicated.", cal_name.c_str());
@@ -142,7 +141,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                LOG("Creating switch function %s", cal_name.c_str());
             }
             // 通过工厂方法创建 CV 对象，并注册到 cal_registry 中
-            auto new_cv = MetaD_zqc::CVFactory::create(type, lmp, this, narg, arg, i, f_check);
+            auto new_cv = MetaD_zqc::CVFactory::create(type, lmp, this, f_check, narg, arg, i);
             if (new_cv == nullptr) {
               error->all(FLERR, "Metad-toy Error: Unknown or unregistered object type '%s' specified in CAL '%s'. "
                                 "Please register it in CVFactory or check your input script.",
@@ -416,7 +415,7 @@ int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int /*pbc_
         if (obj->need_forward_comm()) {
             // 每个 obj 传入 ubuf 总线，并在它专属的 slot_offset 位置开始平铺写入
             // 子 obj 内部写入了多少个 slot，就返回多少，累加给 slot_offset
-            slot_offset += obj->pack_comm_ubuf(n, list, buf, slot_offset, comm_forward);
+            slot_offset += obj->pack_comm_forward_ubuf(n, list, buf, slot_offset, comm_forward);
         }
     }
     
@@ -435,7 +434,7 @@ void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
         MetaD_zqc::CV* obj = pair.second;
         if (obj->need_forward_comm()) {
             // 一模一样地把 ubuf 总线和起始槽位偏移量交还给子 CV 解包
-            obj->unpack_comm_ubuf(n, first, buf, slot_offset, comm_forward);
+            obj->unpack_comm_forward_ubuf(n, first, buf, slot_offset, comm_forward);
             
             // 每一个 CV 占用的总槽位数 = 原子数 n * 单个原子需要的槽位数
             slot_offset +=  obj->get_comm_forward_bytes();
@@ -443,6 +442,35 @@ void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
     }
     int expected_total = n * this->comm_forward; // 基类预期解包的总 double 数
     DEBUG_LOG("Rank:%d,Unpack forward comm: n=%d, comm_forward=%d, total unpacked=%d", lmp->comm->me, n, this->comm_forward, slot_offset*n);
+}
+
+int FixMetadynamics::pack_reverse_comm(int n, int first, double *buf) {
+    // 这里的 n 是本次通信的 ghost 原子总数
+    int slot_offset = 0;
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->need_reverse_comm()) {
+            // 将 ghost 原子计算的梯度 pack 进 buf
+            // pack_comm_reverse_ubuf 返回的是每个原子写入的 double 个数
+            int n_doubles = obj->pack_comm_reverse_ubuf(n, first, buf, slot_offset, comm_forward);
+            slot_offset += n_doubles;
+        }
+    }
+    return slot_offset * n;
+}
+
+void FixMetadynamics::unpack_reverse_comm(int n, int *list, double *buf) {
+    // 这里的 n 是本次通信接收的 ghost 原子数
+    // list 是 ghost 到本地原子的映射索引
+    int slot_offset = 0;
+    for (auto const& pair : cal_registry) {
+        MetaD_zqc::CV* obj = pair.second;
+        if (obj->need_reverse_comm()) {
+            // 将 buf 中的梯度累加到对应本地原子的 dcvdx 上
+            obj->unpack_comm_reverse_ubuf(n, list, buf, slot_offset, comm_forward);
+            slot_offset += obj->get_comm_reverse_bytes();
+        }
+    }
 }
 
 void * FixMetadynamics::extract(const char *key, int &dim){
@@ -480,8 +508,8 @@ MetaD_zqc::SwitchFunction* FixMetadynamics::get_switching_function(const std::st
 static Fix *fix_metad(LAMMPS *lmp, int narg, char **arg) {
     return new FixMetadynamics(lmp, narg, arg);
 }
-static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg) {
-    return new ComputeMetaDToy(lmp, narg, arg);
+static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg, FILE* f_check) {
+    return new ComputeMetaDToy(lmp, narg, arg, f_check);
 }
 
 // 插件注册函数（必须命名为 lammpsplugin_init）

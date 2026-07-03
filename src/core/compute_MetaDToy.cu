@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "atom.h"
+#include "comm.h"
 #include "update.h"
 #include "modify.h"
 #include "memory.h"
@@ -18,8 +19,8 @@ using namespace LAMMPS_NS;
    构造函数：解析输入脚本参数
    语法：compute ID group-ID metad/atom <MetaD_id> <cv_name> <cv_prop>
 ------------------------------------------------------------------------- */
-ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg), id_fix(nullptr)
+ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg, FILE* f_check) :
+  Compute(lmp, narg, arg), id_fix(nullptr), f_check(f_check)
 {
   // 基础参数校验：至少需要 5 个参数
   ERR_COND((narg < 5),"compute metad/atom need args more than 5.");

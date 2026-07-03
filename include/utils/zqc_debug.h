@@ -297,3 +297,20 @@
             } \
         } while(0)
 #endif
+
+
+#define CUDA_SYNC_CHECK(f_check, error) do { \
+    cudaError_t _syncErr = cudaDeviceSynchronize(); \
+    if (_syncErr != cudaSuccess) { \
+        const char* _errName = cudaGetErrorName(_syncErr); \
+        const char* _errStr  = cudaGetErrorString(_syncErr); \
+        fprintf(stderr, "\n[CRITICAL ERROR] CUDA Sync Failed at %s:%d\n", __FILE__, __LINE__); \
+        fprintf(stderr, "Code: %d | Name: %s | Desc: %s\n", (int)_syncErr, _errName, _errStr); \
+        if ((f_check)) { \
+            fprintf((f_check), "[CRITICAL ERROR][%s:%d] CUDA Sync Failed: %s (%s)\n", \
+                    __FILE__, __LINE__, _errName, _errStr); \
+            fflush((f_check)); \
+        } \
+        (error)->all(FLERR, "CUDA Kernel synchronization failed. Check log for details."); \
+    } \
+} while(0)

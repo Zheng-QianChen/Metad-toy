@@ -30,8 +30,9 @@
 
 using namespace LAMMPS_NS;
 
-MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                                            int narg, char **arg, int &i, FILE *f_check){
+MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, 
+                                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+                                            int narg, char **arg, int &i){
     DEBUG_LOG("In STEINH settings");
     printf("++++++++++++++++++++++++++++++im in STEINH settings, narg=%d, current arg is %s\n", narg, arg[i]);
     LAMMPS_NS::Error *error = lmp->error;
@@ -56,6 +57,11 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::
     req.cutoff_r = 4.0;
     req.cutoff_Natoms = 12;
     req.d_block_size = 128;
+    req.cutoff_eps = 1e-12;
+
+    std::string temp_name;
+    MetaD_zqc::SwitchFunction* found_sw;
+
     int iarg=4 + i;
     while (iarg < narg) {
         if (strcmp(arg[iarg], "cutoff_r") == 0) {
@@ -66,18 +72,50 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::
             ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
             req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
+        } else if (strcmp(arg[iarg], "cutoff_eps") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_eps\' keyword requires a value");
+            req.cutoff_eps = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            iarg += 2;
         } else if (strcmp(arg[iarg], "d_block_size") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
             req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
             iarg += 2;
-        // } else if (strcmp(arg[iarg], "SW_FUNC") == 0) {
-        //     ERR_COND((iarg + 1 >= narg), "Error: \'SW_FUNC\' keyword requires a value");
-        //     req.SW_FUNC = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-        //     iarg += 2;
+        } else if (strcmp(arg[iarg], "SW_FUNC_r") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'SW_FUNC_r\' keyword requires a value");
+            temp_name = arg[iarg + 1];
+            auto it = Fixmetad->sw_registry.find(temp_name);
+            if (it != Fixmetad->sw_registry.end()) {
+                found_sw = it->second;
+            } else {
+                found_sw = nullptr;
+            }
+            ERR_COND(found_sw == nullptr, "Error: SwitchFunction named %s not found in registry!", temp_name.c_str());
+            // 将找到的实例指针存入你的 req 请求结构体中
+            req.SW_FUNC_r = found_sw;
+            iarg += 2;
+        } else if (strcmp(arg[iarg], "SW_FUNC_cv") == 0) {
+            ERR_COND((iarg + 1 >= narg), "Error: \'SW_FUNC_cv\' keyword requires a value");
+            temp_name = arg[iarg + 1];
+            auto it = Fixmetad->sw_registry.find(temp_name);
+            if (it != Fixmetad->sw_registry.end()) {
+                found_sw = it->second;
+            } else {
+                found_sw = nullptr;
+            }
+            ERR_COND(found_sw == nullptr, "Error: SwitchFunction named %s not found in registry!", temp_name.c_str());
+            // 将找到的实例指针存入你的 req 请求结构体中
+            req.SW_FUNC_cv = found_sw;
+            iarg += 2;
         } else {
             break;
         }
+    }
+    if (req.SW_FUNC_r == nullptr) {
+    req.SW_FUNC_r = MetaD_zqc::SwitchFunction::get_default_step();
+    }
+    if (req.SW_FUNC_cv == nullptr) {
+        req.SW_FUNC_cv = MetaD_zqc::SwitchFunction::get_default_step();
     }
     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
                         req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
@@ -91,6 +129,8 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::
         temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
     } else if (strcmp(req.Q_type_str, "L") == 0){
         temp_neigh_cutoff = (2.0 * req.cutoff_r + lmp->neighbor->skin);
+        full_request->enable_ghost();
+        // full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
     }
     if (lmp->comm->get_comm_cutoff() < temp_neigh_cutoff) {
         lmp->comm->cutghostuser = temp_neigh_cutoff;
@@ -102,35 +142,35 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::
     // // 创建 CV 对象
     // TODO: 需要处理相同envs的合并问题
     MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
-                            f_check, Fixmetad, req.group_id, req.cutoff_r, req.cutoff_Natoms);
+                            Fixmetad, f_check, req);
     DEBUG_LOG("Steinhardt_env is %p", temp_env);
     std::string env_setNum = temp_env->get_env_key();
     i = iarg;
     return MetaD_zqc::create_steinhardt_cv(lmp, Fixmetad, f_check, 
-                            env_setNum, req.group_id, req.Q_num, temp_env, req.Q_type_str,
-                            req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
+                            env_setNum, req.group_id, req.Q_num, temp_env, req);
 }
 
 MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
                                 LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
                                 std::string env_setNum, int group_id, int Q_num,
                                 MetaD_zqc::Steinhardt_env* my_env,
-                                char *Q_type_str, double cutoff_r, int cutoff_Natoms, 
-                                int d_block_size)
+                                MetaD_zqc::SteinhardtRequest req)
 {
-    if (strcmp(Q_type_str, "Q") == 0){
+    if (strcmp(req.Q_type_str, "Q") == 0){
         if (Q_num==3){
-            return new MetaD_zqc::STEIN_QL<3>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, d_block_size);
+            return new MetaD_zqc::STEIN_QL<3>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         } else if (Q_num==4){
-            return new MetaD_zqc::STEIN_QL<4>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, d_block_size);
+            return new MetaD_zqc::STEIN_QL<4>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         } else if (Q_num==6){
-            return new MetaD_zqc::STEIN_QL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, d_block_size);
+            return new MetaD_zqc::STEIN_QL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         }
-    } else if (strcmp(Q_type_str,"L") == 0){
-        if (Q_num==4){
-            // return new MetaD_zqc::STEIN_LocalQL<4>(lmp, f_check, group_id, cutoff_r, cutoff_Natoms, d_block_size);
+    } else if (strcmp(req.Q_type_str,"L") == 0){
+        if (Q_num==3){
+            return new MetaD_zqc::STEIN_LocalQL<3>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size, req);
+        } else if (Q_num==4){
+            return new MetaD_zqc::STEIN_LocalQL<4>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size, req);
         } else if (Q_num==6){
-            // return new STEIN_LQ6(lmp, f_check, group_id, cutoff_r, cutoff_Natoms, d_block_size);
+            return new MetaD_zqc::STEIN_LocalQL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size, req);
         }
     }
     return nullptr;
@@ -138,19 +178,32 @@ MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
 
 std::map<std::string, MetaD_zqc::Steinhardt_env*> MetaD_zqc::Steinhardt_env::env_pool;
 
-MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-                                            LAMMPS_NS::FixMetadynamics *Fixmetad,
-                                            int group_id, double cutoff_r, int cutoff_Natoms) {
+MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::LAMMPS *lmp,
+                                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
+                                            MetaD_zqc::SteinhardtRequest req
+                                            ) {
+    int group_id = req.group_id;
+    double cutoff_r = req.cutoff_r;
+    int cutoff_Natoms= req.cutoff_Natoms;
+    double cutoff_eps= req.cutoff_eps;
+    bool LOC_flag = (strcmp(req.Q_type_str,"L") == 0);
     // 1. generate a unique key for the environment based on its parameters
     std::ostringstream oss;
-    oss << group_id << "_" << cutoff_r << "_" << cutoff_Natoms;
+    oss << group_id << "_" << cutoff_r << "_" << cutoff_Natoms << "_" << LOC_flag;
     std::string key = oss.str(); // 比如 cutoff_r=5.5 时，Key 为 "1_5.5_128"
     // 2. check if the environment already exist in the pool
     if (!(env_pool.count(key))) {
-        // 3. new environment and store it in the pool if not exist
-        MetaD_zqc::Steinhardt_env *new_env = new Steinhardt_env(lmp, f_check, Fixmetad, 
-                                                    group_id, cutoff_r, cutoff_Natoms);
-        env_pool[key] = new_env; // store the new environment in the pool
+        if (LOC_flag){
+            // 3. new environment and store it in the pool if not exist
+            MetaD_zqc::STEIN_LocalQL_env *new_env = new MetaD_zqc::STEIN_LocalQL_env(lmp, Fixmetad, f_check, 
+                                                        req);
+            env_pool[key] = new_env; // store the new environment in the pool
+        } else {
+            // 3. new environment and store it in the pool if not exist
+            MetaD_zqc::Steinhardt_env *new_env = new MetaD_zqc::Steinhardt_env(lmp, Fixmetad, f_check, 
+                                                        group_id, cutoff_r, cutoff_Natoms);
+            env_pool[key] = new_env; // store the new environment in the pool
+        }
     }
     env_pool[key]->register_env(); // increase reference count
     return env_pool[key]; // if exits, return the existing environment
@@ -158,21 +211,25 @@ MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::L
 
 
 std::string MetaD_zqc::Steinhardt_env::get_env_key(){
-    std::string key = std::to_string(this->group_id) + "_" + std::to_string(this->cutoff_r) + "_" + std::to_string(this->cutoff_Natoms);
+    std::ostringstream oss;
+    oss << group_id << "_" << cutoff_r << "_" << cutoff_Natoms << "_" << LOC_flag;
+    std::string key = oss.str(); // 比如 cutoff_r=5.5 时，Key 为 "1_5.5_128"
     return key;
 }
 
-MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
-             LAMMPS_NS::FixMetadynamics *Fixmetad, int group_id,
+MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, 
+             LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, int group_id,
              double cutoff_r, int cutoff_Natoms)
-    : lmp(lmp),
-      f_check(f_check),
-      Fixmetad(Fixmetad),
+    : CV_info(lmp, Fixmetad, f_check),
       group_id(group_id),
       cutoff_r(cutoff_r),
       cutoff_Natoms(cutoff_Natoms)
 {
-    error = lmp->error;
+    this->lmp = lmp;
+    this->f_check = f_check;
+    this->Fixmetad = Fixmetad;
+
+    this->error = lmp->error;
 
     pbc_x = (lmp->domain->xperiodic == 1);
     pbc_y = (lmp->domain->yperiodic == 1);
@@ -181,7 +238,7 @@ MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
     DEBUG_LOG("Steinhardt_env initialized with cutoff_r=%g and cutoff_Natoms=%d", cutoff_r, cutoff_Natoms);
 
     // const char *group_name = arg[1];
-    groupbit = lmp->group->bitmask[group_id]; // 关键：存储原子组位掩码
+    groupbit = lmp->group->bitmask[group_id]; // 关键：存储原子组位 掩码
     init_flag = false;
     
     // group_dminneigh = new double [2]; //inintial
@@ -197,15 +254,15 @@ MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, FILE *f_check,
     lmp->memory->create(calculated_numneigh, 0, "metad:STEIN_QL:calculated_numneigh");
 
     // comment name
-    d_group_numneigh.set_name("d_group_numneigh");
-    d_x_flat.set_name("d_x_flat");
-    d_mask.set_name( "d_mask");
-    d_group_indices.set_name("d_group_indices");
-    d_firstneigh_ptrs.set_name("d_firstneigh_ptrs");
-    d_group_dminneigh.set_name("d_group_dminneigh");
-    d_neigh_in_cutoff_r.set_name("d_neigh_in_cutoff_r");
-    d_neigh_both_in_r_N.set_name("d_neigh_both_in_r_N");
-    d_calculated_numneigh.set_name("d_calculated_numneigh");
+    register_buffer(d_group_numneigh,"d_group_numneigh");
+    register_buffer(d_x_flat,"d_x_flat");
+    register_buffer(d_mask, "d_mask");
+    register_buffer(d_group_indices,"d_group_indices");
+    register_buffer(d_firstneigh_ptrs,"d_firstneigh_ptrs");
+    register_buffer(d_group_dminneigh,"d_group_dminneigh");
+    register_buffer(d_neigh_in_cutoff_r,"d_neigh_in_cutoff_r");
+    register_buffer(d_neigh_both_in_r_N,"d_neigh_both_in_r_N");
+    register_buffer(d_calculated_numneigh,"d_calculated_numneigh");
 }
 
 template <int L>
@@ -213,13 +270,18 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
                              std::string env_setNum, int group_id, int stein_l, 
                              MetaD_zqc::Steinhardt_env* my_env,
                              int d_block_size)
-                        : Steinhardt(lmp, f_check),
-                            Fixmetad(Fixmetad),
+                        : Steinhardt(lmp, Fixmetad, f_check),
                             env_setNum(env_setNum),
                         //   group_id(group_id),
                             stein_l(stein_l),
                             my_env(my_env),
                             d_block_size(d_block_size){
+    
+    this->lmp = lmp;
+    this->f_check = f_check;
+    this->Fixmetad = Fixmetad;
+    this->error = lmp->error;
+
     // my_averager = new MetaD_zqc::CUBAverager();
     my_averager = new MetaD_zqc::KahanAverager();
     num_elements = 2*(L+1); // Qlm needs 2*(l+1)
@@ -242,16 +304,14 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
     int Threads_own_atoms = lmp->atom->nlocal;
     lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:cv_bound");
 
-    error = lmp->error;
-
     
     // comment name
-    d_stein_ql.set_name("d_stein_ql");
-    d_stein_Ylm.set_name("d_stein_Ylm");
-    d_dYlm_dr.set_name( "d_dYlm_dr");
-    d_dcvdx.set_name("d_dcvdx");
-    d_stein_qlm.set_name("d_stein_qlm");
-    d_stein_LQlm.set_name("d_stein_LQlm");
+    register_buffer(d_stein_ql,"d_stein_ql");
+    register_buffer(d_stein_Ylm,"d_stein_Ylm");
+    register_buffer(d_dYlm_dr, "d_dYlm_dr");
+    register_buffer(d_dcvdx,"d_dcvdx");
+    register_buffer(d_stein_qlm,"d_stein_qlm");
+    register_buffer(d_stein_LQlm,"d_stein_LQlm");
 }
 
 template <int L>
@@ -313,6 +373,7 @@ MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
 }
 
 void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
+    
     // clear the h_group_indices
     atom = lmp->atom;
     mask = (atom)->mask;     // 原子组掩码
@@ -337,7 +398,7 @@ void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
 
     // SAFE_CUDA_FREE((d_mask));
     // SAFE_CUDA_MALLOC(&(d_mask), (group_count)*sizeof(int), f_check);
-    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), f_check, __FILE__, __LINE__);
+    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(((atom)->nlocal+(atom)->nghost))*sizeof(int),cudaMemcpyHostToDevice,f_check);
 
     // set up nvidia thread number
@@ -348,6 +409,7 @@ void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
 }
 
 void MetaD_zqc::Steinhardt_env::get_env(){
+    
     DEBUG_LOG("im in get_env, current step is %lld, last_update_step is %lld", (long long)lmp->update->ntimestep, (long long)this->last_update_step);
     // if (lmp->update->ntimestep == this->last_update_step){
     //     return;
@@ -383,7 +445,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
         // int *d_group_indices;
         // SAFE_CUDA_FREE(d_group_indices);
         // SAFE_CUDA_MALLOC(&d_group_indices, (group_count)*sizeof(int), f_check);
-        d_group_indices.grow_to(group_count, f_check, __FILE__, __LINE__);
+        d_group_indices.grow_to(group_count, __FILE__, __LINE__);
         SAFE_CUDA_MEMCPY(d_group_indices.ptr,h_group_indices,(group_count)*sizeof(int),cudaMemcpyHostToDevice,f_check);
         // alloc
         DEBUG_LOG_COND((d_group_indices.ptr == NULL),"d_group_indices list not initialized");
@@ -404,7 +466,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
         // LAMMPS_NS::tagint *d_group_numneigh;
         datalen = group_count + 1;
         lmp->memory->grow(h_group_numneigh, datalen, "STEIN_QL:h_group_numneigh");
-        d_group_numneigh.grow_to(datalen, f_check, __FILE__, __LINE__);
+        d_group_numneigh.grow_to(datalen, __FILE__, __LINE__);
         DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
         // 3. 逐原子拷贝邻居列表数据到GPU
         DEBUG_LOG("group_count=%d" ,group_count);
@@ -434,7 +496,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
         int i;
         // SAFE_CUDA_FREE(d_firstneigh_ptrs);
         // SAFE_CUDA_MALLOC(&d_firstneigh_ptrs, (h_group_numneigh[group_count]) * sizeof(int),f_check); // 分配设备端指针数组
-        d_firstneigh_ptrs.grow_to(h_group_numneigh[group_count], f_check, __FILE__, __LINE__);
+        d_firstneigh_ptrs.grow_to(h_group_numneigh[group_count], __FILE__, __LINE__);
         DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[group_count + 1]=%d",h_group_numneigh[group_count]);
         for (int gr_i = 0; gr_i < group_count; gr_i++) {
             i = h_group_indices[gr_i]; // 获取原子索引
@@ -476,7 +538,7 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     DEBUG_LOG("there are %d, h_x_flat[10]=%f",(atom->nlocal + atom->nghost),h_x_flat[10]);
     // SAFE_CUDA_FREE(d_x_flat); 
     // SAFE_CUDA_MALLOC(&d_x_flat, ((atom->nlocal + atom->nghost) * 3)*sizeof(double),f_check);
-    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, f_check, __FILE__, __LINE__);
+    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_x_flat.ptr,h_x_flat,((atom->nlocal + atom->nghost) * 3)*sizeof(double),cudaMemcpyHostToDevice, f_check);
     // check the pointer
     // DEBUG_LOG("alloc h_x,h_tag.....");
@@ -500,19 +562,19 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     DEBUG_LOG("release end");
     // double *d_group_dminneigh;
     // SAFE_CUDA_MALLOC(&d_group_dminneigh, (N*cutoff_Natoms*4)*sizeof(double),f_check);
-    d_group_dminneigh.grow_to(N*cutoff_Natoms*4, f_check, __FILE__, __LINE__);
+    d_group_dminneigh.grow_to(N*cutoff_Natoms*4, __FILE__, __LINE__);
     // int *d_neigh_in_cutoff_r;
     // SAFE_CUDA_MALLOC(&d_neigh_in_cutoff_r, (N*4)*sizeof(int),f_check);
-    d_neigh_in_cutoff_r.grow_to(N*4, f_check, __FILE__, __LINE__);
+    d_neigh_in_cutoff_r.grow_to(N*4, __FILE__, __LINE__);
     // int *d_neigh_both_in_r_N;
     // SAFE_CUDA_MALLOC(&d_neigh_both_in_r_N, (N)*sizeof(int),f_check);
     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
     Threads_own_atoms = (Threads_own_atoms > N) ? Threads_own_atoms : N;
-    d_neigh_both_in_r_N.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_neigh_both_in_r_N.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     cudaMemset(d_neigh_both_in_r_N.ptr, 0, Threads_own_atoms);
     // double *d_calculated_numneigh;
     // SAFE_CUDA_MALLOC(&d_calculated_numneigh, (N*cutoff_Natoms*sizeof(LAMMPS_NS::tagint)), f_check);
-    d_calculated_numneigh.grow_to(N*cutoff_Natoms, f_check, __FILE__, __LINE__);
+    d_calculated_numneigh.grow_to(N*cutoff_Natoms, __FILE__, __LINE__);
 
     // box_x=box_y=box_z=40.0;
     DEBUG_LOG("box_lim x:%f y:%f z:%f max:%f" ,box_x,box_y,box_z,box_x+box_y+box_z );
@@ -605,10 +667,9 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
 
 
-
-
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::environment(){
+    
     DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
     if (lmp->update->ntimestep > my_env->last_update_step){
         my_env->get_env();
@@ -676,11 +737,13 @@ auto MetaD_zqc::STEIN_QL<L>::set_CV_bias_force(std::string func_name) -> CV_Bias
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::base_calc(){
+    
     compute_Q_peratoms();
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
+    
     // =======接受邻居更新消息,进行与设备端通信===========
     if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(this->init_flag)){
         DEBUG_LOG("rebuilds = %lld", (long long)lmp->neighbor->lastcall);
@@ -741,6 +804,7 @@ double MetaD_zqc::STEIN_QL<L>::compute_cv_AVE(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::bias_force_AVE(double dVdcv){
+    
     // pass
     DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_AVE");
     double **f = lmp->atom->f;
@@ -769,6 +833,7 @@ void MetaD_zqc::STEIN_QL<L>::bias_force_AVE(double dVdcv){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
+    
     int group_count = my_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
     int last_group_count = my_env->last_group_count;
@@ -795,7 +860,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
     // }
     // SAFE_CUDA_FREE(d_dcvdx);
     // SAFE_CUDA_MALLOC(&d_dcvdx, datalen*sizeof(double), f_check);
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
 
@@ -808,7 +873,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
     // }
     // SAFE_CUDA_FREE(d_dYlm_dr);
     // SAFE_CUDA_MALLOC(&d_dYlm_dr, datalen*sizeof(double), f_check);
-    d_dYlm_dr.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dYlm_dr.grow_to(datalen, __FILE__, __LINE__);
     // SAFE_CUDA_MEMCPY(d_dYlm_dr,h_dYlm_dr,datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -877,6 +942,7 @@ double MetaD_zqc::STEIN_QL<L>::compute_cv_SW_FUNC(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC(double dVdcv){
+    
     // pass
     DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC");
     double **f = lmp->atom->f;
@@ -907,6 +973,7 @@ void MetaD_zqc::STEIN_QL<L>::bias_force_SW_FUNC(double dVdcv){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::get_dcvdx_SW_FUNC(double cv_value, double *dcvdx){
+    
     int group_count = my_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
     int last_group_count = my_env->last_group_count;
@@ -933,7 +1000,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_SW_FUNC(double cv_value, double *dcvdx){
     // }
     // SAFE_CUDA_FREE(d_dcvdx);
     // SAFE_CUDA_MALLOC(&d_dcvdx, datalen*sizeof(double), f_check);
-    d_dcvdx.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
     SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
 
@@ -946,7 +1013,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_SW_FUNC(double cv_value, double *dcvdx){
     // }
     // SAFE_CUDA_FREE(d_dYlm_dr);
     // SAFE_CUDA_MALLOC(&d_dYlm_dr, datalen*sizeof(double), f_check);
-    d_dYlm_dr.grow_to(datalen, f_check, __FILE__, __LINE__);
+    d_dYlm_dr.grow_to(datalen, __FILE__, __LINE__);
     // SAFE_CUDA_MEMCPY(d_dYlm_dr,h_dYlm_dr,datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
 
     // sync Stein_qlm and stein_q with communication
@@ -997,6 +1064,7 @@ void MetaD_zqc::STEIN_QL<L>::get_dcvdx_SW_FUNC(double cv_value, double *dcvdx){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
+    
     int cutoff_Natoms = my_env->cutoff_Natoms;
     int last_group_count = my_env->last_group_count;
     int group_count = my_env->group_count;
@@ -1018,15 +1086,15 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
     // }
     // SAFE_CUDA_FREE(d_stein_Ylm);
     // SAFE_CUDA_MALLOC(&d_stein_Ylm, (datalen)*sizeof(double), f_check);
-    d_stein_Ylm.grow_to((group_count*cutoff_Natoms*(L + 1)*2), f_check, __FILE__, __LINE__);
+    d_stein_Ylm.grow_to((group_count*cutoff_Natoms*(L + 1)*2), __FILE__, __LINE__);
 
     // SAFE_CUDA_FREE(d_stein_ql);
     // SAFE_CUDA_MALLOC(&d_stein_ql, Threads_own_atoms*sizeof(double), f_check);
-    d_stein_ql.grow_to(Threads_own_atoms, f_check, __FILE__, __LINE__);
+    d_stein_ql.grow_to(Threads_own_atoms, __FILE__, __LINE__);
     cudaMemsetAsync(d_stein_ql.ptr, 0, (Threads_own_atoms)*sizeof(double), lammps_stream);
     // SAFE_CUDA_FREE(d_stein_qlm);
     // SAFE_CUDA_MALLOC(&d_stein_qlm, (Threads_own_atoms*(L + 1)*2)*sizeof(double), f_check);
-    d_stein_qlm.grow_to((Threads_own_atoms*(L + 1)*2), f_check, __FILE__, __LINE__);
+    d_stein_qlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
     cudaMemsetAsync(d_stein_qlm.ptr, 0, (Threads_own_atoms*(L + 1)*2)*sizeof(double), lammps_stream);
 
     DEBUG_LOG("i will start a kernel of ql");
@@ -1066,6 +1134,7 @@ void MetaD_zqc::STEIN_QL<L>::summary(FILE* f){}
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_AVE_kernel(){ 
+    
     steinhardt_dcv_AVE_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->cutoff_Natoms), (my_env->group_count), (my_env->groupbit), all_count,
         (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), (my_env->d_calculated_numneigh.ptr),
@@ -1077,8 +1146,9 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_AVE_kernel(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_AVE_kernel(){
+    
     ERR_COND((my_env == nullptr),"my_env is NULL! Cannot launch kernel.");
-    steinhardt_cv_AVE_kernel<L> <<<block_num,d_block_size>>>(
+    steinhardt_cv_kernel<L> <<<block_num,d_block_size>>>(
         (my_env->group_count), (my_env->cutoff_Natoms), (my_env->d_group_indices.ptr),
         (my_env->d_neigh_both_in_r_N.ptr), (my_env->d_group_dminneigh.ptr),
         d_stein_qlm.ptr, d_stein_Ylm.ptr,
@@ -1088,6 +1158,7 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_AVE_kernel(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_SW_FUNC_kernel(){ 
+    
     auto sw_params = my_cv_SWfunc->params;
     steinhardt_dcv_SW_FUNC_kernel<L> <<<block_num,d_block_size>>>(
         sw_params,
@@ -1118,7 +1189,7 @@ int MetaD_zqc::STEIN_QL<L>::get_comm_forward_bytes(){
 }
 
 template <int L>
-int MetaD_zqc::STEIN_QL<L>::pack_comm_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
+int MetaD_zqc::STEIN_QL<L>::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
     if (!comm_mode){
         return (num_elements + 1 +1);
     }
@@ -1143,7 +1214,8 @@ int MetaD_zqc::STEIN_QL<L>::pack_comm_ubuf(int n, int *list, double *u_buf, int 
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::unpack_comm_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
+void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
+    
     if (!comm_mode){
         return;
     }
@@ -1261,7 +1333,7 @@ __global__ void get_environment_Steinhardt_Q(int cutoff_Natoms, double cutoff_rs
 
 
 template <int L>
-__global__ void steinhardt_cv_AVE_kernel(
+__global__ void steinhardt_cv_kernel(
     int group_count, int cutoff_Natoms, int *d_group_indices,
     int *d_neigh_both_in_r_N, double *d_group_dminneigh,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql) {
@@ -1334,6 +1406,7 @@ __global__ void steinhardt_cv_AVE_kernel(
         // ==========================================================
         if constexpr (L == 3) {
             compute_qlm_forward_L3(
+                1,
                 cos_theta, sin_theta, cos_phi, sin_phi,
                 cos_2theta, sin_2theta, cos_2phi, sin_2phi,
                 cos_3theta, sin_3theta, cos_3phi, sin_3phi,
@@ -1341,6 +1414,7 @@ __global__ void steinhardt_cv_AVE_kernel(
             );
         } else if constexpr (L == 4) {
             compute_qlm_forward_L4(
+                1,
                 cos_theta, sin_theta, cos_phi, sin_phi,
                 cos_2phi, sin_2phi,
                 cos_3phi, sin_3phi,
@@ -1349,6 +1423,7 @@ __global__ void steinhardt_cv_AVE_kernel(
             );
         } else if constexpr (L == 6) {
             compute_qlm_forward_L6(
+                1,
                 cos_theta, sin_theta, cos_phi, sin_phi,
                 cos_2theta, sin_2theta, cos_2phi, sin_2phi,
                 cos_3phi, sin_3phi,
@@ -1380,9 +1455,9 @@ __global__ void steinhardt_cv_AVE_kernel(
 
     d_stein_ql[c_atom_tag] = sqrt(ql_sq * 12.56637061435917295385/double(2*L + 1));
 }
-template __global__ void steinhardt_cv_AVE_kernel<3>(int, int, int*, int*, double*, double*, double*, double*);
-template __global__ void steinhardt_cv_AVE_kernel<4>(int, int, int*, int*, double*, double*, double*, double*);
-template __global__ void steinhardt_cv_AVE_kernel<6>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_kernel<3>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_kernel<4>(int, int, int*, int*, double*, double*, double*, double*);
+template __global__ void steinhardt_cv_kernel<6>(int, int, int*, int*, double*, double*, double*, double*);
 
 
 template <int L>
@@ -1558,12 +1633,10 @@ __global__ void steinhardt_dcv_SW_FUNC_kernel(
     double *d_dYlm_dr, double *d_dcvdx) {
 
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    auto sw_f = [&](double S_val) {
-        return MetaD_zqc::SwitchFunction::f(sw_params, S_val);
-    };
-    auto sw_df = [&](double S_val) {
-        return MetaD_zqc::SwitchFunction::df(sw_params, S_val);
-    };
+    
+    #define sw_f(r) (MetaD_zqc::SwitchFunction::f(sw_params, (r)))
+    #define sw_df(r) (MetaD_zqc::SwitchFunction::df(sw_params, (r)))
+
     if (c_atom >= group_count) return;
     double Factor_Y, Factor_Ydx, Factor_Ydy, Factor_Ydz;
     double tdx_r, tdx_i, tdy_r, tdy_i, tdz_r, tdz_i;
@@ -1701,6 +1774,8 @@ __global__ void steinhardt_dcv_SW_FUNC_kernel(
         d_dcvdx[c_atom * 3 + i] = d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 0] + d_dYlm_dr[c_atom * 3 * 2 + i * 2 + 1];
         d_dcvdx[c_atom * 3 + i] = -(d_dcvdx[c_atom * 3 + i] * 2 * PI) / (2 * L + 1);
     }
+    #undef sw_f
+    #undef sw_df
 }
 template __global__ void steinhardt_dcv_SW_FUNC_kernel<3>(MetaD_zqc::SwitchFunctionRequest, 
     int, int, int, int, int*,LAMMPS_NS::tagint *,LAMMPS_NS::tagint *, int *, 

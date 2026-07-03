@@ -8,6 +8,7 @@ project(fix_crystallize_plugin LANGUAGES CXX CUDA)
 option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" ON)
 # option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" OFF)
 option(USE_ML_CVS   "Use Machine Learning models as Collective Variables" ON)
+option(ENABLE_ASAN  "Enable AddressSanitizer for host-side memory checking" OFF)   # 新加这一行
 
 # -------------------------------------------------------------------
 # 1. 路径配置（通过环境变量获取，不再硬编码）
@@ -93,6 +94,18 @@ if(LAMMPS_LIB)
     target_link_libraries(fix_crystallize_plugin PRIVATE ${LAMMPS_LIB} ${FINAL_LIBS})
 else()
     message(FATAL_ERROR "cannot find liblammps.so, please check LAMMPS_LIB_DIR")
+endif()
+
+# AddressSanitizer 注入（仅作用于 host 端 C++ 代码，CUDA device 代码无效）
+if(ENABLE_ASAN)
+    message(STATUS "AddressSanitizer: ENABLED (host-side C++ only)")
+
+    target_compile_options(fix_crystallize_plugin PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address -fno-omit-frame-pointer -g>
+        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fsanitize=address,-fno-omit-frame-pointer>
+    )
+
+    target_link_options(fix_crystallize_plugin PRIVATE -fsanitize=address)
 endif()
 
 # 注入ABI定义，确保与LAMMPS库兼容

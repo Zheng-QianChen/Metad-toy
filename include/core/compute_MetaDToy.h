@@ -11,6 +11,7 @@ namespace LAMMPS_NS {
 
   private:
     char *id_fix; // 缓存绑定的主 Fix 的 ID 字符串（例如 "my_md"）
+    FILE* f_check;
 
     // 定义一个内部结构体，用于存储用户请求的 CV 信息
     struct CVRequest {
@@ -24,7 +25,7 @@ namespace LAMMPS_NS {
   
   public:
     // 构造函数：解析 LAMMPS 脚本传入的参数
-    ComputeMetaDToy(class LAMMPS *, int, char **);
+    ComputeMetaDToy(class LAMMPS *, int, char **, FILE* f_check);
     
     // 析构函数：释放动态分配的内存
     ~ComputeMetaDToy() override;
