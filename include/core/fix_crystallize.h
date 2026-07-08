@@ -134,39 +134,40 @@ namespace MetaD_zqc {
 namespace LAMMPS_NS {
   class FixMetadynamics : public Fix {
   public:
+    NeighList *listhalf, *listfull;
+    std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
+
+    // return values for compute_scalar and compute_vector
+    double compute_scalar() override;
+    double compute_vector(int n) override;
+
+    // set
     FixMetadynamics(class LAMMPS *, int, char **);
     ~FixMetadynamics() override;
     int setmask() override;
     void init() override;
     void init_list(int id, NeighList *ptr) override;
+
+    // communication
     int get_comm_forward_bytes();
     int get_comm_reverse_bytes();
     int pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) override;
     void unpack_forward_comm(int n, int first, double *buf) override;
     int pack_reverse_comm(int n, int first, double *buf) override;
     void unpack_reverse_comm(int n, int *list, double *buf) override;
+
+    // calculation
     void post_force(int) override;
     void add_hill(double *);
-    void checkmax(double *cv, double *cv_max);
     void get_dVdcv(double *cv_values, double *dVdcvs);
     int get_cv_dim() const;
     void get_cvspace_loc(double* , int* );
     double get_total_bias(int* );
     void *extract(const char *key, int &dim);
-    NeighList *listhalf, *listfull;
 
     // get_parameters
     MetaD_zqc::SwitchFunction* get_switching_function(const std::string& name) const;
-    std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
   private:
-    // double sigma, height0, biasf, kBT;
-    // double KB;
-    // int WellT_bool;
-    // double *cv_bound, *dcv;
-    // int *nbin, *cvspace_loc;
-    // int grid_size;
-    // int continue_from_file;
-    // double *bias_grid;
     int cv_dim,nbin_num;
     MetaD_zqc::Gaussian_Hill_Base *p_gaussian;
     int pace,rec_pace;

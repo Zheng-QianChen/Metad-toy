@@ -68,9 +68,9 @@ namespace MetaD_zqc {
         void grow_to(size_t needed, const char* code_file, int code_line) {
             // if (true) {
             if (needed > capacity) {
-                LOG("DEBUG: GPU Buffer [%s] expanded from %zu to %zu\n", name, capacity, (size_t)(needed * 1.1) + 100);
-                LOG("in %s : %d\n", code_file, code_line);
-                LOG("the past location is %p\n", ptr);
+                LOG("DEBUG: GPU Buffer [%s] expanded from %zu to %zu", name, capacity, (size_t)(needed * 1.1) + 100);
+                LOG("in %s : %d", code_file, code_line);
+                LOG("the past location is %p", ptr);
                 cudaError_t sync_err = cudaDeviceSynchronize();
                 if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, code_file, code_line);
                 // 额外多给 10% 冗余，防止频繁 Malloc
@@ -78,9 +78,9 @@ namespace MetaD_zqc {
                 SAFE_CUDA_MALLOC_NOLMP(&ptr, capacity * sizeof(T), f_check);
                 sync_err = cudaDeviceSynchronize();
                 cudaMemset(ptr, 0, capacity * sizeof(T));
-                LOG("now location is %p\n", ptr);
+                LOG("now location is %p", ptr);
                 cudaError_t syncErr = cudaDeviceSynchronize();
-                ERR_COND((syncErr != cudaSuccess),"Kernel execution error: %s\n", cudaGetErrorString(syncErr));
+                ERR_COND((syncErr != cudaSuccess),"Kernel execution error: %s", cudaGetErrorString(syncErr));
             }
         }
 

@@ -55,11 +55,12 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     double *cv_bound = nullptr;
     int *nbin = nullptr;
     int Gaussian_Hill_type = 0;
-    double sigma, height0, biasf, KB;
+    double sigma, height0, biasf, KB, current_temp;
     sigma     = 0.05;
     height0   = 0.1;
     biasf     = 10.0;
     KB        = 0.025852;
+    current_temp = 300.0;
     int continue_from_file=false;
     int WellT_bool=false;
     // Gaussian_Hill_type={
@@ -120,6 +121,11 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             std::vector<bool> has_dim_configured(cv_dim, false);
 
             i += 2;
+        } else if (strcmp(arg[i], "TEMP") == 0) {
+            ERR_COND(i + 1 >= narg, "Error: TEMP command requires 1 argument: target temperature.");
+            current_temp = utils::numeric(FLERR, arg[i+1], false, lmp);
+            i += 2;
+            LOG("Logging: current_temp = %g (用于Well-Tempered公式)", current_temp);
         } else if (strcmp(arg[i], "CAL") == 0){
           ERR_COND(strcmp(arg[i+1], "NAME") != 0, "Error: CAL requires NAME keyword.");
           std::string cal_name = arg[i+2];
@@ -267,6 +273,13 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // vflag = 1;
     // extscalar = 0;
     // extvector = 0;
+
+    // 设置compute_scalar和compute_vector的返回值
+    scalar_flag = 1;                 // 支持 f_metad 这种标量查询
+    vector_flag = 1;
+    size_vector = cv_dim;            // 支持 f_metad[1]..f_metad[cv_dim] 这种向量查询
+    extscalar = 0;                   // 强度量，不是跨进程求和的广延量
+    extvector = 0;
 }
 
 FixMetadynamics::~FixMetadynamics() {
@@ -380,6 +393,16 @@ void FixMetadynamics::add_hill(double* cv_values){
 void FixMetadynamics::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
   p_gaussian->get_dVdcv(cv_values, dVdcvs);
+}
+
+double FixMetadynamics::compute_scalar() {
+    return cv_values[0];
+}
+
+double FixMetadynamics::compute_vector(int n) {
+    // n 是 0-based 索引 (LAMMPS 内部约定)
+    if (n < 0 || n >= cv_dim) return 0.0;
+    return cv_values[n];
 }
 
 int FixMetadynamics::get_comm_forward_bytes() {

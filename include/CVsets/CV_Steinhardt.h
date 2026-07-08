@@ -202,6 +202,11 @@ namespace MetaD_zqc {
             GpuBuffer<double>                           d_stein_qlm;
             double                                     *h_stein_LQlm = nullptr;
             GpuBuffer<double>                           d_stein_LQlm;
+
+            double                                     *h_dcvdx_x = nullptr;
+            double                                     *h_dcvdx_y = nullptr;
+            double                                     *h_dcvdx_z = nullptr;
+            int                                         dcvdx_flag = 0;
         public:
             using CV_Calculation = typename CV::CV_Calculation;
             using CV_BiasForce = typename CV::CV_BiasForce;

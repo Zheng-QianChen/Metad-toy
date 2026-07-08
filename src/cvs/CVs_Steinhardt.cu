@@ -57,7 +57,7 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     req.cutoff_r = 4.0;
     req.cutoff_Natoms = 12;
     req.d_block_size = 128;
-    req.cutoff_eps = 1e-12;
+    req.cutoff_eps = 1e-6;
 
     std::string temp_name;
     MetaD_zqc::SwitchFunction* found_sw;
@@ -112,10 +112,16 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
         }
     }
     if (req.SW_FUNC_r == nullptr) {
-    req.SW_FUNC_r = MetaD_zqc::SwitchFunction::get_default_step();
+        req.SW_FUNC_r = MetaD_zqc::SwitchFunction::get_default_step();
     }
     if (req.SW_FUNC_cv == nullptr) {
         req.SW_FUNC_cv = MetaD_zqc::SwitchFunction::get_default_step();
+    }
+    if (strcmp(req.Q_type_str, "L") == 0 && req.SW_FUNC_r->params.type != MetaD_zqc::STEP) {
+        double auto_cutoff = MetaD_zqc::SwitchFunction::invert_for_eps(req.SW_FUNC_r->params, req.cutoff_eps);
+        LOG("Logging: cutoff_r auto-derived from SW_FUNC_r + cutoff_eps: %g -> %g (原手动值将被忽略)",
+            req.cutoff_r, auto_cutoff);
+        req.cutoff_r = auto_cutoff;
     }
     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
                         req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
@@ -124,6 +130,7 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     NeighRequest *full_request;
     full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
     full_request->set_id(2);
+    full_request->set_cutoff(req.cutoff_r);
     double temp_neigh_cutoff;
     if (strcmp(req.Q_type_str, "Q") == 0){
         temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
@@ -303,6 +310,9 @@ MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynam
     lmp->memory->create(stein_q, 0, "metad:STEIN_QL:cv_bound");
     int Threads_own_atoms = lmp->atom->nlocal;
     lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:cv_bound");
+    lmp->memory->create(h_dcvdx_x, 0, "metad:STEIN_QL:h_dcvdx_x");
+    lmp->memory->create(h_dcvdx_y, 0, "metad:STEIN_QL:h_dcvdx_y");
+    lmp->memory->create(h_dcvdx_z, 0, "metad:STEIN_QL:h_dcvdx_z");
 
     
     // comment name
@@ -333,6 +343,9 @@ MetaD_zqc::STEIN_QL<L>::~STEIN_QL(){
     // release all alloc
     // the GpuBuffer will automatically release its memory, 
     // so we don't need to manually free it here
+    lmp->memory->destroy(h_dcvdx_x);
+    lmp->memory->destroy(h_dcvdx_y);
+    lmp->memory->destroy(h_dcvdx_z);
 }
 
 MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
@@ -1242,6 +1255,43 @@ template <int L>
 double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
     if (prop_name == "stein_q") {
         return stein_q;
+    }
+    
+    // ---- debug: 扁平 dcvdx 三分量 (local 序), 每步只散射一次 ----
+    if ((prop_name == "dcvdx_x" || prop_name == "dcvdx_y" || prop_name == "dcvdx_z")
+        && dcvdx_flag != lmp->update->ntimestep) {
+        int nlocal = lmp->atom->nlocal;
+        int nmax   = lmp->atom->nmax;
+        // if (nmax > nmax_pa) {
+        //     delete[] h_dcvdx_x; delete[] h_dcvdx_y; delete[] h_dcvdx_z;
+        //     h_dcvdx_x = new double[nmax];
+        //     h_dcvdx_y = new double[nmax];
+        //     h_dcvdx_z = new double[nmax];
+        //     nmax_pa = nmax;
+        // }
+        lmp->memory->grow(h_dcvdx_x, nmax, "STEIN_QL:h_dcvdx_x");
+        lmp->memory->grow(h_dcvdx_y, nmax, "STEIN_QL:h_dcvdx_y");
+        lmp->memory->grow(h_dcvdx_z, nmax, "STEIN_QL:h_dcvdx_z");
+        for (int i = 0; i < nlocal; ++i) {
+            h_dcvdx_x[i] = 0.0; h_dcvdx_y[i] = 0.0; h_dcvdx_z[i] = 0.0;
+        }
+        for (int c = 0; c < my_env->group_count; ++c) {
+            int i = (my_env->h_group_indices)[c];   // local index
+            h_dcvdx_x[i] = h_dcvdx[c*3 + 0];
+            h_dcvdx_y[i] = h_dcvdx[c*3 + 1];
+            h_dcvdx_z[i] = h_dcvdx[c*3 + 2];
+        }
+        dcvdx_flag = lmp->update->ntimestep;
+    }
+
+    if (prop_name == "dcvdx_x") {
+        return h_dcvdx_x;
+    }
+    if (prop_name == "dcvdx_y") {
+        return h_dcvdx_y;
+    }
+    if (prop_name == "dcvdx_z") {
+        return h_dcvdx_z;
     }
     return nullptr;
 }

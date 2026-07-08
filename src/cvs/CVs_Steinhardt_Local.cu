@@ -117,8 +117,11 @@ void MetaD_zqc::STEIN_LocalQL_env::refresh_lmpbox(){
             DEBUG_LOG("group_count=%lld",((long long)group_count));
         }
     }
+    d_calc_tag.grow_to((Threads_own_atoms), __FILE__, __LINE__);
+    d_calc_tag.upload_from(h_calc_tag, (Threads_own_atoms));
 
-    // d_mask.grow_to((Threads_own_atoms), __FILE__, __LINE__);
+    d_mask.grow_to((Threads_own_atoms), __FILE__, __LINE__);
+    d_mask.upload_from(mask, (Threads_own_atoms));
     // SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),((Threads_own_atoms))*sizeof(int),cudaMemcpyHostToDevice,f_check);
 
     // set up nvidia thread number
@@ -458,6 +461,9 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
     cudaStreamSynchronize(lmp_stream);
     num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
 
+    LOG("num_of_all_calc_fullpair=%lld (from scan of %d elements), last raw d_neigh_in_cutoff_r[num_of_all_IJ_atoms]=?",
+            (long long)num_of_all_calc_fullpair, num_of_all_IJ_atoms);
+
     syncErr = cudaDeviceSynchronize();
     ERR_COND((syncErr != cudaSuccess),"Kernel execution error: %s\n", cudaGetErrorString(syncErr));
 
@@ -686,6 +692,30 @@ void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
     int last_group_count = my_loc_env->last_group_count;
     int group_count = my_loc_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
+    DEBUG_LOG("Threads_own_atoms=%d, nlocal=%d, nghost=%d, group_count=%d, num_of_all_IJ_atoms=%d",
+            Threads_own_atoms, lmp->atom->nlocal, lmp->atom->nghost,
+            my_loc_env->group_count, my_loc_env->num_of_all_IJ_atoms);
+    
+    // ---- 新增: 全局零近邻早退 ----
+    // num_of_all_calc_fullpair==0 意味着这个 group 里没有任何一对原子
+    if (my_loc_env->num_of_all_calc_fullpair == 0) {
+        DEBUG_LOG("num_of_all_calc_fullpair == 0, no atom pair within cutoff, return zero directly.");
+        // 保证下游依赖的显存 buffer 仍然是"已分配、且为0"的状态
+        d_stein_ql.grow_to(Threads_own_atoms, __FILE__, __LINE__);
+        d_stein_ql.clear_async();
+        d_stein_qlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
+        d_stein_qlm.clear_async();
+        d_stein_LQlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
+        d_stein_LQlm.clear_async();
+        sum_of_qlm_value_weights.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
+        sum_of_qlm_value_weights.clear_async();
+        d_stein_Ylm.grow_to(1, __FILE__, __LINE__);  // 避免 capacity 长期停留在0导致后续某次"从0到非0"的首次扩容分支被跳过
+        d_stein_Ylm.clear_async();
+        // host端结果也清零, 保证 compute_cv_AVE 等下游函数拿到的是干净的0
+        for (int i = 0; i < group_count; i++) stein_ql[i] = 0.0;
+        return;
+    }
+
     // TODO: we can change the cuda stream to lammps stream, 
     // but we need to make sure that the stream is synchronized before we copy data back to host. 
     // For now, we will use the default stream.
@@ -763,6 +793,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::summary(FILE* f){}
 template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_cv_AVE_kernel(){
     int temp_block_num = (my_loc_env->num_of_all_IJ_atoms+d_block_size-1)/d_block_size;
+    CUDA_SYNC_CHECK(f_check,error);
     steinhardt_Local_cv_get_qlm<L> <<<temp_block_num,d_block_size>>>(
         (my_loc_env)->my_r_SWfunc->params,
         (my_loc_env->num_of_all_IJ_atoms), (my_loc_env->cutoff_r), (my_loc_env->cutoff_eps_r), 
@@ -774,6 +805,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_cv_AVE_kernel(){
         (my_loc_env->d_x_flat.ptr),
         (my_loc_env->d_neigh_in_switching.ptr),
         d_stein_qlm.ptr, d_stein_Ylm.ptr) ;
+    CUDA_SYNC_CHECK(f_check,error);
     steinhardt_Local_cv_get_LQl<L> <<<block_num,d_block_size>>>(
         (my_loc_env)->my_r_SWfunc->params,
         (my_loc_env->group_count), (my_loc_env->cutoff_r), (my_loc_env->cutoff_eps_r), 
@@ -1084,9 +1116,10 @@ __global__ void steinhardt_Local_cv_get_qlm(
     LAMMPS_NS::tagint stein_Ylm_base_id;
 
     // 如果没有邻居，直接清零退出
-    if (neigh_num == 0) return;
+    double NFb_i_check = d_neigh_in_switching[c_atom_calctag];
+    if (neigh_num == 0 || NFb_i_check < 1e-12) return;
     // because we multiply a swfunction, so it need to devide by its weight sum
-    double inv_neigh = 1.0 / (double)d_neigh_in_switching[c_atom_calctag];
+    double inv_neigh = 1.0 / (double)NFb_i_check;
     // if (!isfinite(inv_neigh) || d_neigh_in_switching[c_atom_calctag] <= 0.0) {
     //     printf("[诊断-qlm-inv_neigh] calctag=%lld neigh_num=%d neigh_switching=%e\n",
     //         (long long)c_atom_calctag, neigh_num, d_neigh_in_switching[c_atom_calctag]);
@@ -1263,9 +1296,10 @@ __global__ void steinhardt_Local_cv_get_LQl(
     LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * (L + 1) * 2; // 为了通讯方便，qlm和Ylm都按照local原子标签来存储和访问
 
     // 如果没有邻居，直接清零退出
-    if (neigh_num == 0) return;
+    double NFb_i_check = d_neigh_in_switching[c_atom_calctag];
+    if (neigh_num == 0 || NFb_i_check < 1e-12) return;
     // because we multiply a swfunction, so it need to devide by its weight sum
-    double inv_neigh = 1.0 / (double)(d_neigh_in_switching[c_atom_calctag]+1.0);
+    double inv_neigh = 1.0 / (double)(NFb_i_check + 1.0);
 
     // 在寄存器（栈）上初始化局部数组用于累加，避免频繁读写全局显存
     constexpr int lm_size = (L + 1) * 2;
@@ -1405,16 +1439,18 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     LAMMPS_NS::tagint i_LQlm_base = c_atom_calctag * lm_size;
 
     // 如果没有邻居，直接清零退出
-    if (neigh_num == 0) return;
+    double NFb_i_tilt = d_neigh_in_switching[c_atom_calctag];
+    if (neigh_num == 0 || NFb_i_tilt < 1e-12) return;
+    NFb_i_tilt = NFb_i_tilt + 1;
     double dcvdrij_fori[3] = {0.0, 0.0, 0.0};
     
     double c_x = d_x_flat[c_atom_loctag*3+0];
     double c_y = d_x_flat[c_atom_loctag*3+1];
     double c_z = d_x_flat[c_atom_loctag*3+2];
 
-    double NFb_i_tilt = d_neigh_in_switching[c_atom_calctag]+1;
     // 与steinhardt no local 共用一个结果数组所以是d_stein_ql
     double LQ_i = d_stein_ql[c_atom_calctag];
+    LQ_i = fmax(LQ_i, 1e-12);
     double F_LQ_i_with_NF = (sw_df_LQ(LQ_i)*(LQ_i-cv_value)+sw_f_LQ(LQ_i))
                         /(LQ_i)*(4*PI)/(2*L+1)/global_sw_sum;
     
@@ -1617,23 +1653,23 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size;
 
     // 如果没有邻居，直接清零退出
-    if (neigh_num == 0) return;
+    double NFb_j_check = d_neigh_in_switching[d_calc_tag[c_atom_loctag]];
+    if (neigh_num == 0 || NFb_j_check < 1e-12) return;
+    
     // constexpr int lmdr_size = lm_size *3;
     MetaD_zqc::D_Ylm_Layout<L> local_dYlmdx;
     double dcvdrjk_forj[3] = {0.0, 0.0, 0.0}; // 栈上数组初始化
     double prefix_j[lm_size] = {0.0};
     #pragma unroll
     for(int m=0; m<lm_size; m++){
-        prefix_j[m] = d_dcvdx_rjk_prefix[c_atom_calctag*lm_size + m]/d_neigh_in_switching[d_calc_tag[c_atom_loctag]];
+        prefix_j[m] = d_dcvdx_rjk_prefix[c_atom_calctag*lm_size + m]/NFb_j_check;
     }
     double *qlm = &d_stein_qlm[stein_qlm_base_id];
-    // double NFb_j = d_neigh_in_switching[d_calc_tag[c_atom_loctag]];
     // 紧跟在 prefix_j 那个循环之后
-    double NFb_j_check = d_neigh_in_switching[d_calc_tag[c_atom_loctag]];
-    // if (NFb_j_check < 1e-6) {
-    //     printf("[诊断-jk-NFb_j] calctag=%lld NFb_j=%e neigh_num=%d\n",
-    //         (long long)c_atom_calctag, NFb_j_check, neigh_num);
-    // }
+    if (NFb_j_check < 1e-12) {
+        printf("[诊断-jk-NFb_j] calctag=%lld NFb_j=%e neigh_num=%d\n",
+            (long long)c_atom_calctag, NFb_j_check, neigh_num);
+    }
     // for (int m = 0; m < lm_size; m++) {
     //     if (!isfinite(prefix_j[m])) {
     //         printf("[诊断-jk-prefix_j] calctag=%lld m=%d prefix_j=%e prefix_raw=%e\n",

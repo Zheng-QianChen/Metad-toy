@@ -14,10 +14,11 @@
 namespace MetaD_zqc {
 
     enum SwitchType {
-        STEP = 0,
-        FERMI = 1,
-        TANH_TYPE = 2,
-        RATIONAL = 3  // 标准 PLUMED 经典有理函数
+        LINE = 0,
+        STEP = 1,
+        FERMI = 2,
+        TANH_TYPE = 3,
+        RATIONAL = 4  // 标准 PLUMED 经典有理函数
     };
 
     struct SwitchFunctionRequest {
@@ -42,8 +43,12 @@ namespace MetaD_zqc {
         std::string get_summary_string() const {
             char buf[256];
             switch (params.type) {
+                case LINE:
+                    std::snprintf(buf, sizeof(buf), "Type=LINE, f=1, df=0");
+                    break;
                 case STEP:
-                    std::snprintf(buf, sizeof(buf), "Type=STEP, f=1, df=0");
+                    std::snprintf(buf, sizeof(buf), "Type=STEP, r_0=%g, f=1[x < r_0];0[x > r_0], df=0", 
+                                    params.r_0);
                     break;
                 case FERMI:
                     std::snprintf(buf, sizeof(buf), "Type=FERMI, r_0=%g, alpha=%g", 
@@ -90,10 +95,13 @@ namespace MetaD_zqc {
             req.m = 12;
 
             // 🚨 此时 arg[i] 应该是开关函数子类型的关键字（例如：FERMI, TANH, RATIONAL）
-            ERR_COND(i >= narg, "Error: SW_FUNC command requires a type (FERMI, TANH, RATIONAL).");
+            ERR_COND(i >= narg, "Error: SW_FUNC command requires a type (LINE, STEP, FERMI, TANH, RATIONAL).");
             std::string sw_type_str = arg[i];
             
-            if (sw_type_str == "FERMI") {
+            if (sw_type_str == "STEP") {
+                req.type = STEP;
+                req.r_0 = 1.0;
+            } else if (sw_type_str == "FERMI") {
                 req.type = FERMI;
                 req.r_0 = 1.0; 
                 req.alpha = 20.0;
@@ -161,8 +169,11 @@ namespace MetaD_zqc {
             int n = p.n;
             int m = p.m;
             switch (p.type) {
-                case STEP: {
+                case LINE: {
                     return 1.0;
+                }
+                case STEP: {
+                    return f_step(p, S_i);
                 }
                 case FERMI: {
                     return f_fermi(p, S_i);
@@ -182,8 +193,11 @@ namespace MetaD_zqc {
             int n = p.n;
             int m = p.m;
             switch (p.type) {
-                case STEP: {
+                case LINE: {
                     return 0.0;
+                }
+                case STEP: {
+                    return df_step(p, S_i);
                 }
                 case FERMI: {
                     return df_fermi(p, S_i);
@@ -199,8 +213,20 @@ namespace MetaD_zqc {
         }
 
         static SwitchFunction* get_default_step() {
-            static SwitchFunction instance(STEP, 0.0, 0.0, 0.0, 0, 0);
+            static SwitchFunction instance(LINE, 0.0, 0.0, 0.0, 0, 0);
             return &instance;
+        }
+
+        static __host__ __device__ __forceinline__ double f_step(const SwitchFunctionRequest& p, double S_i) {
+            if (S_i < p.r_0) {
+                return 1.0;
+            } else {
+                return 0.0;
+            }
+        }
+
+        static __host__ __device__ __forceinline__ double df_step(const SwitchFunctionRequest& p, double S_i) {
+            return 0.0;
         }
 
         static __host__ __device__ __forceinline__ double f_fermi(const SwitchFunctionRequest& p, double S_i) {
@@ -284,6 +310,60 @@ namespace MetaD_zqc {
             double x_nm1 = std::pow(x, n - 1); // x^(n-1)
             double x_n = x_nm1 * x;       // x^n
             return ((double)(n-m)*x_nm1*x_m + m*x_mm1 - n*x_nm1)/POW2(1-x_m) / p.r_0; // (m*x^(m-1) - n*x^(n-1) + (n-m)*x^(n+m-1)) / (1-x^m)^2
+        }
+
+        
+        // 获得 f(r) = eps 的反解 r, 通过数值二分法求解
+        // 数值二分法兜底 (适用于任意单调递减的开关函数, 包括通用n,m的RATIONAL)
+        static __host__ inline double invert_bisect(const SwitchFunctionRequest& p, double target_eps) {
+            double lo = 0.0, hi = 1.0;
+            // 先找一个足够大的hi, 使f(hi) < target_eps
+            while (f(p, hi) > target_eps) {
+                hi *= 2.0;
+                if (hi > 1e8) break;  // 保护, 防止死循环(比如STEP这种恒为1的类型不应该调这个函数)
+            }
+            // 标准二分, 假设f在[lo,hi]上单调递减
+            for (int iter = 0; iter < 100; iter++) {
+                double mid = 0.5*(lo+hi);
+                if (f(p, mid) > target_eps) {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            return 0.5*(lo+hi);
+        }
+
+        // 给定希望达到的截断精度eps, 反推出对应的距离r (即 f(r)=eps 的解)
+        // 对每种类型, 优先用闭式解(快, 精确), 无法闭式求解时用数值二分兜底
+        static __host__ inline double invert_for_eps(const SwitchFunctionRequest& p, double eps) {
+            switch (p.type) {
+                case STEP: {
+                    // STEP恒为1, 没有衰减, 反推没有意义, 直接返回一个不可用的标记
+                    return p.r_0;
+                }
+                case FERMI: {
+                    return p.r_0 - std::log(1.0/eps - 1.0)/p.alpha;
+                }
+                case TANH_TYPE: {
+                    return p.r_0 + std::atanh(2.0*eps - 1.0)/p.alpha;
+                }
+                case RATIONAL: {
+                    if (p.n == 6 && p.m == 12) {
+                        double x = std::pow(1.0/eps - 1.0, 1.0/6.0);
+                        return x*p.r_0 + p.d_0;
+                    } else if (p.n == 4 && p.m == 8) {
+                        double x = std::pow(1.0/eps - 1.0, 1.0/4.0);
+                        return x*p.r_0 + p.d_0;
+                    } else if (2*p.n == p.m) {
+                        double x = std::pow(1.0/eps - 1.0, 1.0/p.n);
+                        return x*p.r_0 + p.d_0;
+                    }
+                    // 通用n,m情况, 没有简单闭式解, 用二分法兜底
+                    return invert_bisect(p, eps);
+                }
+                default: return -1.0;
+            }
         }
     };
 }
