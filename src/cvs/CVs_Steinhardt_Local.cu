@@ -981,11 +981,53 @@ void MetaD_zqc::STEIN_LocalQL<L>::unpack_comm_reverse_ubuf(int n, int *list,
     }
 }
 
+
 // template <int L>
-// double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
+// double* MetaD_zqc::STEIN_LocalQL<L>::get_peratom_ptr(const std::string &prop_name) {
+//     // LOG("[DEBUG get_peratom_ptr] 收到的 prop_name = \"%s\"", prop_name.c_str());
 //     if (prop_name == "stein_q") {
 //         return stein_q;
 //     }
+    
+//     // ---- debug: 扁平 dcvdx 三分量 (local 序), 每步只散射一次 ----
+//     if ((prop_name == "dcvdx_x" || prop_name == "dcvdx_y" || prop_name == "dcvdx_z")
+//         && dcvdx_flag != lmp->update->ntimestep) {
+//         int nlocal = lmp->atom->nlocal;
+//         int nmax   = lmp->atom->nmax;
+//         // if (nmax > nmax_pa) {
+//         //     delete[] h_dcvdx_x; delete[] h_dcvdx_y; delete[] h_dcvdx_z;
+//         //     h_dcvdx_x = new double[nmax];
+//         //     h_dcvdx_y = new double[nmax];
+//         //     h_dcvdx_z = new double[nmax];
+//         //     nmax_pa = nmax;
+//         // }
+//         lmp->memory->grow(h_dcvdx_x, nmax, "STEIN_QL:h_dcvdx_x");
+//         lmp->memory->grow(h_dcvdx_y, nmax, "STEIN_QL:h_dcvdx_y");
+//         lmp->memory->grow(h_dcvdx_z, nmax, "STEIN_QL:h_dcvdx_z");
+//         for (int i = 0; i < nlocal; ++i) {
+//             h_dcvdx_x[i] = 0.0; h_dcvdx_y[i] = 0.0; h_dcvdx_z[i] = 0.0;
+//         }
+//         for (int c = 0; c < my_env->group_count; ++c) {
+//             // int i = (my_env->h_group_indices)[c];   // local index
+//             int i = c;
+//             h_dcvdx_x[i] = h_dcvdx[c*3 + 0];
+//             h_dcvdx_y[i] = h_dcvdx[c*3 + 1];
+//             h_dcvdx_z[i] = h_dcvdx[c*3 + 2];
+//         }
+//         dcvdx_flag = lmp->update->ntimestep;
+//     }
+
+//     if (prop_name == "dcvdx_x") {
+//         return h_dcvdx_x;
+//     }
+//     if (prop_name == "dcvdx_y") {
+//         return h_dcvdx_y;
+//     }
+//     if (prop_name == "dcvdx_z") {
+//         return h_dcvdx_z;
+//     }
+
+
 //     return nullptr;
 // }
 
@@ -1492,7 +1534,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
         // m=[-l,+l], RE(LQlm)*d(RE(LQlm))/dr + IM(LQlm)*d(IM(LQlm))/dr
         // Re(LQlm)^2 = Re(LQl-m)^2
         double prefix = rjk_prefix_in_i*(inv_NFb)*sw_df_r(r)*(1/r);
-        double prefix2 = prefix*(d_stein_LQlm[i_LQlm_base + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 0] - d_stein_qlm[c_atom_loctag*lm_size + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 0])
+        double prefix2 = 2.0*prefix*(d_stein_LQlm[i_LQlm_base + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 0] - d_stein_qlm[c_atom_loctag*lm_size + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 0])
                         + d_stein_LQlm[i_LQlm_base + 1]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 1] - d_stein_qlm[c_atom_loctag*lm_size + 1] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 1]));
         dcvdrij_forj[0] += delt_x*prefix2;
         dcvdrij_forj[1] += delt_y*prefix2;
@@ -1841,19 +1883,12 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
         }
         #pragma unroll
         for(int m=1;m<=L;m++){
-            // Ylm 的 特性
-            if (m % 2 != 0) {
-                sum_sigprefix += prefix1*2*(prefix_j[2*m + 0]*(Ylm[2*m + 0]-qlm[2*m + 0]));
-                #pragma unroll
-                for(int direct=0; direct<3; direct++){
-                    sum_dY_prefix[direct] += r_weight*2*(prefix_j[2*m + 0]*dYlmdx_flat[m*3*2 + direct*2 + 0]);
-                }
-            } else {
-                sum_sigprefix += prefix1*2*(prefix_j[2*m + 1]*(Ylm[2*m + 1]-qlm[2*m + 1]));
-                #pragma unroll
-                for(int direct=0; direct<3; direct++){
-                    sum_dY_prefix[direct] += r_weight*2*(prefix_j[2*m + 1]*dYlmdx_flat[m*3*2 + direct*2 + 1]);
-                }
+            sum_sigprefix += prefix1*2.0*(prefix_j[2*m + 0]*(Ylm[2*m + 0]-qlm[2*m + 0])
+                                        + prefix_j[2*m + 1]*(Ylm[2*m + 1]-qlm[2*m + 1]));
+            #pragma unroll
+            for(int direct=0; direct<3; direct++){
+                sum_dY_prefix[direct] += r_weight*2.0*(prefix_j[2*m + 0]*dYlmdx_flat[m*3*2 + direct*2 + 0]
+                                                     + prefix_j[2*m + 1]*dYlmdx_flat[m*3*2 + direct*2 + 1]);
             }
         }
         

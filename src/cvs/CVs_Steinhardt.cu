@@ -1253,6 +1253,7 @@ void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(int n, int first, double *
 
 template <int L>
 double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
+    // LOG("[DEBUG get_peratom_ptr] 收到的 prop_name = \"%s\"", prop_name.c_str());
     if (prop_name == "stein_q") {
         return stein_q;
     }
@@ -1276,7 +1277,8 @@ double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
             h_dcvdx_x[i] = 0.0; h_dcvdx_y[i] = 0.0; h_dcvdx_z[i] = 0.0;
         }
         for (int c = 0; c < my_env->group_count; ++c) {
-            int i = (my_env->h_group_indices)[c];   // local index
+            // int i = (my_env->h_group_indices)[c];   // local index
+            int i = c;
             h_dcvdx_x[i] = h_dcvdx[c*3 + 0];
             h_dcvdx_y[i] = h_dcvdx[c*3 + 1];
             h_dcvdx_z[i] = h_dcvdx[c*3 + 2];

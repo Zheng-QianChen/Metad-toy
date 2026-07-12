@@ -915,13 +915,13 @@ __device__ __forceinline__ void compute_dYlmdx_gradient_L6(
     Factor_Y = (1.);
     Factor_Ydx = 1.;
     tdx_r = Factor_Y*Factor_Ydx*(0.08142381073346447*(cos_phi*cos_2phi*POW2(cos_theta)*(41.-12.*cos_2theta+99.*cos_4theta)+(35.+60.*cos_2theta+33.*cos_4theta)*sin_phi*sin_2phi)*sin_theta)/r;
-    // tdx_i = Factor_Y*Factor_Ydx*(-0.08142381073346447*(cos_2phi*(35.+60.*cos_2theta+33.*cos_4theta)*sin_phi+cos_phi*POW2(cos_theta)*(-41.+12.*cos_2theta-99.*cos_4theta)*sin_2phi)*sin_theta)/r;
+    tdx_i = Factor_Y*Factor_Ydx*(-0.08142381073346447*(cos_2phi*(35.+60.*cos_2theta+33.*cos_4theta)*sin_phi+cos_phi*POW2(cos_theta)*(-41.+12.*cos_2theta-99.*cos_4theta)*sin_2phi)*sin_theta)/r;
     Factor_Ydy = 1.;
     tdy_r = Factor_Y*Factor_Ydy*(-0.08142381073346447*(cos_2phi*POW2(cos_theta)*(-41.+12.*cos_2theta-99.*cos_4theta)*sin_phi+cos_phi*(35.+60.*cos_2theta+33.*cos_4theta)*sin_2phi)*sin_theta)/r;
-    // tdy_i = Factor_Y*Factor_Ydy*(0.08142381073346447*(cos_phi*cos_2phi*(35.+60.*cos_2theta+33.*cos_4theta)+POW2(cos_theta)*(41.-12.*cos_2theta+99.*cos_4theta)*sin_phi*sin_2phi)*sin_theta)/r;
+    tdy_i = Factor_Y*Factor_Ydy*(0.08142381073346447*(cos_phi*cos_2phi*(35.+60.*cos_2theta+33.*cos_4theta)+POW2(cos_theta)*(41.-12.*cos_2theta+99.*cos_4theta)*sin_phi*sin_2phi)*sin_theta)/r;
     Factor_Ydz = 1.;
     tdz_r = Factor_Y*Factor_Ydz*(-0.08142381073346447*cos_2phi*cos_theta*(41.-12.*cos_2theta+99.*cos_4theta)*POW2(sin_theta))/r;
-    // tdz_i = Factor_Y*Factor_Ydz*(-0.08142381073346447*cos_theta*(41.-12.*cos_2theta+99.*cos_4theta)*sin_2phi*POW2(sin_theta))/r;
+    tdz_i = Factor_Y*Factor_Ydz*(-0.08142381073346447*cos_theta*(41.-12.*cos_2theta+99.*cos_4theta)*sin_2phi*POW2(sin_theta))/r;
     d_dYlm_dr_cut->Y62.set(tdx_r, tdx_i, tdy_r, tdy_i, tdz_r, tdz_i);
 
     // Y,6,+-3
