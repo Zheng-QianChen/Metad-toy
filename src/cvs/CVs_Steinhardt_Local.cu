@@ -609,9 +609,9 @@ void MetaD_zqc::STEIN_LocalQL<L>::bias_force_AVE(double dVdcv){
             printf("error: force is infinity, check your system or cv_value.\n");
              error->all(FLERR, "STEIN_QL CV error: force is infinity, check your system or cv_value.");
         }
-        f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
-        f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
-        f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
+        f[c_tag][0] -= dVdcv*h_dcvdx[c_tag*3 + 0];
+        f[c_tag][1] -= dVdcv*h_dcvdx[c_tag*3 + 1];
+        f[c_tag][2] -= dVdcv*h_dcvdx[c_tag*3 + 2];
         DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
         ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),"STEIN_QL CV error: force is infinity, check your system or cv_value.");
     }
@@ -766,7 +766,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
     // cudaMemcpy(stein_qlm, d_stein_qlm.ptr, (group_count*(L + 1)*2) * sizeof(double), cudaMemcpyDeviceToHost);
     // SAFE_CUDA_MEMCPY(stein_ql, d_stein_ql.ptr,
     //   (group_count) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    d_stein_ql.download_to(stein_ql,group_count);
+    d_stein_ql.download_to(stein_ql,Threads_own_atoms, lammps_stream, __FILE__, __LINE__);
     // SAFE_CUDA_MEMCPY(h_stein_Ylm, d_stein_Ylm.ptr,
     //   (group_count*cutoff_Natoms*(L + 1)*2) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
 
@@ -1478,7 +1478,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
 
     int neigh_num = d_neigh_in_cutoff_r[c_atom_calctag];
     LAMMPS_NS::tagint stein_qlm_base_id;
-    LAMMPS_NS::tagint i_LQlm_base = c_atom_calctag * lm_size;
+    LAMMPS_NS::tagint i_LQlm_base = c_atom_loctag * lm_size;
 
     // 如果没有邻居，直接清零退出
     double NFb_i_tilt = d_neigh_in_switching[c_atom_calctag];
@@ -1491,7 +1491,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     double c_z = d_x_flat[c_atom_loctag*3+2];
 
     // 与steinhardt no local 共用一个结果数组所以是d_stein_ql
-    double LQ_i = d_stein_ql[c_atom_calctag];
+    double LQ_i = d_stein_ql[c_atom_loctag];
     LQ_i = fmax(LQ_i, 1e-12);
     double F_LQ_i_with_NF = (sw_df_LQ(LQ_i)*(LQ_i-cv_value)+sw_f_LQ(LQ_i))
                         /(LQ_i)*(4*PI)/(2*L+1)/global_sw_sum;
@@ -1534,7 +1534,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
         // m=[-l,+l], RE(LQlm)*d(RE(LQlm))/dr + IM(LQlm)*d(IM(LQlm))/dr
         // Re(LQlm)^2 = Re(LQl-m)^2
         double prefix = rjk_prefix_in_i*(inv_NFb)*sw_df_r(r)*(1/r);
-        double prefix2 = 2.0*prefix*(d_stein_LQlm[i_LQlm_base + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 0] - d_stein_qlm[c_atom_loctag*lm_size + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 0])
+        double prefix2 = prefix*(d_stein_LQlm[i_LQlm_base + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 0] - d_stein_qlm[c_atom_loctag*lm_size + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 0])
                         + d_stein_LQlm[i_LQlm_base + 1]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id + 1] - d_stein_qlm[c_atom_loctag*lm_size + 1] - sum_of_qlm_value_weights[c_atom_calctag*lm_size + 1]));
         dcvdrij_forj[0] += delt_x*prefix2;
         dcvdrij_forj[1] += delt_y*prefix2;
@@ -1543,7 +1543,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
         atomicAdd(&d_dcvdx_rjk_prefix[j_calc_tag*lm_size + 1], rjk_prefix_in_i*r_weight*d_stein_LQlm[i_LQlm_base + 1]);
         #pragma unroll
         for(int m=1;m<=L;m++){
-            double prefix2 = prefix*(d_stein_LQlm[i_LQlm_base +2*m + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id +2*m + 0] - d_stein_qlm[c_atom_loctag*lm_size +2*m + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size +2*m + 0])
+            double prefix2 = 2.0*prefix*(d_stein_LQlm[i_LQlm_base +2*m + 0]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id +2*m + 0] - d_stein_qlm[c_atom_loctag*lm_size +2*m + 0] - sum_of_qlm_value_weights[c_atom_calctag*lm_size +2*m + 0])
                             + d_stein_LQlm[i_LQlm_base +2*m + 1]*(NFb_i_tilt*d_stein_qlm[stein_qlm_base_id +2*m + 1] - d_stein_qlm[c_atom_loctag*lm_size +2*m + 1] - sum_of_qlm_value_weights[c_atom_calctag*lm_size +2*m + 1]));
             dcvdrij_forj[0] += delt_x*prefix2;
             dcvdrij_forj[1] += delt_y*prefix2;
