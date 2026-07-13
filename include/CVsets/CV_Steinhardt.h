@@ -396,7 +396,9 @@ namespace MetaD_zqc {
         virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, 
                             int slot_offset, int comm_forward)  override; // 具体 CV 自己的解包逻辑
         virtual bool need_forward_comm() override { return false; }
-        // int get_comm_forward_bytes() override;
+        // LocalQL 不走 forward_comm；必须覆盖，否则会继承 STEIN_QL 的非零字节数，
+        // 把 Fix::comm_forward 撑大，进而把 reverse buffer 步长搞错。
+        int get_comm_forward_bytes() override { return 0; }
         // int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
         // void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
         // // compute

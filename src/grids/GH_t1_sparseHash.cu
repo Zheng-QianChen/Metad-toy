@@ -356,6 +356,21 @@ double MetaD_zqc::GH_t1_sparseHash<D>::get_total_bias(int* cvspace_loc){
   return it->second;
 }
 
+template<int D>
+double MetaD_zqc::GH_t1_sparseHash<D>::get_bias_energy(double *cv_values){
+  // 与 get_dVdcv 同一套样条：target_dim=-1 表示所有维做求值（非求导）
+  int base_coord[3];
+  double frac[3];
+  for (int d = 0; d < D; ++d) {
+      double f_idx = (cv_values[d] - cv_bound[2*d]) / dcv[d];
+      base_coord[d] = static_cast<int>(floor(f_idx));
+      frac[d] = f_idx - base_coord[d];
+      if (base_coord[d] < 1) { base_coord[d] = 1; frac[d] = 0.0; }
+      if (base_coord[d] >= nbin[d] - 2) { base_coord[d] = nbin[d] - 3; frac[d] = 1.0; }
+  }
+  return mixed_recursive_logic(0, -1, base_coord, frac);
+}
+
 
 // =============================================================================
 // gauss_calc

@@ -402,6 +402,50 @@ double MetaD_zqc::GH_t0_uniformGrid<3>::get_total_bias(int* cvspace_loc){
   return bias_grid[index];
 }
 
+// Catmull-Rom 一维求值（与 get_dVdcv 的样条族一致）
+static inline double catmull_rom_value(double p0, double p1, double p2, double p3, double x) {
+  return p1 + 0.5 * x * (
+      (p2 - p0) +
+      x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
+      x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
+  );
+}
+
+template<>
+double MetaD_zqc::GH_t0_uniformGrid<1>::get_bias_energy(double *cv_values){
+  get_cvspace_loc(cv_values, cvspace_loc);
+  int i = cvspace_loc[0];
+  double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+  if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
+  return catmull_rom_value(bias_grid[i - 1], bias_grid[i], bias_grid[i + 1], bias_grid[i + 2], x);
+}
+
+template<>
+double MetaD_zqc::GH_t0_uniformGrid<2>::get_bias_energy(double *cv_values){
+  // 与现有 2D 梯度一致：双线性四角插值
+  get_cvspace_loc(cv_values, cvspace_loc);
+  int i = cvspace_loc[0];
+  int j = cvspace_loc[1];
+  double dx = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+  double dy = (cv_values[1] - (cv_bound[2] + j * dcv[1])) / dcv[1];
+  if (dx < 0.0) dx = 0.0; if (dx > 1.0) dx = 1.0;
+  if (dy < 0.0) dy = 0.0; if (dy > 1.0) dy = 1.0;
+  double p00 = bias_grid[i * nbin[1] + j];
+  double p10 = bias_grid[(i + 1) * nbin[1] + j];
+  double p01 = bias_grid[i * nbin[1] + (j + 1)];
+  double p11 = bias_grid[(i + 1) * nbin[1] + (j + 1)];
+  double v0 = p00 * (1.0 - dx) + p10 * dx;
+  double v1 = p01 * (1.0 - dx) + p11 * dx;
+  return v0 * (1.0 - dy) + v1 * dy;
+}
+
+template<>
+double MetaD_zqc::GH_t0_uniformGrid<3>::get_bias_energy(double *cv_values){
+  // 3D：取最近网格点（与均匀网格 3D 梯度实现复杂度对齐的保守近似）
+  get_cvspace_loc(cv_values, cvspace_loc);
+  return get_total_bias(cvspace_loc);
+}
+
 
 // =============================================================================
 // gauss_calc

@@ -461,7 +461,7 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
     cudaStreamSynchronize(lmp_stream);
     num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
 
-    LOG("num_of_all_calc_fullpair=%lld (from scan of %d elements), last raw d_neigh_in_cutoff_r[num_of_all_IJ_atoms]=?",
+    DEBUG_LOG("num_of_all_calc_fullpair=%lld (from scan of %d elements), last raw d_neigh_in_cutoff_r[num_of_all_IJ_atoms]=?",
             (long long)num_of_all_calc_fullpair, num_of_all_IJ_atoms);
 
     syncErr = cudaDeviceSynchronize();
@@ -943,13 +943,13 @@ int MetaD_zqc::STEIN_LocalQL<L>::get_comm_reverse_bytes(){
 
 template <int L>
 int MetaD_zqc::STEIN_LocalQL<L>::pack_comm_reverse_ubuf(int n, int first, 
-                        double *u_buf, int slot_offset, int comm_forward) {
+                        double *u_buf, int slot_offset, int comm_reverse) {
     if (!comm_mode){
         return (3);
     }
     int m = slot_offset; 
-    int cycle_offset = comm_forward;
-    // int last = first + n
+    // 参数名历史原因叫 comm_forward，实际传入的是 Fix::comm_reverse（每原子总槽位数）
+    int cycle_offset = comm_reverse;
 
     for (int i = 0; i < n; i++) {
         #pragma unroll
@@ -963,15 +963,15 @@ int MetaD_zqc::STEIN_LocalQL<L>::pack_comm_reverse_ubuf(int n, int first,
 
 template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::unpack_comm_reverse_ubuf(int n, int *list, 
-                        double *u_buf, int slot_offset, int comm_forward) {
+                        double *u_buf, int slot_offset, int comm_reverse) {
     if (!comm_mode){
         return;
     }
     int loctag;
     int m = slot_offset; 
-    int cycle_offset = comm_forward;
+    int cycle_offset = comm_reverse;
     
-    // 从 first 开始，连续恢复 n 个 Ghost 原子的复合数据
+    // 将 ghost 上的 dcvdx 累加回对应的本地 owned 原子
     for (int i = 0; i < n; i++) {
         loctag = list[i];
         #pragma unroll

@@ -174,6 +174,9 @@ namespace LAMMPS_NS {
     bool first_run;
     // double cv1_min, cv1_max, cv2_min, cv2_max;
     double *cv_values, *cv_history, *dVdcvs;
+    double bias_energy;          // 当前步偏置势 V_b，供 thermo energy
+    double **f_before_bias;      // post_force 前原子力快照，用于 virial = r⊗Δf
+    int max_f_before_bias;
     struct DimConfig {
       std::string name;
       std::string func;

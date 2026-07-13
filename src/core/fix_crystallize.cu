@@ -32,7 +32,10 @@ using namespace LAMMPS_NS;
 FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                                 : Fix(lmp, narg, arg),
                                   pace(100),
-                                  cv_dim(1), nbin_num(100){
+                                  cv_dim(1), nbin_num(100),
+                                  bias_energy(0.0),
+                                  f_before_bias(nullptr),
+                                  max_f_before_bias(0){
     if (comm->me==0){
         f_check = fopen("metad_debug_logging.txt","w");
         LOG("New JOB STARTING WITH DEBUG MOD!");
@@ -275,17 +278,25 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // extvector = 0;
 
     // 设置compute_scalar和compute_vector的返回值
-    scalar_flag = 1;                 // 支持 f_metad 这种标量查询
+    scalar_flag = 1;                 // f_metad -> 偏置势 V_b（见 compute_scalar）
     vector_flag = 1;
-    size_vector = cv_dim;            // 支持 f_metad[1]..f_metad[cv_dim] 这种向量查询
+    size_vector = cv_dim;            // f_metad[1]..f_metad[cv_dim] -> CV 值
     extscalar = 0;                   // 强度量，不是跨进程求和的广延量
     extvector = 0;
+
+    // NPT/能量账本：偏置力必须进 virial；偏置势可进 PE（fix_modify energy）
+    // 默认打开，与 fix plumed 一致；可用 fix_modify <id> energy no / virial no 关闭
+    energy_global_flag = 1;
+    virial_global_flag = 1;
+    thermo_energy = 1;
+    thermo_virial = 1;
 }
 
 FixMetadynamics::~FixMetadynamics() {
   memory->destroy(cv_values);
   memory->destroy(cv_history);
   memory->destroy(dVdcvs);
+  memory->destroy(f_before_bias);
   for (auto const& pair : cal_registry) {
       delete pair.second; // 这里会调用 CV 及其派生类的析构函数
   }
@@ -344,8 +355,26 @@ void FixMetadynamics::init_list(int id, NeighList *ptr)
 }
 
 // 3. 真正偏置力（解析梯度，比数值差分快）
-void FixMetadynamics::post_force(int) {
+void FixMetadynamics::post_force(int vflag) {
   DEBUG_LOG("post_force start");
+
+  // 为 virial 记账准备：只累加“本 fix 新加上的力”
+  v_init(vflag);
+  double **f = atom->f;
+  double **x = atom->x;
+  imageint *image = atom->image;
+  int nlocal = atom->nlocal;
+  if (nlocal > max_f_before_bias) {
+    memory->destroy(f_before_bias);
+    max_f_before_bias = atom->nmax;
+    memory->create(f_before_bias, max_f_before_bias, 3, "metad:f_before_bias");
+  }
+  for (int i = 0; i < nlocal; i++) {
+    f_before_bias[i][0] = f[i][0];
+    f_before_bias[i][1] = f[i][1];
+    f_before_bias[i][2] = f[i][2];
+  }
+
   // -----calculate cv_compute and add cv_history-----
   for (auto const& pair : cal_registry) {
     const std::string& name = pair.first;
@@ -375,6 +404,12 @@ void FixMetadynamics::post_force(int) {
   }
   // calculate grad of grid
   p_gaussian->get_dVdcv(cv_values, dVdcvs);
+  // 偏置势（与梯度同一套插值族）；仅 rank0 算再广播，与 get_dVdcv 一致
+  if (comm->me == 0) {
+    bias_energy = p_gaussian->get_bias_energy(cv_values);
+  }
+  MPI_Bcast(&bias_energy, 1, MPI_DOUBLE, 0, world);
+
   // DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   // printf("cv_compute = %g, dVdcv = %.g\n",cv_values[0], dVdcvs[0]);
   for(int ii=0; ii<cv_dim; ii++){
@@ -382,6 +417,26 @@ void FixMetadynamics::post_force(int) {
     // (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
     cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
   }
+
+  // 用 Δf = f_after - f_before 做 r⊗F 维里；自动覆盖 STEINH / WEIGHT_CHEM / DISTANCE 等全部 CV
+  if (vflag && thermo_virial) {
+    double v[6], unwrap[3];
+    for (int i = 0; i < nlocal; i++) {
+      double dfx = f[i][0] - f_before_bias[i][0];
+      double dfy = f[i][1] - f_before_bias[i][1];
+      double dfz = f[i][2] - f_before_bias[i][2];
+      if (dfx == 0.0 && dfy == 0.0 && dfz == 0.0) continue;
+      domain->unmap(x[i], image[i], unwrap);
+      v[0] = dfx * unwrap[0];
+      v[1] = dfy * unwrap[1];
+      v[2] = dfz * unwrap[2];
+      v[3] = dfx * unwrap[1];
+      v[4] = dfx * unwrap[2];
+      v[5] = dfy * unwrap[2];
+      v_tally(i, v);
+    }
+  }
+
   DEBUG_LOG("post_force_end");
 }
 
@@ -396,7 +451,9 @@ void FixMetadynamics::get_dVdcv(double *cv_values,
 }
 
 double FixMetadynamics::compute_scalar() {
-    return cv_values[0];
+    // 与 fix plumed 一致：scalar = 偏置势，供 thermo PE / fix_modify energy
+    // CV 请用 f_metad[1] ... f_metad[cv_dim]
+    return bias_energy;
 }
 
 double FixMetadynamics::compute_vector(int n) {
@@ -409,7 +466,9 @@ int FixMetadynamics::get_comm_forward_bytes() {
     int total_size = 0;
     for (auto const& pair : cal_registry) {
         MetaD_zqc::CV* obj = pair.second;
-        if (obj->get_comm_forward_bytes()) {
+        // LocalQL 等 CV 可能继承了非零的 get_comm_forward_bytes，
+        // 但 need_forward_comm()==false，不能计入 Fix::comm_forward。
+        if (obj->need_forward_comm() && obj->get_comm_forward_bytes()) {
             total_size += obj->get_comm_forward_bytes();
         }
     }
@@ -421,7 +480,7 @@ int FixMetadynamics::get_comm_reverse_bytes() {
     int total_size = 0;
     for (auto const& pair : cal_registry) {
         MetaD_zqc::CV* obj = pair.second;
-        if (obj->get_comm_reverse_bytes()) {
+        if (obj->need_reverse_comm() && obj->get_comm_reverse_bytes()) {
             total_size += obj->get_comm_reverse_bytes();
         }
     }
@@ -469,13 +528,16 @@ void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
 
 int FixMetadynamics::pack_reverse_comm(int n, int first, double *buf) {
     // 这里的 n 是本次通信的 ghost 原子总数
+    // 注意：LAMMPS reverse buffer 步长是 Fix::comm_reverse，不是 comm_forward。
+    // 之前误传 comm_forward 会导致 LocalQL(comm_forward 继承非零、comm_reverse=3)
+    // 在 np>=2 时按过大步长写越界，最终表现为 lost atoms。
     int slot_offset = 0;
     for (auto const& pair : cal_registry) {
         MetaD_zqc::CV* obj = pair.second;
         if (obj->need_reverse_comm()) {
             // 将 ghost 原子计算的梯度 pack 进 buf
             // pack_comm_reverse_ubuf 返回的是每个原子写入的 double 个数
-            int n_doubles = obj->pack_comm_reverse_ubuf(n, first, buf, slot_offset, comm_forward);
+            int n_doubles = obj->pack_comm_reverse_ubuf(n, first, buf, slot_offset, comm_reverse);
             slot_offset += n_doubles;
         }
     }
@@ -490,7 +552,7 @@ void FixMetadynamics::unpack_reverse_comm(int n, int *list, double *buf) {
         MetaD_zqc::CV* obj = pair.second;
         if (obj->need_reverse_comm()) {
             // 将 buf 中的梯度累加到对应本地原子的 dcvdx 上
-            obj->unpack_comm_reverse_ubuf(n, list, buf, slot_offset, comm_forward);
+            obj->unpack_comm_reverse_ubuf(n, list, buf, slot_offset, comm_reverse);
             slot_offset += obj->get_comm_reverse_bytes();
         }
     }

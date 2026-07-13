@@ -39,6 +39,8 @@ namespace MetaD_zqc {
         virtual void add_hill(double *) {};
         virtual void get_dVdcv(double *, double *) {};
         virtual void write_hill(double *cv_values) {};
+        // 当前 CV 处的偏置势 V_b(s)，供 Fix thermo/energy 记账
+        virtual double get_bias_energy(double * /*cv_values*/) { return 0.0; }
     };
 
     // =========================================================================
@@ -75,6 +77,7 @@ namespace MetaD_zqc {
         void get_dVdcv(double *, double *) override;
         void write_hill(double *cv_values, double w);
         double get_total_bias(int* cvspace_loc);
+        double get_bias_energy(double *cv_values) override;
         double gauss_calc(int dim, double* dx, double s);
     };
     
@@ -90,6 +93,9 @@ namespace MetaD_zqc {
     template<> double MetaD_zqc::GH_t0_uniformGrid<1>::get_total_bias(int* cvspace_loc);
     template<> double MetaD_zqc::GH_t0_uniformGrid<2>::get_total_bias(int* cvspace_loc);
     template<> double MetaD_zqc::GH_t0_uniformGrid<3>::get_total_bias(int* cvspace_loc);
+    template<> double MetaD_zqc::GH_t0_uniformGrid<1>::get_bias_energy(double *cv_values);
+    template<> double MetaD_zqc::GH_t0_uniformGrid<2>::get_bias_energy(double *cv_values);
+    template<> double MetaD_zqc::GH_t0_uniformGrid<3>::get_bias_energy(double *cv_values);
     template<> double GH_t0_uniformGrid<1>::gauss_calc(int dim, double* dx, double s);
     template<> double GH_t0_uniformGrid<2>::gauss_calc(int dim, double* dx, double s);
     template<> double GH_t0_uniformGrid<3>::gauss_calc(int dim, double* dx, double s);
@@ -174,6 +180,7 @@ namespace MetaD_zqc {
         // 核心：获取或初始化哈希点
         double get_bias_at(const CoordKey& k);
         double get_total_bias(int* cvspace_loc);
+        double get_bias_energy(double *cv_values) override;
 
         // 辅助：CV值转网格坐标
         void get_cvspace_loc(double* cv, int* coord);
