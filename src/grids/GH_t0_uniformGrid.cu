@@ -48,6 +48,12 @@ MetaD_zqc::GH_t0_uniformGrid<D>::GH_t0_uniformGrid(LAMMPS_NS::LAMMPS *lmp,
     // ?
     this->cv_bound = cv_bound;
     this->nbin = nbin;
+    this->cvspace_loc = nullptr;
+    this->dcv = nullptr;
+    this->bias_grid = nullptr;
+    this->index_radius = nullptr;
+    this->lower = nullptr;
+    this->upper = nullptr;
     lmp->memory->create(delta_x, cv_dim, "metad:gaussian:delta_x");
 }
 
@@ -144,7 +150,9 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::init_hills(){
                 }
                 // 解析 Height (h)
                 double h = strtod(ptr, &next_ptr);
+                ptr = next_ptr;
                 double s = strtod(ptr, &next_ptr);
+                ptr = next_ptr;
                 // sigma (s) 在此处根据需要解析，若只更新 grid 则解析到 h 即可
 
                 // 累加到本地 bias_grid
@@ -189,7 +197,7 @@ void MetaD_zqc::GH_t0_uniformGrid<D>::add_hill(double *cv_history){
         get_cvspace_loc(cv_history, cvspace_loc);
         double Vbias = 0.0;
         if (WellT_bool){
-          Vbias = get_total_bias(cvspace_loc);
+          Vbias = get_bias_energy(cv_history);
         }
         double w = height0 * exp(-(Vbias)/(current_temp*KB*(biasf-1.0)));
         write_hill(cv_history, w);
@@ -276,30 +284,55 @@ void MetaD_zqc::GH_t0_uniformGrid<3>::add_to_grid(double *cv_values, double w, d
 // =============================================================================
 // get_dVdcv
 // =============================================================================
+
+// Catmull-Rom 一维求值 / 导（分数坐标 x∈[0,1]）；2D 双三次复用
+static inline double catmull_rom_value(double p0, double p1, double p2, double p3, double x) {
+  return p1 + 0.5 * x * (
+      (p2 - p0) +
+      x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
+      x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
+  );
+}
+static inline double catmull_rom_deriv(double p0, double p1, double p2, double p3, double x) {
+    return 0.5 * (
+        (p2 - p0) +
+        2.0 * x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
+        3.0 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
+    );
+}
+// 按 bin 中心定位：u=(cv-lo)/dcv-0.5；样条用 [i-1..i+2]，故 i∈[1,nbin-3]
+static inline void center_frac_clamp(double cv, double lo, double h, int nb, int &i, double &f) {
+    double u = (cv - lo) / h - 0.5;
+    i = static_cast<int>(floor(u));
+    f = u - i;
+    if (i < 1) { i = 1; f = 0.0; }
+    if (i > nb - 3) { i = nb - 3; f = 1.0; }
+}
+
 template<>
 void MetaD_zqc::GH_t0_uniformGrid<1>::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
     if (lmp->comm->me==0) {
         DEBUG_LOG("get_dVdcv");
-        // printf("cv_values=%g\n",cv_values[0]);
-        get_cvspace_loc(cv_values, cvspace_loc);
-        int i = cvspace_loc[0];
-        // 计算原子相对于网格点 i 的偏移量 [0, 1]
-        double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
+        int i;
+        double x;
+        center_frac_clamp(cv_values[0], cv_bound[0], dcv[0], nbin[0], i, x);
+        // // printf("cv_values=%g\n",cv_values[0]);
+        // get_cvspace_loc(cv_values, cvspace_loc);
+        // int i = cvspace_loc[0];
+        // // 计算原子相对于网格点 i 的偏移量 [0, 1]
+        // double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
         // 确保 x 在插值公式中不因边界截断而产生错误的斜率
-        if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
+        // if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
         double p0 = bias_grid[i - 1];
         double p1 = bias_grid[i];
         double p2 = bias_grid[i + 1];
         double p3 = bias_grid[i + 2];
-        dVdcvs[0] = ((-0.5 * p0 + 0.5 * p2) + 
-                    x * (p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3) + 
-                    1.5 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)) / dcv[0];
+        dVdcvs[0] = catmull_rom_deriv(p0, p1, p2, p3, x) / dcv[0];
         DEBUG_LOG("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g", i, p0, p1, p2, p3,dVdcvs[0]);
-        // printf("i,p0,p1,p2,p3 = %d %g %g %g %g, dVdcv[0]=%g\n", i, p0, p1, p2, p3,dVdcvs[0]);
         DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
         if (isnan(dVdcvs[0])) { // 检查 NaN
-            printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
+            LOG("Warning: dVdcvs[%d] is NaN, setting to 0", 0);
             dVdcvs[0] = 0.0;
         }
         DEBUG_LOG("grid_gradient_end");
@@ -311,36 +344,26 @@ template<>
 void MetaD_zqc::GH_t0_uniformGrid<2>::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
     if (lmp->comm->me==0) {
-        get_cvspace_loc(cv_values, cvspace_loc);
-        int i = cvspace_loc[0];
-        int j = cvspace_loc[1]; 
-        // 2. 计算相对于左下角网格点的偏移量 dx, dy (范围 [0, 1])
-        double dx = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-        double dy = (cv_values[1] - (cv_bound[2] + j * dcv[1])) / dcv[1];
-        // 边界保护
-        if (dx < 0.0) dx = 0.0; if (dx > 1.0) dx = 1.0;
-        if (dy < 0.0) dy = 0.0; if (dy > 1.0) dy = 1.0;
-        // 3. 获取周边 4 个点的偏置势值
-        // 布局： p01(i, j+1) -- p11(i+1, j+1)
-        //        |                |
-        //       p00(i, j)   -- p10(i+1, j)
-        double p00 = bias_grid[i * nbin[1] + j];         // (i, j)
-        double p10 = bias_grid[(i + 1) * nbin[1] + j];   // (i+1, j)
-        double p01 = bias_grid[i * nbin[1] + (j + 1)];   // (i, j+1)
-        double p11 = bias_grid[(i + 1) * nbin[1] + (j + 1)]; // (i+1, j+1)
-        // 4. 双线性插值求偏导 (dV/dCV)
-        // V(dx, dy) = p00(1-dx)(1-dy) + p10*dx*(1-dy) + p01*(1-dx)*dy + p11*dx*dy
-        // dV/ddx = [ (p10 - p00)(1-dy) + (p11 - p01)dy ] / dcv[0]
-        dVdcvs[0] = ((p10 - p00) * (1.0 - dy) + (p11 - p01) * dy) / dcv[0];
-        // dV/ddy = [ (p01 - p00)(1-dx) + (p11 - p10)dx ] / dcv[1]
-        dVdcvs[1] = ((p01 - p00) * (1.0 - dx) + (p11 - p10) * dx) / dcv[1];
-        DEBUG_LOG("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g", 
-                i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
-        // printf("2D Gradient: i=%d, j=%d, dx=%f, dy=%f, dVdcv[0]=%g, dVdcv[1]=%g\n", 
-        //           i, j, dx, dy, dVdcvs[0], dVdcvs[1]);
-        DEBUG_LOG("dVdcvs[0] = %g",dVdcvs[0]);
-        if (isnan(dVdcvs[0]) || isnan(dVdcvs[1])) { // 检查 NaN
-            printf("Warning: dVdcvs[%d] is NaN, setting to 0\n", 0);
+        // 沉积在 bin 中心；2D 用 Catmull-Rom（双三次），贴近 PLUMED 样条、
+        // 避免双线性在胞内 ∂V/∂s 分片常数、峰顶虚假梯度。
+        int i0, j0;
+        double dx, dy;
+        center_frac_clamp(cv_values[0], cv_bound[0], dcv[0], nbin[0], i0, dx);
+        center_frac_clamp(cv_values[1], cv_bound[2], dcv[1], nbin[1], j0, dy);
+        double col[4], dcol[4];
+        for (int t = 0; t < 4; ++t) {
+            int jj = j0 - 1 + t;
+            double p0 = bias_grid[(i0 - 1) * nbin[1] + jj];
+            double p1 = bias_grid[i0 * nbin[1] + jj];
+            double p2 = bias_grid[(i0 + 1) * nbin[1] + jj];
+            double p3 = bias_grid[(i0 + 2) * nbin[1] + jj];
+            col[t] = catmull_rom_value(p0, p1, p2, p3, dx);
+            dcol[t] = catmull_rom_deriv(p0, p1, p2, p3, dx);
+        }
+        dVdcvs[0] = catmull_rom_value(dcol[0], dcol[1], dcol[2], dcol[3], dy) / dcv[0];
+        dVdcvs[1] = catmull_rom_deriv(col[0], col[1], col[2], col[3], dy) / dcv[1];
+        if (isnan(dVdcvs[0]) || isnan(dVdcvs[1])) {
+            printf("Warning: dVdcvs 2D is NaN, setting to 0\n");
             dVdcvs[0] = 0.0;
             dVdcvs[1] = 0.0;
         }
@@ -402,41 +425,32 @@ double MetaD_zqc::GH_t0_uniformGrid<3>::get_total_bias(int* cvspace_loc){
   return bias_grid[index];
 }
 
-// Catmull-Rom 一维求值（与 get_dVdcv 的样条族一致）
-static inline double catmull_rom_value(double p0, double p1, double p2, double p3, double x) {
-  return p1 + 0.5 * x * (
-      (p2 - p0) +
-      x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
-      x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
-  );
-}
-
 template<>
 double MetaD_zqc::GH_t0_uniformGrid<1>::get_bias_energy(double *cv_values){
-  get_cvspace_loc(cv_values, cvspace_loc);
-  int i = cvspace_loc[0];
-  double x = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-  if (x < 0.0) x = 0.0; if (x > 1.0) x = 1.0;
+  int i;
+  double x;
+  center_frac_clamp(cv_values[0], cv_bound[0], dcv[0], nbin[0], i, x);
   return catmull_rom_value(bias_grid[i - 1], bias_grid[i], bias_grid[i + 1], bias_grid[i + 2], x);
 }
 
 template<>
 double MetaD_zqc::GH_t0_uniformGrid<2>::get_bias_energy(double *cv_values){
-  // 与现有 2D 梯度一致：双线性四角插值
-  get_cvspace_loc(cv_values, cvspace_loc);
-  int i = cvspace_loc[0];
-  int j = cvspace_loc[1];
-  double dx = (cv_values[0] - (cv_bound[0] + i * dcv[0])) / dcv[0];
-  double dy = (cv_values[1] - (cv_bound[2] + j * dcv[1])) / dcv[1];
-  if (dx < 0.0) dx = 0.0; if (dx > 1.0) dx = 1.0;
-  if (dy < 0.0) dy = 0.0; if (dy > 1.0) dy = 1.0;
-  double p00 = bias_grid[i * nbin[1] + j];
-  double p10 = bias_grid[(i + 1) * nbin[1] + j];
-  double p01 = bias_grid[i * nbin[1] + (j + 1)];
-  double p11 = bias_grid[(i + 1) * nbin[1] + (j + 1)];
-  double v0 = p00 * (1.0 - dx) + p10 * dx;
-  double v1 = p01 * (1.0 - dx) + p11 * dx;
-  return v0 * (1.0 - dy) + v1 * dy;
+  // 与 2D get_dVdcv 一致：bin 中心 + Catmull-Rom 双三次
+  int i0, j0;
+  double dx, dy;
+  center_frac_clamp(cv_values[0], cv_bound[0], dcv[0], nbin[0], i0, dx);
+  center_frac_clamp(cv_values[1], cv_bound[2], dcv[1], nbin[1], j0, dy);
+  double col[4];
+  for (int t = 0; t < 4; ++t) {
+    int jj = j0 - 1 + t;
+    col[t] = catmull_rom_value(
+        bias_grid[(i0 - 1) * nbin[1] + jj],
+        bias_grid[i0 * nbin[1] + jj],
+        bias_grid[(i0 + 1) * nbin[1] + jj],
+        bias_grid[(i0 + 2) * nbin[1] + jj],
+        dx);
+  }
+  return catmull_rom_value(col[0], col[1], col[2], col[3], dy);
 }
 
 template<>

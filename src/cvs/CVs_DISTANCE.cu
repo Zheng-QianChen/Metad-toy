@@ -30,7 +30,7 @@ MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp,
 }
 
 MetaD_zqc::Distance::~Distance(){
-  delete[] dcvdx;
+  // delete[] dcvdx;
   // delete[] dVdcv;
 }
 

@@ -26,6 +26,11 @@ MetaD_zqc::GH_t1_sparseHash<D>::GH_t1_sparseHash(LAMMPS_NS::LAMMPS *lmp,
     // ?
     this->cv_bound = cv_bound;
     this->nbin = nbin;
+    this->lower = nullptr;
+    this->upper = nullptr;
+    this->index_radius = nullptr;
+    this->dcv = nullptr;
+    this->cvspace_loc = nullptr;
 }
 
 template<int D>
@@ -37,8 +42,8 @@ MetaD_zqc::GH_t1_sparseHash<D>::~GH_t1_sparseHash(){
     // lmp->memory->destroy(bias_grid);
     // lmp->memory->destroy(delta_x);
     lmp->memory->destroy(index_radius);
-    // lmp->memory->destroy(lower);
-    // lmp->memory->destroy(upper);
+    lmp->memory->destroy(lower);
+    lmp->memory->destroy(upper);
 }
 
 template<int D>
@@ -52,8 +57,8 @@ void MetaD_zqc::GH_t1_sparseHash<D>::init_set_mode(){
     lmp->memory->create(dcv, cv_dim, "metad:dcv");
     // var delta_x 用于存储当前 CV 与网格点中心的偏移量，维度为 cv_dim
     // lmp->memory->create(delta_x, cv_dim, "metad:gaussian:delta_x");
-    // lmp->memory->create(lower, cv_dim, "metad:lower");
-    // lmp->memory->create(upper, cv_dim, "metad:upper");
+    lmp->memory->create(lower, cv_dim, "metad:lower");
+    lmp->memory->create(upper, cv_dim, "metad:upper");
     for (int k = 0; k < cv_dim; ++k) {
         dcv[k] = (cv_bound[2*k+1]-cv_bound[2*k])/nbin[k];
         LOG("dcv[k] = %g", dcv[k]);
@@ -170,14 +175,37 @@ void MetaD_zqc::GH_t1_sparseHash<D>::add_hill(double *cv_history){
         get_cvspace_loc(cv_history, cvspace_loc);
         double Vbias = 0.0;
         if (WellT_bool){
-          Vbias = get_total_bias(cvspace_loc);
+          Vbias = get_bias_energy(cv_history);
         }
         double w = height0 * exp(-(Vbias)/(current_temp*KB*(biasf-1.0)));
         write_hill(cv_history, w);
         add_to_grid(cv_history, w);
+        rehash_if_needed();
     }
     MPI_Barrier(lmp->world);
     GridHashBcast();
+}
+
+template<int D>
+void MetaD_zqc::GH_t1_sparseHash<D>::rehash_if_needed(){
+    // 查询代价随 size/桶数比升高；超过用户阈值则扩桶重整
+    if (rehash_thresh <= 0.0) return;
+    const size_t n = bias_hash.size();
+    if (n < static_cast<size_t>(rehash_thresh)) return;
+
+    // 目标：把 load_factor 压到 ~0.5，显著降低平均探测长度
+    size_t target_buckets = n * 2 + 1;
+    if (target_buckets < bias_hash.bucket_count() * 2) {
+        target_buckets = bias_hash.bucket_count() * 2;
+    }
+    bias_hash.rehash(target_buckets);
+
+    // 抬高下一次触发线，避免之后每座山都 rehash
+    const double next = static_cast<double>(n) * 2.0;
+    if (next > rehash_thresh) rehash_thresh = next;
+
+    LOG("sparse-hash rehash: size=%zu buckets=%zu next_thresh=%g",
+        n, bias_hash.bucket_count(), rehash_thresh);
 }
 
 template<int D>
@@ -199,9 +227,7 @@ void MetaD_zqc::GH_t1_sparseHash<D>::write_hill(double *cv_values, double w){
 template<int D>
 void MetaD_zqc::GH_t1_sparseHash<D>::add_to_grid(double *cv_values, double w) {
   CoordKey key;
-  int lower[cv_dim], upper[cv_dim];
-  double xc, yc;
-  double delta_x[cv_dim]; // 存储当前 CV 与网格点中心的偏移量
+  double delta_x[3];
   for (int k=0; k<cv_dim; k++){
     int center_idx = static_cast<int>((cv_values[k] - cv_bound[2*k]) / dcv[k]);
     lower[k] = std::max(0, center_idx - index_radius[k]);
@@ -238,6 +264,22 @@ void MetaD_zqc::GH_t1_sparseHash<D>::recursive_add2grid(int dim, CoordKey& key,
 // =============================================================================
 // get_dVdcv
 // =============================================================================
+// Catmull-Rom 与 GH_t0 一致（旧手写导式在线性项少乘 2，会导致 Vb 对、力错）
+static inline double sparse_catmull_rom_value(double p0, double p1, double p2, double p3, double x) {
+  return p1 + 0.5 * x * (
+      (p2 - p0) +
+      x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
+      x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
+  );
+}
+static inline double sparse_catmull_rom_deriv(double p0, double p1, double p2, double p3, double x) {
+  return 0.5 * (
+      (p2 - p0) +
+      2.0 * x * (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) +
+      3.0 * x * x * (-p0 + 3.0 * p1 - 3.0 * p2 + p3)
+  );
+}
+
 template<int D>
 void MetaD_zqc::GH_t1_sparseHash<D>::get_dVdcv(double *cv_values, double *dVdcvs) {
     // 只有主进程计算哈希表，避免所有进程都去查 Map 导致内存开销
@@ -245,15 +287,15 @@ void MetaD_zqc::GH_t1_sparseHash<D>::get_dVdcv(double *cv_values, double *dVdcvs
         int base_coord[D];
         double frac[D];
 
-        // 1. 坐标预处理
+        // 1. 坐标预处理：沉积在 bin 中心，插值也按中心（与 GH_t0 一致）
         for (int d = 0; d < D; ++d) {
-            double f_idx = (cv_values[d] - cv_bound[2*d]) / dcv[d];
+            double f_idx = (cv_values[d] - cv_bound[2*d]) / dcv[d] - 0.5;
             base_coord[d] = static_cast<int>(floor(f_idx));
             frac[d] = f_idx - base_coord[d];
 
-            // 样条插值需要预留足够邻居，base_coord 至少从 1 开始
+            // 样条需要 [i-1..i+2]，故 i∈[1,nbin-3]
             if (base_coord[d] < 1) { base_coord[d] = 1; frac[d] = 0.0; }
-            if (base_coord[d] >= nbin[d] - 2) { base_coord[d] = nbin[d] - 3; frac[d] = 1.0; }
+            if (base_coord[d] > nbin[d] - 3) { base_coord[d] = nbin[d] - 3; frac[d] = 1.0; }
         }
 
         // 2. 循环 D 个维度，计算每个方向的偏导
@@ -294,11 +336,9 @@ double MetaD_zqc::GH_t1_sparseHash<D>::mixed_recursive_logic(int current_dim, in
 
         // 执行 Catmull-Rom 样条求导公式
         double x = frac[current_dim];
-        return ((-0.5 * p[0] + 0.5 * p[2]) + 
-                x * (p[0] - 2.5 * p[1] + 2.0 * p[2] - 0.5 * p[3]) + 
-                1.5 * x * x * (-p[0] + 3.0 * p[1] - 3.0 * p[2] + p[3])) / dcv[current_dim];
+        return sparse_catmull_rom_deriv(p[0], p[1], p[2], p[3], x) / dcv[current_dim];
 
-    } else {// --- 非求导维度：由线性插值改为 Catmull-Rom 样条插值 ---
+    } else {// --- 非求导维度：Catmull-Rom 样条求值 ---
         int origin = coord[current_dim];
         double x = frac[current_dim];
 
@@ -314,11 +354,7 @@ double MetaD_zqc::GH_t1_sparseHash<D>::mixed_recursive_logic(int current_dim, in
         coord[current_dim] = origin; // 恢复现场
 
         // Catmull-Rom 样条求值公式 (不是求导公式)
-        return p[1] + 0.5 * x * (
-            (p[2] - p[0]) + 
-            x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3]) + 
-            x * x * (-p[0] + 3.0 * p[1] - 3.0 * p[2] + p[3])
-        );
+        return sparse_catmull_rom_value(p[0], p[1], p[2], p[3], x);
     }
 }
 
@@ -358,15 +394,15 @@ double MetaD_zqc::GH_t1_sparseHash<D>::get_total_bias(int* cvspace_loc){
 
 template<int D>
 double MetaD_zqc::GH_t1_sparseHash<D>::get_bias_energy(double *cv_values){
-  // 与 get_dVdcv 同一套样条：target_dim=-1 表示所有维做求值（非求导）
+  // 与 get_dVdcv 同一套：bin 中心 + Catmull-Rom；target_dim=-1 表示全维求值
   int base_coord[3];
   double frac[3];
   for (int d = 0; d < D; ++d) {
-      double f_idx = (cv_values[d] - cv_bound[2*d]) / dcv[d];
+      double f_idx = (cv_values[d] - cv_bound[2*d]) / dcv[d] - 0.5;
       base_coord[d] = static_cast<int>(floor(f_idx));
       frac[d] = f_idx - base_coord[d];
       if (base_coord[d] < 1) { base_coord[d] = 1; frac[d] = 0.0; }
-      if (base_coord[d] >= nbin[d] - 2) { base_coord[d] = nbin[d] - 3; frac[d] = 1.0; }
+      if (base_coord[d] > nbin[d] - 3) { base_coord[d] = nbin[d] - 3; frac[d] = 1.0; }
   }
   return mixed_recursive_logic(0, -1, base_coord, frac);
 }

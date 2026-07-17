@@ -19,6 +19,9 @@ namespace MetaD_zqc {
         double sigma, height0, biasf, kBT;
         double KB;
         double current_temp=300.0;
+        // 稀疏哈希：元素数达到该阈值时 rehash 扩桶（降低查询代价）；0=关闭
+        // 触发后阈值会抬到 max(阈值, 2*size)，避免每步重复重整
+        double rehash_thresh = 0.0;
         // HILLS
         int continue_from_file;
         // setting: "mode"
@@ -29,7 +32,7 @@ namespace MetaD_zqc {
         int WellT_bool;
 
         public:
-        ~Gaussian_Hill_Base();
+        virtual ~Gaussian_Hill_Base();
         Gaussian_Hill_Base(LAMMPS_NS::LAMMPS *lmp, FILE* f_check,
                             int cv_dim,
                             double sigma, double height0, double biasf,
@@ -65,7 +68,7 @@ namespace MetaD_zqc {
         void get_cvspace_loc(double* cv_values, int* cvspace_loc);
 
         public:
-        ~GH_t0_uniformGrid();
+        ~GH_t0_uniformGrid() override;
         GH_t0_uniformGrid(LAMMPS_NS::LAMMPS *lmp, FILE* f_check,
                             int cv_dim,
                             double sigma, double height0, double biasf,
@@ -151,7 +154,7 @@ namespace MetaD_zqc {
         // int *base_coord;
         // double *frac;
         // CoordKey key;
-        // int *lower, *upper;
+        int *lower = nullptr, *upper = nullptr;
         int *index_radius;
 
         void io_hills();
@@ -160,6 +163,8 @@ namespace MetaD_zqc {
                                 double* dx_array,
                                 double w, double* cv_values);
         void GridHashBcast();
+        // 表太大时 rehash，降低平均查询代价
+        void rehash_if_needed();
 
     public:
         GH_t1_sparseHash(LAMMPS_NS::LAMMPS *lmp, FILE* f_check,
@@ -167,7 +172,7 @@ namespace MetaD_zqc {
                          int continue_from_file, int WellT_bool,
                          double *cv_bound, int *nbin);
         
-        ~GH_t1_sparseHash();
+        ~GH_t1_sparseHash() override;
 
         void init_set_mode() override;
         void write_hill(double *cv_values, double w);
