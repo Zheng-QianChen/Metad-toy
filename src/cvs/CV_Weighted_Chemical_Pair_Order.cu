@@ -173,10 +173,10 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp,
     }
     i = iarg;
     
-    // We need full neighbor list to get cuda run faster
-    NeighRequest *full_request;
-    full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
-    full_request->set_id(2);
+    // NeighHub: full occasional list (default pair cutoff)
+    MetaD_zqc::NeighSpec nspec;
+    nspec.full = 1;
+    const int neigh_id = Fixmetad->neigh_hub.get_or_create(nspec);
 
     MetaD_zqc::Weighted_chem_pair* Weighed_chem = nullptr;
     LOG("Logging: set CHEM_PAIR as group_name=%s cutoff_r=%f d_block_size=%d.\n         Chemical lock is ON, with c_target=%g and sigma=%g.",
@@ -188,7 +188,8 @@ MetaD_zqc::CV* MetaD_zqc::Weighted_chem_pair::create(LAMMPS_NS::LAMMPS *lmp,
     MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
                                 MetaD_zqc::Stru_fact_env::get_or_create(lmp, Fixmetad, f_check, req)
                             );
-    DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
+    temp_env->neigh_id = neigh_id;
+    DEBUG_LOG("Stru_fact_chem_env is %p neigh_id=%d", temp_env, neigh_id);
     std::string env_setNum = temp_env->get_env_key();
     // return Stru_fact cv
     Weighed_chem = new MetaD_zqc::Weighted_chem_pair(lmp, Fixmetad, f_check, 

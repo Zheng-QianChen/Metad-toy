@@ -126,31 +126,34 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
                         req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
 
-    // 请求lammps提供全近邻列表（full neighbor list），并设置ghost原子范围为 cutoff_r + neighbor->skin
-    NeighRequest *full_request;
-    full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
-    full_request->set_id(2);
-    full_request->set_cutoff(req.cutoff_r);
+    // NeighHub: full list + custom cutoff; Local needs ghost (→ perpetual under BIN)
+    MetaD_zqc::NeighSpec nspec;
+    nspec.full = 1;
+    nspec.use_cutoff = 1;
+    nspec.cutoff = req.cutoff_r;
     double temp_neigh_cutoff;
     if (strcmp(req.Q_type_str, "Q") == 0){
         temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
     } else if (strcmp(req.Q_type_str, "L") == 0){
         temp_neigh_cutoff = (2.0 * req.cutoff_r + lmp->neighbor->skin);
-        full_request->enable_ghost();
-        // full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
+        nspec.ghost = 1;
+    } else {
+        temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
     }
     if (lmp->comm->get_comm_cutoff() < temp_neigh_cutoff) {
         lmp->comm->cutghostuser = temp_neigh_cutoff;
         LOG_COND(lmp->comm->me == 0, "Increasing communication cutoff to %g for GPU pair style",
                   lmp->comm->cutghostuser);
     }
+    const int neigh_id = Fixmetad->neigh_hub.get_or_create(nspec);
 
     // steinh_requests.push_back(req);
     // // 创建 CV 对象
     // TODO: 需要处理相同envs的合并问题
     MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
                             Fixmetad, f_check, req);
-    DEBUG_LOG("Steinhardt_env is %p", temp_env);
+    temp_env->neigh_id = neigh_id;
+    DEBUG_LOG("Steinhardt_env is %p neigh_id=%d", temp_env, neigh_id);
     std::string env_setNum = temp_env->get_env_key();
     i = iarg;
     return MetaD_zqc::create_steinhardt_cv(lmp, Fixmetad, f_check, 
@@ -429,13 +432,11 @@ void MetaD_zqc::Steinhardt_env::get_env(){
     // }
     size_t datalen = 0;
     atom = lmp->atom;
-    // =======更新一下邻居列表位置防止报错=========
-    nlist = Fixmetad->listfull;
+    // =======从 NeighHub 取已 ensure 的 list=========
+    ERR_COND((neigh_id < 1),"STEIN_QL env has invalid neigh_id.");
+    Fixmetad->neigh_hub.ensure(neigh_id);
+    nlist = Fixmetad->neigh_hub.list(neigh_id);
     ERR_COND((nlist == nullptr),"STEIN_QL CV failed to find neighbor list now.");
-    // DEBUG_LOG("rebuilds = %d", lmp->neighbor->lastcall);
-    // DEBUG_LOG("now = %d", lmp->update->ntimestep);
-    // DEBUG_LOG("rebuilds_fir = %p", nlist->firstneigh);
-    // DEBUG_LOG("rebuilds_num = %p", nlist->numneigh);
     // =======防止lammps运行过程体积更改==========
     ERR_COND((lmp->domain == NULL),"domain list not initialized");
     box_x = (pbc_x) ? lmp->domain->xprd : INFINITY;
@@ -444,7 +445,12 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
     // utilize different environment set
     // such as neighbor list, atom position, box size, to get the local structure information for each atom in the group
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&((numneigh != nullptr))&&(init_flag)){
+    const bool neigh_rebuilt_now =
+        (lmp->update->ntimestep <= lmp->neighbor->lastcall) ||
+        (lmp->update->ntimestep == 1) || !init_flag;
+    const bool env_not_ready_this_step =
+        (lmp->update->ntimestep > last_update_step);
+    if (!(neigh_rebuilt_now || env_not_ready_this_step)) {
         DEBUG_LOG("we skip rebuild in environment when %lld.", (long long)lmp->neighbor->lastcall);
     } else {
         // =========================================================================
@@ -682,9 +688,13 @@ void MetaD_zqc::Steinhardt_env::get_env(){
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::environment(){
-    
     DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
-    if (lmp->update->ntimestep > my_env->last_update_step){
+    const bool neigh_rebuilt_now =
+        (lmp->update->ntimestep <= lmp->neighbor->lastcall) ||
+        (lmp->update->ntimestep == 1) || !init_flag;
+    const bool env_not_ready_this_step =
+        (lmp->update->ntimestep > my_env->last_update_step);
+    if (neigh_rebuilt_now || env_not_ready_this_step) {
         my_env->get_env();
     }
     // DEBUG_LOG("environment function in, env_setNum is %s, get_env done",env_setNum);
@@ -750,31 +760,59 @@ auto MetaD_zqc::STEIN_QL<L>::set_CV_bias_force(std::string func_name) -> CV_Bias
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::base_calc(){
+    ERR_COND(my_env->neigh_id < 1, "STEIN_QL env has invalid neigh_id.");
+    Fixmetad->neigh_hub.ensure(my_env->neigh_id);
+    my_env->nlist = Fixmetad->neigh_hub.list(my_env->neigh_id);
+    ERR_COND(my_env->nlist == nullptr, "STEIN_QL CV failed to find neighbor list now.");
+    my_env->numneigh = my_env->nlist->numneigh;
+    my_env->firstneigh = my_env->nlist->firstneigh;
+    my_env->mask = lmp->atom->mask;
     
     compute_Q_peratoms();
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
+    // // =======接受邻居更新消息,进行与设备端通信===========
+    // if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(this->init_flag)){
+    //     DEBUG_LOG("rebuilds = %lld", (long long)lmp->neighbor->lastcall);
+    //     DEBUG_LOG("now = %lld", (long long)lmp->update->ntimestep);
+    //     ERR_COND(((my_env->h_group_indices) == nullptr),"h_group_indices is nullptr.");
+    //     DEBUG_LOG("h_group_indices=%p",(my_env->h_group_indices));
+    // } else {
+    //     // ===重建邻居列表后重新查找local中的目标原子=======
+    //     if (lmp->update->ntimestep > my_env->last_update_step){
+    //         my_env->refresh_lmpbox();
+    //     }
+    //     DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
+    //     block_num = my_env->block_num;
+    //     N = my_env->N;
+    //     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
+    //     // stein_q for all aim atoms
+    //     lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:cv_bound");
+    //     DEBUG_LOG("d_block_size is %d, block_num is %d",d_block_size, block_num);
+    // }
     
-    // =======接受邻居更新消息,进行与设备端通信===========
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(this->init_flag)){
-        DEBUG_LOG("rebuilds = %lld", (long long)lmp->neighbor->lastcall);
-        DEBUG_LOG("now = %lld", (long long)lmp->update->ntimestep);
-        ERR_COND(((my_env->h_group_indices) == nullptr),"h_group_indices is nullptr.");
-        DEBUG_LOG("h_group_indices=%p",(my_env->h_group_indices));
-    } else {
-        // ===重建邻居列表后重新查找local中的目标原子=======
-        if (lmp->update->ntimestep > my_env->last_update_step){
-            my_env->refresh_lmpbox();
-        }
-        DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
+    const bool neigh_rebuilt_now =
+        (lmp->update->ntimestep <= lmp->neighbor->lastcall) ||
+        (lmp->update->ntimestep == 1) || !this->init_flag;
+    const bool env_not_ready_this_step =
+        (lmp->update->ntimestep > my_env->last_update_step);
+    if (neigh_rebuilt_now || env_not_ready_this_step) {
+        my_env->refresh_lmpbox();
         block_num = my_env->block_num;
         N = my_env->N;
-        int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
+        this->init_flag = true;
+        DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
+    }
+    {
+        int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
+        // int Threads_own_atoms = lmp->atom->nmax;
+        // LOG("Threads_own_atoms=%d",Threads_own_atoms);
         // stein_q for all aim atoms
-        lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:cv_bound");
-        DEBUG_LOG("d_block_size is %d, block_num is %d",d_block_size, block_num);
+        // LOG("=====================================================================");
+        lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_locQL:cv_bound");
+
     }
     DEBUG_LOG("group_count=%lld",(long long)my_env->group_count);
 

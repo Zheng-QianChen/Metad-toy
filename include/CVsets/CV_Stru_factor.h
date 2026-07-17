@@ -65,7 +65,9 @@ namespace MetaD_zqc {
         int d_block_size;         // use it to change the GPU set
         int GPU_number;
         int block_num;
-        // [nlist] : full neighborlist
+        // NeighHub id on Fix; hot path: ensure + list(id)
+        int neigh_id = -1;
+        // [nlist] : full neighborlist (refreshed from hub each use)
         LAMMPS_NS::NeighList                        *nlist = nullptr;
         // lammps imformation
         LAMMPS_NS::Atom                             *atom = nullptr;

@@ -9,6 +9,7 @@
 // #endif
 
 #include "fix.h"
+#include "neigh_hub.h"
 
 #include <map> 
 #include <string>
@@ -134,7 +135,7 @@ namespace MetaD_zqc {
 namespace LAMMPS_NS {
   class FixMetadynamics : public Fix {
   public:
-    NeighList *listhalf, *listfull;
+    MetaD_zqc::NeighHub neigh_hub;
     std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
 
     // return values for compute_scalar and compute_vector

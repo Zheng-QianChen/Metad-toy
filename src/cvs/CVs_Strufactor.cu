@@ -182,10 +182,10 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
     }
     i = iarg;
 
-    // We need full neighbor list to get cuda run faster
-    NeighRequest *full_request;
-    full_request = lmp->neighbor->add_request(Fixmetad, NeighConst::REQ_FULL);
-    full_request->set_id(2);
+    // NeighHub: full occasional list (default pair cutoff; matches prior add_request w/o set_cutoff)
+    MetaD_zqc::NeighSpec nspec;
+    nspec.full = 1;
+    const int neigh_id = Fixmetad->neigh_hub.get_or_create(nspec);
 
     MetaD_zqc::Stru_factor* struc_factor = nullptr;
     if (req.use_chemical_lock) {
@@ -199,7 +199,8 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
         MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
                                     MetaD_zqc::Stru_fact_env::get_or_create(lmp, Fixmetad, f_check, req)
                                 );
-        DEBUG_LOG("Stru_fact_chem_env is %p", temp_env);
+        temp_env->neigh_id = neigh_id;
+        DEBUG_LOG("Stru_fact_chem_env is %p neigh_id=%d", temp_env, neigh_id);
         std::string env_setNum = temp_env->get_env_key();
         i = iarg;
         // return Stru_fact cv
@@ -213,7 +214,8 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
         // env for CV
         MetaD_zqc::Stru_fact_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
                                     Fixmetad, f_check, req);
-        DEBUG_LOG("Stru_fact_env is %p", temp_env);
+        temp_env->neigh_id = neigh_id;
+        DEBUG_LOG("Stru_fact_env is %p neigh_id=%d", temp_env, neigh_id);
         std::string env_setNum = temp_env->get_env_key();
         // return Stru_fact cv
         struc_factor =  new MetaD_zqc::Stru_factor(lmp, Fixmetad, f_check, 
@@ -410,8 +412,10 @@ void MetaD_zqc::Stru_fact_env::get_env(){
     DEBUG_LOG("im in get_env, current step is %lld, last_update_step is %lld", (long long)lmp->update->ntimestep, (long long)this->last_update_step);
     size_t datalen = 0;
     atom = lmp->atom;
-    // =======更新一下邻居列表位置防止报错=========
-    nlist = Fixmetad->listfull;
+    // =======从 NeighHub 取已 ensure 的 list=========
+    ERR_COND((neigh_id < 1),"STRU_FACTOR env has invalid neigh_id.");
+    Fixmetad->neigh_hub.ensure(neigh_id);
+    nlist = Fixmetad->neigh_hub.list(neigh_id);
     ERR_COND((nlist == nullptr),"STRU_FACTOR CV failed to find neighbor list now.");
     // =======防止lammps运行过程体积更改==========
     ERR_COND((lmp->domain == NULL),"domain list not initialized");

@@ -68,6 +68,8 @@ namespace MetaD_zqc {
             int ref_count = 0; // 全局静态计数
             bool LOC_flag = false;
             LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
+            // Neighbor::lastcall when we last flattened firstneigh into GPU buffers
+            long long last_neigh_lastcall_ = -1;
             
             MetaD_zqc::SwitchFunction* my_r_SWfunc;
 
@@ -89,7 +91,7 @@ namespace MetaD_zqc {
             int block_num;
 
 
-            // [nlist] : full neighborlist
+            // [nlist] : full neighborlist (refreshed from hub each use)
             LAMMPS_NS::NeighList                        *nlist = nullptr;
             // lammps imformation
             LAMMPS_NS::Atom                             *atom = nullptr;
@@ -127,6 +129,9 @@ namespace MetaD_zqc {
             GpuBuffer<LAMMPS_NS::tagint>                d_calculated_numneigh;
 
         public:
+            // NeighHub id on Fix; hot path: ensure + list(id)
+            int neigh_id = -1;
+
             virtual void get_env();
             Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
                 FILE *f_check, int group_id,

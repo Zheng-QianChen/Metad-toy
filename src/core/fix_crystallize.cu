@@ -35,7 +35,13 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                                   cv_dim(1), nbin_num(100),
                                   bias_energy(0.0),
                                   f_before_bias(nullptr),
-                                  max_f_before_bias(0){
+                                  max_f_before_bias(0),
+                                  p_gaussian(nullptr),
+                                  cv_values(nullptr),
+                                  cv_history(nullptr),
+                                  dVdcvs(nullptr),
+                                  cv_configs(nullptr){
+    neigh_hub.bind(lmp, this);
     if (comm->me==0){
         f_check = fopen("metad_debug_logging.txt","w");
         LOG("New JOB STARTING WITH DEBUG MOD!");
@@ -265,6 +271,9 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // p_gaussian->KB = lmp->force->boltz;
     // p_gaussian->WellT_bool = WellT_bool;
     // p_gaussian->cv_bound = cv_bound;
+    // WT 公式用 p_gaussian->current_temp；TEMP 关键字必须写进去
+    p_gaussian->current_temp = current_temp;
+    // p_gaussian->rehash_thresh = sparse_rehash_thresh;
     
     
     // 输出文件
@@ -297,6 +306,8 @@ FixMetadynamics::~FixMetadynamics() {
   memory->destroy(cv_history);
   memory->destroy(dVdcvs);
   memory->destroy(f_before_bias);
+  cv_values = cv_history = dVdcvs = nullptr;
+  f_before_bias = nullptr;
   for (auto const& pair : cal_registry) {
       delete pair.second; // 这里会调用 CV 及其派生类的析构函数
   }
@@ -306,8 +317,23 @@ FixMetadynamics::~FixMetadynamics() {
       delete cv_configs;
       cv_configs = nullptr;
   }
-  // memory->destroy(cv_bound);
-  // memory->destroy(nbin);
+  // 3. 释放高斯网格（拥有 cv_bound/nbin 等）
+  if (p_gaussian) {
+      delete p_gaussian;
+      p_gaussian = nullptr;
+  }
+  for (auto const& pair : sw_registry) {
+      delete pair.second;
+  }
+  sw_registry.clear();
+  if (rec_file) {
+      fclose(rec_file);
+      rec_file = nullptr;
+  }
+  if (f_check) {
+      fclose(f_check);
+      f_check = nullptr;
+  }
 }
 
 int FixMetadynamics::setmask() {
@@ -316,6 +342,11 @@ int FixMetadynamics::setmask() {
 
 void FixMetadynamics::init() {
   // if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
+  // Every run segment: drop cached ensure state; rebind via NeighList::id on next ensure.
+  // Do NOT touch Neighbor::ago / Neighbor::build() here — that corrupts pair lists (MEAM)
+  // and shows up as insane Press + NaN forces before metad even applies bias.
+  neigh_hub.invalidate_all();
+
   if (first_run) {
     p_gaussian->init_set_mode();
     memory->create(cv_values, cv_dim, "metad:cv_values");
@@ -348,15 +379,15 @@ void FixMetadynamics::init() {
 
 void FixMetadynamics::init_list(int id, NeighList *ptr)
 {
-  if (id == 1)
-    listhalf = ptr;
-  else if (id == 2)
-    listfull = ptr;
+  neigh_hub.on_init_list(id, ptr);
 }
 
 // 3. 真正偏置力（解析梯度，比数值差分快）
 void FixMetadynamics::post_force(int vflag) {
   DEBUG_LOG("post_force start");
+
+  // Occasional/perpetual Fix lists: ensure before any CV touches numneigh.
+  neigh_hub.ensure_all();
 
   // 为 virial 记账准备：只累加“本 fix 新加上的力”
   v_init(vflag);
