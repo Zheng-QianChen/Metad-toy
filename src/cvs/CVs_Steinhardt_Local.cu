@@ -616,67 +616,171 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
 // }
 
 template <int L>
-double MetaD_zqc::STEIN_LocalQL<L>::compute_cv_AVE(){
-    // double global_sw_sum;
-    DEBUG_LOG("im in compute_cv_AVE.");
+auto MetaD_zqc::STEIN_LocalQL<L>::set_CV_calculate(std::string func_name)
+    -> typename MetaD_zqc::CV::CV_Calculation {
+    using CV_Calculation = typename MetaD_zqc::CV::CV_Calculation;
+    std::string main_func = func_name;
+    std::string sub_param = "";
+    size_t dot_pos = func_name.find('.');
+    if (dot_pos != std::string::npos) {
+        main_func = func_name.substr(0, dot_pos);
+        sub_param = func_name.substr(dot_pos + 1);
+    }
+
+    auto bind_sw = [&]() {
+        if (sub_param.empty()) return;
+        auto it = Fixmetad->get_switching_function(sub_param);
+        ERR_COND((it == nullptr),
+                 "Switching function %s used in SYMBOL but not defined in CAL!",
+                 sub_param.c_str());
+        this->my_cv_SWfunc = it;
+    };
+
+    // MEAN_SOLID = Σ q f / Σ f；AVE 为兼容别名
+    if (main_func == "MEAN_SOLID" || main_func == "AVE") {
+        bind_sw();
+        local_reduce_mode = 0;
+        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_AVE);
+    }
+    // NSOLID = Σ f；SW_FUNC 为兼容别名（不再走非 Local 力路径）
+    if (main_func == "NSOLID" || main_func == "SW_FUNC") {
+        bind_sw();
+        local_reduce_mode = 1;
+        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_NSOLID);
+    }
+    if (main_func == "FRAC") {
+        bind_sw();
+        local_reduce_mode = 2;
+        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_FRAC);
+    }
+
+    ERR_COND(1,
+        "LocalQL: unsupported SYMBOL func '%s'. "
+        "Use MEAN_SOLID (alias AVE), NSOLID (alias SW_FUNC), or FRAC.",
+        main_func.c_str());
+    return nullptr;
+}
+
+template <int L>
+auto MetaD_zqc::STEIN_LocalQL<L>::set_CV_bias_force(std::string func_name)
+    -> typename MetaD_zqc::CV::CV_BiasForce {
+    using CV_BiasForce = typename MetaD_zqc::CV::CV_BiasForce;
+    std::string main_func = func_name;
+    size_t dot_pos = func_name.find('.');
+    if (dot_pos != std::string::npos) {
+        main_func = func_name.substr(0, dot_pos);
+    }
+
+    if (main_func == "MEAN_SOLID" || main_func == "AVE") {
+        local_reduce_mode = 0;
+        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_AVE);
+    }
+    if (main_func == "NSOLID" || main_func == "SW_FUNC") {
+        local_reduce_mode = 1;
+        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_NSOLID);
+    }
+    if (main_func == "FRAC") {
+        local_reduce_mode = 2;
+        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_FRAC);
+    }
+
+    ERR_COND(1,
+        "LocalQL: unsupported bias func '%s'. "
+        "Use MEAN_SOLID/AVE, NSOLID/SW_FUNC, or FRAC.",
+        main_func.c_str());
+    return nullptr;
+}
+
+template <int L>
+void MetaD_zqc::STEIN_LocalQL<L>::reduce_lq_sw_sums(){
     int group_count = my_loc_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal;
-    DEBUG_LOG("group_count = %d",group_count);
-    double ql_sum_local=0;
-    double sw_sum_local=0;
-    DEBUG_LOG_COND((stein_q == NULL),"stein_q list not initialized");
+    double ql_sum_local = 0.0;
+    double sw_sum_local = 0.0;
+    DEBUG_LOG_COND((stein_q == NULL), "stein_q list not initialized");
     if (group_count != 0) {
-        my_averager->compute_sw(Threads_own_atoms, stein_q, lmp->atom->mask, 
+        my_averager->compute_sw(Threads_own_atoms, stein_q, lmp->atom->mask,
             my_loc_env->groupbit, ql_sum_local, sw_sum_local, my_cv_SWfunc);
     }
-
-    for(int i=0; i<(group_count); i++){
-        DEBUG_LOG("stein_q[%d]=%g",i,stein_q[i]);
-    }
-
-    // MPI_Allreduce(&ql_sum_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
     double local_sums[2] = {ql_sum_local, sw_sum_local};
     double global_sums[2] = {0.0, 0.0};
-    // 一次性规约两个值
     MPI_Allreduce(local_sums, global_sums, 2, MPI_DOUBLE, MPI_SUM, lmp->world);
-    // 分配回变量，并计算最终的 CV
     global_ql_sum = global_sums[0];
     global_sw_sum = global_sums[1];
 
-    cv_value = (global_sw_sum != 0.0) ? (global_ql_sum / global_sw_sum) : 0.0;
+    int global_n = 0;
+    MPI_Allreduce(&group_count, &global_n, 1, MPI_INT, MPI_SUM, lmp->world);
+    group_natoms_global = global_n;
+}
 
-    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
-    // this->global_cvsw_sum = global_sw_sum;
+template <int L>
+double MetaD_zqc::STEIN_LocalQL<L>::compute_cv_AVE(){
+    // MEAN_SOLID: Σ q f / Σ f
+    DEBUG_LOG("im in compute_cv_AVE (MEAN_SOLID).");
+    reduce_lq_sw_sums();
+    cv_value = (global_sw_sum != 0.0) ? (global_ql_sum / global_sw_sum) : 0.0;
+    DEBUG_LOG("MEAN_SOLID cv=%g ql_sum=%g sw_sum=%g N=%d",
+              cv_value, global_ql_sum, global_sw_sum, group_natoms_global);
     return cv_value;
 }
 
 template <int L>
+double MetaD_zqc::STEIN_LocalQL<L>::compute_cv_NSOLID(){
+    DEBUG_LOG("im in compute_cv_NSOLID.");
+    reduce_lq_sw_sums();
+    cv_value = global_sw_sum;
+    DEBUG_LOG("NSOLID cv=%g N=%d", cv_value, group_natoms_global);
+    return cv_value;
+}
+
+template <int L>
+double MetaD_zqc::STEIN_LocalQL<L>::compute_cv_FRAC(){
+    DEBUG_LOG("im in compute_cv_FRAC.");
+    reduce_lq_sw_sums();
+    cv_value = (group_natoms_global > 0)
+                   ? (global_sw_sum / static_cast<double>(group_natoms_global))
+                   : 0.0;
+    DEBUG_LOG("FRAC cv=%g sw_sum=%g N=%d", cv_value, global_sw_sum, group_natoms_global);
+    return cv_value;
+}
+
+
+template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::bias_force_AVE(double dVdcv){
     // pass
-    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_AVE");
+    local_reduce_mode = 0;
+    apply_bias_force(dVdcv, local_reduce_mode);
+}
+
+template <int L>
+void MetaD_zqc::STEIN_LocalQL<L>::bias_force_NSOLID(double dVdcv){
+    DEBUG_LOG("bias_force_NSOLID");
+    local_reduce_mode = 1;
+    apply_bias_force(dVdcv, local_reduce_mode);
+}
+
+template <int L>
+void MetaD_zqc::STEIN_LocalQL<L>::bias_force_FRAC(double dVdcv){
+    DEBUG_LOG("bias_force_FRAC");
+    local_reduce_mode = 2;
+    apply_bias_force(dVdcv, local_reduce_mode);
+}
+
+template <int L>
+void MetaD_zqc::STEIN_LocalQL<L>::apply_bias_force(double dVdcv, int mode) {
     double **f = lmp->atom->f;
-    double **x = lmp->atom->x;
     int c_tag;
-    DEBUG_LOG("MetaD_zqc::STEIN_QL<L>::bias_force_AVE");
     this->get_dcvdx_AVE(cv_value, h_dcvdx);
-    // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
-    // DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
     for (int c_atom=0; c_atom<(my_loc_env->group_count); c_atom++){
-        DEBUG_LOG("dcvdx, dcvdy, dcvdz  = %g, %g, %g", h_dcvdx[c_atom*3 + 0], h_dcvdx[c_atom*3 + 1], h_dcvdx[c_atom*3 + 2]);
-        DEBUG_LOG("dVdcv  = %g", dVdcv);
         c_tag = (my_loc_env->h_group_indices)[c_atom];
-        DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
-            printf("error: force is infinity, check your system or cv_value.\n");
-             error->all(FLERR, "STEIN_QL CV error: force is infinity, check your system or cv_value.");
-        }
+        ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),
+                 "STEIN_LocalQL FRAC: force is NaN before bias.");
         f[c_tag][0] -= dVdcv*h_dcvdx[c_tag*3 + 0];
         f[c_tag][1] -= dVdcv*h_dcvdx[c_tag*3 + 1];
         f[c_tag][2] -= dVdcv*h_dcvdx[c_tag*3 + 2];
-        DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),"STEIN_QL CV error: force is infinity, check your system or cv_value.");
+        ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),
+                 "STEIN_LocalQL FRAC: force is NaN after bias.");
     }
-    DEBUG_LOG("post_force_r_end");
 }
 
 template <int L>
@@ -892,10 +996,16 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_cv_AVE_kernel(){
 template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_dcv_AVE_kernel(){ 
     // 遍历所有的ij原子对
+    // reduce_mode: 0=MEAN_SOLID, 1=NSOLID, 2=FRAC
+    const double group_N = (group_natoms_global > 0)
+                               ? static_cast<double>(group_natoms_global)
+                               : 1.0;
     steinhardt_Local_dcv_AVE_ij_kernel<L> <<<block_num,d_block_size>>>(
         (my_loc_env)->my_r_SWfunc->params,
         my_cv_SWfunc->params,
         this->cv_value, this->global_sw_sum,
+        group_N,
+        this->local_reduce_mode,
         (my_loc_env)->group_count,
 
         (my_loc_env->d_x_flat.ptr),
@@ -1514,6 +1624,8 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
     double cv_value, double global_sw_sum,
+    double group_natoms,
+    int reduce_mode,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
@@ -1558,8 +1670,21 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     // 与steinhardt no local 共用一个结果数组所以是d_stein_ql
     double LQ_i = d_stein_ql[c_atom_loctag];
     LQ_i = fmax(LQ_i, 1e-12);
-    double F_LQ_i_with_NF = (sw_df_LQ(LQ_i)*(LQ_i-cv_value)+sw_f_LQ(LQ_i))
-                        /(LQ_i)*(4*PI)/(2*L+1)/global_sw_sum;
+    // ∂c/∂q 前因子 × (4π/(2L+1))/q ，再接 LQlm 几何链
+    // reduce_mode: 0=MEAN_SOLID Σqf/Σf, 1=NSOLID Σf, 2=FRAC Σf/N
+    double F_LQ_i_with_NF;
+    const double q_chain = (4*PI)/(2*L+1)/LQ_i;
+    if (reduce_mode == 1) {
+        // NSOLID: ∂(Σf)/∂q = f'(q)
+        F_LQ_i_with_NF = sw_df_LQ(LQ_i) * q_chain;
+    } else if (reduce_mode == 2) {
+        // FRAC: ∂(Σf/N)/∂q = f'(q)/N
+        F_LQ_i_with_NF = sw_df_LQ(LQ_i) * q_chain / fmax(group_natoms, 1.0);
+    } else {
+        // MEAN_SOLID: [f + f'(q-c)] / W
+        const double W = fmax(global_sw_sum, 1e-300);
+        F_LQ_i_with_NF = (sw_df_LQ(LQ_i)*(LQ_i-cv_value)+sw_f_LQ(LQ_i)) * q_chain / W;
+    }
     
     double inv_NFb = 1.0/(NFb_i_tilt);
 
@@ -1678,6 +1803,8 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<3>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
     double cv_value, double global_sw_sum,
+    double group_natoms,
+    int reduce_mode,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
@@ -1696,6 +1823,8 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<4>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
     double cv_value, double global_sw_sum,
+    double group_natoms,
+    int reduce_mode,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
@@ -1714,6 +1843,8 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<6>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
     double cv_value, double global_sw_sum,
+    double group_natoms,
+    int reduce_mode,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,

@@ -221,8 +221,8 @@ namespace MetaD_zqc {
                                 MetaD_zqc::Steinhardt_env* my_env,
                                 int d_block_size);
             ~STEIN_QL() override;
-            CV_Calculation set_CV_calculate(std::string func_name) override;
-            CV_BiasForce set_CV_bias_force(std::string func_name) override;
+            virtual CV_Calculation set_CV_calculate(std::string func_name) override;
+            virtual CV_BiasForce set_CV_bias_force(std::string func_name) override;
             // void cv_method();
             void base_calc() override;
             virtual void compute_Q_peratoms();
@@ -276,6 +276,9 @@ namespace MetaD_zqc {
         protected:
             // if sigma(r_ij) < cut_sigma_eps, this neighbor will be seen as kick off
             double                                      cutoff_eps_r = 1e-12;
+            int                                         cached_nall_ = -1;
+            long long                                   last_group_refresh_lastcall_ = -1;
+            int                                         cached_nlocal_for_group_ = -1;
             // [calc_tag] 1-D -> nall : local_tag -> h_calc_tag
             LAMMPS_NS::tagint                           *h_calc_tag = nullptr;
             GpuBuffer<LAMMPS_NS::tagint>                d_calc_tag;
@@ -354,6 +357,10 @@ namespace MetaD_zqc {
         // 全局规约后的对LQ的sw_sum
         double                                          global_ql_sum;
         double                                          global_sw_sum;
+        // MPI 全局 group 原子数（FRAC 分母）；与 count(group) 一致
+        int                                             group_natoms_global = 0;
+        // 0=MEAN_SOLID(Σqf/Σf), 1=NSOLID(Σf), 2=FRAC(Σf/N)
+        int                                             local_reduce_mode = 0;
         // 由于我们未使用过stein_ql,所以这里其实可以重复使用stein_ql以保证继承更加顺畅
         using STEIN_QL<L>::env_setNum;
         // Mom [d_stein_ql] -> d_stein_LQl;
@@ -386,12 +393,24 @@ namespace MetaD_zqc {
 
         void compute_Q_peratoms() override;
         void steinhardt_param_calc(double *) override;
+        // MEAN_SOLID = Σ q f / Σ f（旧名 AVE）；NSOLID = Σ f；FRAC = Σ f / N_group
+        void reduce_lq_sw_sums();
         double compute_cv_AVE() override;
+        double compute_cv_NSOLID();
+        double compute_cv_FRAC();
+        void apply_bias_force(double dVdcv, int mode);
         void bias_force_AVE(double dVdcv) override;
+        void bias_force_NSOLID(double dVdcv);
+        void bias_force_FRAC(double dVdcv);
         // void get_dcvdx(double cv_value, double *dcvdx) override;
         void get_dcvdx_AVE(double cv_value, double *dcvdx) override;
         void call_steinhardt_Local_cv_AVE_kernel();
         void call_steinhardt_Local_dcv_AVE_kernel();
+
+        using CV_Calculation = typename CV::CV_Calculation;
+        using CV_BiasForce = typename CV::CV_BiasForce;
+        CV_Calculation set_CV_calculate(std::string func_name) override;
+        CV_BiasForce set_CV_bias_force(std::string func_name) override;
 
         // communication for Ghost atoms
         virtual bool need_reverse_comm() override {return true;}; // 是否需要跨进程同步 Ghost 属性
@@ -525,6 +544,8 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
     double cv_value, double global_sw_sum,
+    double group_natoms,
+    int reduce_mode,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,

@@ -342,9 +342,9 @@ int FixMetadynamics::setmask() {
 
 void FixMetadynamics::init() {
   // if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
-  // Every run segment: drop cached ensure state; rebind via NeighList::id on next ensure.
-  // Do NOT touch Neighbor::ago / Neighbor::build() here — that corrupts pair lists (MEAM)
-  // and shows up as insane Press + NaN forces before metad even applies bias.
+  // Every System init (run / write_restart): LAMMPS drops NeighRequest; re-add then
+  // drop cached ensure state. Do NOT Neighbor::build() / ago here (corrupts MEAM).
+  neigh_hub.rerequest_all();
   neigh_hub.invalidate_all();
 
   if (first_run) {

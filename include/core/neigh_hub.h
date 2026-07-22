@@ -9,6 +9,7 @@ namespace LAMMPS_NS {
 class Fix;
 class LAMMPS;
 class NeighList;
+class NeighRequest;
 }    // namespace LAMMPS_NS
 
 namespace MetaD_zqc {
@@ -53,8 +54,9 @@ class NeighHub {
 
   void on_init_list(int id, LAMMPS_NS::NeighList *ptr);
 
-  // Call from Fix::init() every run segment (not only first_run).
-  // Forces next ensure() to rebuild / rebind after write_restart + new run.
+  // Call from Fix::init() every run / write_restart System init.
+  // LAMMPS clears NeighRequest each Neighbor::init(); must add_request again.
+  void rerequest_all();
   void invalidate_all();
 
   // Hot path: ensure list is built, then O(1) pointer fetch.
@@ -66,12 +68,15 @@ class NeighHub {
 
  private:
   std::string make_key(const NeighSpec &s) const;
+  void normalize_spec(NeighSpec &spec) const;
+  LAMMPS_NS::NeighRequest *issue_request(int id, const NeighSpec &spec);
   LAMMPS_NS::NeighList *resolve_list(int id);
 
   LAMMPS_NS::LAMMPS *lmp_ = nullptr;
   LAMMPS_NS::Fix *fix_ = nullptr;
   int next_id_ = 1;
   std::unordered_map<std::string, int> key_to_id_;
+  std::vector<NeighSpec> specs_;                    // [0] unused; parallel to ids
   std::vector<LAMMPS_NS::NeighList *> lists_;       // [0] unused
   std::vector<unsigned char> occasional_;           // parallel to lists_
   std::vector<long long> ensured_lastcall_;          // neighbor->lastcall at last ensure

@@ -23,6 +23,7 @@ void NeighHub::bind(LAMMPS *lmp_in, Fix *fix_in)
 {
   lmp_ = lmp_in;
   fix_ = fix_in;
+  specs_.assign(1, NeighSpec{});
   lists_.assign(1, nullptr);
   occasional_.assign(1, 0);
   ensured_lastcall_.assign(1, -1);
@@ -53,13 +54,8 @@ std::string NeighHub::make_key(const NeighSpec &s) const
   return oss.str();
 }
 
-int NeighHub::get_or_create(NeighSpec spec)
+void NeighHub::normalize_spec(NeighSpec &spec) const
 {
-  if (!lmp_ || !fix_) {
-    fprintf(stderr, "NeighHub::get_or_create called before bind()\n");
-    return -1;
-  }
-
   if (spec.skip != 0)
     lmp_->error->all(FLERR, "NeighHub does not support skip neighbor requests");
 
@@ -76,11 +72,10 @@ int NeighHub::get_or_create(NeighSpec spec)
   } else {
     spec.cutoff = 0.0;
   }
+}
 
-  const std::string key = make_key(spec);
-  auto it = key_to_id_.find(key);
-  if (it != key_to_id_.end()) return it->second;
-
+NeighRequest *NeighHub::issue_request(int id, const NeighSpec &spec)
+{
   int flags = NeighConst::REQ_DEFAULT;
   if (spec.full) flags |= NeighConst::REQ_FULL;
   if (spec.ghost) flags |= NeighConst::REQ_GHOST;
@@ -96,34 +91,70 @@ int NeighHub::get_or_create(NeighSpec spec)
     flags |= NeighConst::REQ_RESPA_ALL;
 
   NeighRequest *req = lmp_->neighbor->add_request(fix_, flags);
-  const int id = next_id_++;
   req->set_id(id);
   if (spec.use_cutoff) req->set_cutoff(spec.cutoff);
   if (spec.intel) req->enable_intel();
   if (spec.kokkos_host) req->set_kokkos_host(1);
   if (spec.kokkos_device) req->set_kokkos_device(1);
+  return req;
+}
 
+int NeighHub::get_or_create(NeighSpec spec)
+{
+  if (!lmp_ || !fix_) {
+    fprintf(stderr, "NeighHub::get_or_create called before bind()\n");
+    return -1;
+  }
+
+  normalize_spec(spec);
+
+  const std::string key = make_key(spec);
+  auto it = key_to_id_.find(key);
+  if (it != key_to_id_.end()) return it->second;
+
+  // Only register here. Actual add_request happens in rerequest_all() from
+  // Fix::init(), so each System init (run / write_restart) gets a fresh request
+  // and we never double-add before the first Neighbor::init.
+  const int id = next_id_++;
   if ((int)lists_.size() <= id) {
+    specs_.resize(id + 1);
     lists_.resize(id + 1, nullptr);
     occasional_.resize(id + 1, 0);
     ensured_lastcall_.resize(id + 1, -1);
   }
+  specs_[id] = spec;
   occasional_[id] = spec.occasional ? 1 : 0;
   key_to_id_[key] = id;
 
   if (lmp_->comm->me == 0) {
     fprintf(stderr,
-            "[NeighHub] new id=%d key=%s occasional=%d ghost=%d cut=%g\n", id,
-            key.c_str(), (int)occasional_[id], spec.ghost,
+            "[NeighHub] register id=%d key=%s occasional=%d ghost=%d cut=%g "
+            "(add_request deferred to Fix::init / rerequest_all)\n",
+            id, key.c_str(), (int)occasional_[id], spec.ghost,
             spec.use_cutoff ? spec.cutoff : 0.0);
   }
   return id;
+}
+
+void NeighHub::rerequest_all()
+{
+  if (!lmp_ || !fix_) return;
+  for (int id = 1; id < (int)specs_.size(); ++id) {
+    issue_request(id, specs_[id]);
+    lists_[id] = nullptr;
+    ensured_lastcall_[id] = -1;
+  }
+  if (lmp_->comm->me == 0 && specs_.size() > 1) {
+    fprintf(stderr, "[NeighHub] rerequest_all: %d id(s)\n",
+            (int)specs_.size() - 1);
+  }
 }
 
 void NeighHub::on_init_list(int id, NeighList *ptr)
 {
   if (id <= 0) return;
   if ((int)lists_.size() <= id) {
+    specs_.resize(id + 1);
     lists_.resize(id + 1, nullptr);
     occasional_.resize(id + 1, 0);
     ensured_lastcall_.resize(id + 1, -1);

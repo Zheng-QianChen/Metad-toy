@@ -54,14 +54,29 @@ Attention:
 
 ## 3. 规约函数与 SYMBOL 映射
 
-通过 `CAL` 计算出的 `STEINH` 数据是一组高维的、针对单个原子的局域值矩阵。在后续的 `SYMBOL` 中，通常将其映射为空间系统均值：
+通过 `CAL` 计算出的 `STEINH` 数据是一组高维的、针对单个原子的局域值矩阵。在后续的 `SYMBOL` 中将其降维为一维集体变量：
 
 ```lammps
-SYMBOL <symbol_name> <cv_name>.func_name
-
+SYMBOL <symbol_name> <cv_name>.<func>[.<sw_name>]
 ```
 
-* **`.AVE`（空间系统均值）**：计算该原子组内所有激活原子的 $Q_l$ 值的算术平均数，将其降维规约为元动力学（MetaD）自由能网格所需的一维标量。
+### 3.1 `STEINH Q`（非 Local）
+
+* **`.AVE`**：组内原子 $q_l$ 的算术平均。
+
+### 3.2 `STEINH L`（Local / LQ）
+
+Local 路径上，每个原子先得到局域平均序 $q_i$（LQ），再用 `SW_FUNC_cv` 给出的开关函数 $f(q)$ 做三种规约（$N$ 为 MPI 全局 group 原子数）：
+
+| SYMBOL 后缀 | 别名 | 公式 | 用途 |
+| --- | --- | --- | --- |
+| `MEAN_SOLID` | `AVE` | $\sum_i q_i f(q_i)\,/\,\sum_i f(q_i)$ | 类固原子上的平均序（对晶核尺寸不敏感） |
+| `NSOLID` | `SW_FUNC` | $\sum_i f(q_i)$ | 软类固原子数 — **形核 MetaD 主轴推荐** |
+| `FRAC` | — | $\sum_i f(q_i)\,/\,N$ | 结晶度 / 类固分数 |
+
+偏置力：`MEAN_SOLID` 用商法则；`NSOLID` 用 $\partial f/\partial q$ 链；`FRAC` 的力为 `NSOLID` 力除以 $N$（同一 kernel 热路径）。
+
+`SW_FUNC_cv` 作用在 **$q\sim 0$–$1$** 上：典型 `FERMI r_0 0.3–0.5 alpha >0`。勿把距离截断的 `r_0~3` 误用到 $q$ 掩膜上。
 
 ---
 
@@ -86,6 +101,17 @@ SYMBOL v1 Q6.AVE
 # 探测四角/立方局域对称性，近邻上限强行开辟至 14
 CAL NAME Q4 STEINH Q 4 bcc_group cutoff_r 3.5 cutoff_Natoms 14 &
 SYMBOL v2 Q4.AVE
+```
+
+### 用例三：Local LQ6 + 软类固原子数（形核主 CV）
+
+```lammps
+CAL NAME SW_r    SW_FUNC FERMI r_0 3.0  alpha -20 &
+CAL NAME SW_filt SW_FUNC FERMI r_0 0.40 alpha  20 &
+CAL NAME LQ6     STEINH  L 6 metad_group cutoff_eps 1e-4 SW_FUNC_r SW_r SW_FUNC_cv SW_filt &
+SYMBOL v1 LQ6.NSOLID
+# 兼容旧写法：SYMBOL v1 LQ6.SW_FUNC
+# 监视用：SYMBOL v2 LQ6.FRAC   或  LQ6.MEAN_SOLID（别名 .AVE）
 ```
 
 ---
