@@ -88,11 +88,14 @@ void MetaD_zqc::MetaDimensionManager::distribute_dim_bias_force(int dim_idx, dou
     for (auto& link : links) {
         // 自动微分：计算当前维度对该符号的偏导
         // 如果表达式是 v1 * v2，对 v1 求导就是 v2 的当前值
-        double dS_dv = exprtk::derivative(expr, link.name);
+        const double value = var_values[link.var_idx];
+        const double dS_dv = exprtk::derivative(expr, link.name);
         
         if (dS_dv == 0.0) continue; // 表达式中不含该符号则跳过
 
+        // 为了防止采用了两种模式比如 QL.MEAN 同时 QL.NSOLID.此时由于他们仍然是同一个对象，会导致在计算 dS_dv 时使用了错误的 current_val
         // 链式法则：(dV/dS) * (dS/dv)
+        link.cv_ptr->set_cv_value(value);
         (link.cv_ptr->*(link.bias_func))(total_grad * dS_dv);
     }
 }

@@ -51,7 +51,7 @@ namespace MetaD_zqc {
         // only env
         int cutoff_Natoms;
         // only Local_env
-        double cutoff_eps;
+        double cutoff_eps_r;
 
         SwitchFunction* SW_FUNC_r=nullptr;
         SwitchFunction* SW_FUNC_cv=nullptr;
@@ -78,8 +78,8 @@ namespace MetaD_zqc {
             // LAMMPS_NS::LAMMPS *lmp = nullptr;
             // LAMMPS_NS::Error *error = nullptr;
             // LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
-            double cutoff_r;          // environment_cutoff radius
-            int cutoff_Natoms;        // environment_cutoff natoms
+            double                                      cutoff_r=0.0;   // environment_cutoff radius
+            double                                      cutoff_eps_r = 1e-12;
             int last_group_count, group_count, group_id, groupbit;
             int init_flag=false;
             bool pbc_x, pbc_y, pbc_z;
@@ -106,17 +106,40 @@ namespace MetaD_zqc {
             // [mask] : list for lammps each group id, 1-D = [nlocal]
             //          e.g. when use "group test id 1 1000 5000", find its groupid by "test"
             //               then we can find atoms in this group by use "mask[i] & groupid"
+            // [LQ_mask] : [32bit int mask] * nmax
             // [group_indices] : group atoms tagint, 1-D = [atoms in group and also in local]
             int                                         *mask = nullptr;
             GpuBuffer<int>                              d_mask;
+            // int                                         *h_LQ_mask = nullptr;
+            // GpuBuffer<int>                              d_LQ_mask;
             LAMMPS_NS::tagint                           *h_group_indices = nullptr;
             GpuBuffer<LAMMPS_NS::tagint>                d_group_indices;
             // [firstneigh_ptrs]: group neighbor, each center atoms * neighbors localtag
             int                                         *h_firstneigh_ptrs = nullptr;
             GpuBuffer<int>                              d_firstneigh_ptrs;
-            // [group_dminneigh] = [ delta x, delta y, delta z, r squared] * c_atoms * cutoff_N ]
-            double                                      *group_dminneigh = nullptr;
-            GpuBuffer<double>                           d_group_dminneigh;
+            // [neigh_in_switching] 1-D -> nmax (calctag): the sum of neigh_in_switching for calculated atoms
+            double                                         *h_neigh_in_switching = nullptr;
+            GpuBuffer<double>                              d_neigh_in_switching;
+            // [d_calculated_firstneigh_ptrs] 1-D -> (nall+1) : [0, 12, 12+23, 12+23, ...]
+            // num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
+            LAMMPS_NS::tagint                           num_of_all_calc_fullpair;
+            LAMMPS_NS::tagint                           *h_calculated_firstneigh_ptrs = nullptr;
+            GpuBuffer<LAMMPS_NS::tagint>                d_calculated_firstneigh_ptrs;
+            // // [group_dminneigh] = [ delta x, delta y, delta z, r squared] * c_atoms * cutoff_N ]
+            // double                                      *group_dminneigh = nullptr;
+            // GpuBuffer<double>                           d_group_dminneigh;
+            // [half_pair] : half pair for dcvdx
+            // half_pair
+            LAMMPS_NS::tagint                           n_half_candidates = 0;
+            GpuBuffer<LAMMPS_NS::tagint>                d_half_pair_i;
+            GpuBuffer<LAMMPS_NS::tagint>                d_half_pair_j;
+            GpuBuffer<LAMMPS_NS::tagint>                d_half_to_full;
+            LAMMPS_NS::tagint                           n_active_pairs = 0;
+            GpuBuffer<int>                              d_active_pair_mask;
+            GpuBuffer<LAMMPS_NS::tagint>                d_active_pair_ids;
+            // full_pair
+            LAMMPS_NS::tagint                           *h_full_to_half;
+            GpuBuffer<LAMMPS_NS::tagint>                d_full_to_half;
             // [neigh_in_cutoff_r] : how many neigh's r less than set
             // [neigh_both_in_r_N] : how many neighs satisfied r and N
             // [calculated_numneigh] : local tagint of neighs, both in r and N
@@ -134,8 +157,7 @@ namespace MetaD_zqc {
 
             virtual void get_env();
             Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                FILE *f_check, int group_id,
-                double cutoff_r, int cutoff_Natoms);
+                FILE *f_check, MetaD_zqc::SteinhardtRequest req);
             // 工厂函数：内部自动合并相同参数的环境
             static Steinhardt_env* get_or_create(LAMMPS_NS::LAMMPS *lmp, 
                         LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
@@ -181,13 +203,16 @@ namespace MetaD_zqc {
             MetaD_zqc::Averager* my_averager;
             MetaD_zqc::SwitchFunction* my_cv_SWfunc;
 
+            // 0=MEAN_SOLID(Σqf/Σf), 1=NSOLID(Σf)
+            int                                         local_reduce_mode = 0;
+
             int d_block_size;         // use it to change the GPU set
             int GPU_number;
             int block_num;
             int neighbor_type = 0;
             LAMMPS_NS::tagint all_count;
             size_t N;
-            double cv_value;
+            using CV::cv_value;
             // stein_ql in host is stored in steinq[i]
             double                                      *stein_q = nullptr;
             GpuBuffer<double>                           d_stein_ql;
@@ -207,11 +232,15 @@ namespace MetaD_zqc {
             GpuBuffer<double>                           d_stein_qlm;
             double                                     *h_stein_LQlm = nullptr;
             GpuBuffer<double>                           d_stein_LQlm;
+            // [h_a_virial] = 6*[nlocal+nghost], local_tag : virial for all atoms
+            double                                      *h_a_virial = nullptr;
+            GpuBuffer<double>                           d_a_virial;
 
             double                                     *h_dcvdx_x = nullptr;
             double                                     *h_dcvdx_y = nullptr;
             double                                     *h_dcvdx_z = nullptr;
             int                                         dcvdx_flag = -1;
+            
         public:
             using CV_Calculation = typename CV::CV_Calculation;
             using CV_BiasForce = typename CV::CV_BiasForce;
@@ -228,11 +257,15 @@ namespace MetaD_zqc {
             virtual void compute_Q_peratoms();
             // void bias_force_LOC_AVE(double dVdcv);
             void summary(FILE* f) override;
-            
+
+
+            virtual void apply_get_dcvdx(double cv_value, double *dcvdx, int mode);
+            virtual void apply_bias_force(double cv_value, int mode);
+
             // AVE method
             virtual double compute_cv_AVE();
             virtual void bias_force_AVE(double dVdcv);
-            virtual void get_dcvdx_AVE(double cv_value, double *dcvdx);
+            void get_dcvdx_AVE(double cv_value, double *dcvdx);
 
             // SW_FUNC method
             double compute_cv_SW_FUNC();
@@ -241,12 +274,20 @@ namespace MetaD_zqc {
             
             // void get_dcvdx_LOC_AVE(double cv_value, double *dcvdx);
             virtual void steinhardt_param_calc(double *);
-            void call_steinhardt_cv_AVE_kernel();
+            void call_steinhardt_cv_ql_i_kernel();
             void call_steinhardt_dcv_AVE_kernel();
             // void call_steinhardt_cv_SW_FUNC_kernel();
             void call_steinhardt_dcv_SW_FUNC_kernel();
+            void call_steinhardt_dcv_kernel(
+                const MetaD_zqc::SwitchFunctionRequest& sw_params_q, double q_weight_scale);
             void environment();
             // communication for Ghost atoms
+            virtual bool need_reverse_comm() override {return true;}; // 是否需要跨进程同步 Ghost 属性
+            virtual int get_comm_reverse_bytes() override; // 每个原子需要同步多少个 bytes
+            virtual int pack_comm_reverse_ubuf(int n, int first, double *u_buf, 
+                                int slot_offset, int comm_forward)  override; // 具体 CV 自己的打包逻辑
+            virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, 
+                                int slot_offset, int comm_forward)  override; // 具体 CV 自己的解包逻辑
             virtual bool need_forward_comm() override { return true; }
             virtual int get_comm_forward_bytes() override;
             virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
@@ -275,7 +316,8 @@ namespace MetaD_zqc {
         template <int U> friend class STEIN_LocalQL;
         protected:
             // if sigma(r_ij) < cut_sigma_eps, this neighbor will be seen as kick off
-            double                                      cutoff_eps_r = 1e-12;
+            // double                                      cutoff_eps_r = 1e-12;
+            using Steinhardt_env::cutoff_eps_r;
             int                                         cached_nall_ = -1;
             long long                                   last_group_refresh_lastcall_ = -1;
             int                                         cached_nlocal_for_group_ = -1;
@@ -297,20 +339,27 @@ namespace MetaD_zqc {
             // Mom [calculated_numneigh] : local tagint of neighs, both in r and N
             // Mom [neigh_in_cutoff_r] 1-D -> (nall) : how many neigh's r less than set
             //                  [neigh_in_cutoff_r] = [12, 23, 0, 0, 14, ...]
-            // [d_calculated_firstneigh_ptrs] 1-D -> (nall+1) : [0, 12, 12+23, 12+23, ...]
-            // num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
-            LAMMPS_NS::tagint                           num_of_all_calc_fullpair;
-            LAMMPS_NS::tagint                           *h_calculated_firstneigh_ptrs = nullptr;
-            GpuBuffer<LAMMPS_NS::tagint>                d_calculated_firstneigh_ptrs;
+            // // [d_calculated_firstneigh_ptrs] 1-D -> (nall+1) : [0, 12, 12+23, 12+23, ...]
+            // // num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
+            // LAMMPS_NS::tagint                           num_of_all_calc_fullpair;
+            // LAMMPS_NS::tagint                           *h_calculated_firstneigh_ptrs = nullptr;
+            // GpuBuffer<LAMMPS_NS::tagint>                d_calculated_firstneigh_ptrs;
+            using Steinhardt_env::num_of_all_calc_fullpair;
+            using Steinhardt_env::h_calculated_firstneigh_ptrs;
+            using Steinhardt_env::d_calculated_firstneigh_ptrs;
             // [LQ_mask] : [32bit int mask] * nmax
+            // using Steinhardt_env::h_LQ_mask;
+            // using Steinhardt_env::d_LQ_mask;
             int                                         *h_LQ_mask = nullptr;
             GpuBuffer<int>                              d_LQ_mask;
             // [d_pure_J_offsets] : temp array which mask j and give idx
             // we dont need to quest in host    
             GpuBuffer<int>                              d_pure_J_offsets;
-            // [neigh_in_switching] 1-D -> nmax (calctag): the sum of neigh_in_switching for calculated atoms
-            double                                         *h_neigh_in_switching = nullptr;
-            GpuBuffer<double>                              d_neigh_in_switching;
+            // // [neigh_in_switching] 1-D -> nmax (calctag): the sum of neigh_in_switching for calculated atoms
+            // double                                         *h_neigh_in_switching = nullptr;
+            // GpuBuffer<double>                              d_neigh_in_switching;
+            using Steinhardt_env::h_neigh_in_switching;
+            using Steinhardt_env::d_neigh_in_switching;
             
         public:
             STEIN_LocalQL_env(LAMMPS_NS::LAMMPS *lmp, 
@@ -360,7 +409,8 @@ namespace MetaD_zqc {
         // MPI 全局 group 原子数（FRAC 分母）；与 count(group) 一致
         int                                             group_natoms_global = 0;
         // 0=MEAN_SOLID(Σqf/Σf), 1=NSOLID(Σf), 2=FRAC(Σf/N)
-        int                                             local_reduce_mode = 0;
+        // int                                             local_reduce_mode = 0;
+        using STEIN_QL<L>::local_reduce_mode;
         // 由于我们未使用过stein_ql,所以这里其实可以重复使用stein_ql以保证继承更加顺畅
         using STEIN_QL<L>::env_setNum;
         // Mom [d_stein_ql] -> d_stein_LQl;
@@ -375,6 +425,8 @@ namespace MetaD_zqc {
         using STEIN_QL<L>::d_stein_Ylm;
         using STEIN_QL<L>::h_dYlm_dr;
         using STEIN_QL<L>::d_dYlm_dr;
+        using STEIN_QL<L>::h_a_virial;
+        using STEIN_QL<L>::d_a_virial;
         // Mom [dYlm_dx]
         // 暂存所有的 dYlm/dx 1-D -> full_pair * 2*(l +1) *3(x,y,z)
 
@@ -398,12 +450,12 @@ namespace MetaD_zqc {
         double compute_cv_AVE() override;
         double compute_cv_NSOLID();
         double compute_cv_FRAC();
-        void apply_bias_force(double dVdcv, int mode);
+        void apply_bias_force(double dVdcv, int mode) override;
         void bias_force_AVE(double dVdcv) override;
         void bias_force_NSOLID(double dVdcv);
         void bias_force_FRAC(double dVdcv);
         // void get_dcvdx(double cv_value, double *dcvdx) override;
-        void get_dcvdx_AVE(double cv_value, double *dcvdx) override;
+        void get_dcvdx(double cv_value, double *dcvdx);
         void call_steinhardt_Local_cv_AVE_kernel();
         void call_steinhardt_Local_dcv_AVE_kernel();
 
@@ -419,12 +471,12 @@ namespace MetaD_zqc {
                             int slot_offset, int comm_forward)  override; // 具体 CV 自己的打包逻辑
         virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, 
                             int slot_offset, int comm_forward)  override; // 具体 CV 自己的解包逻辑
-        virtual bool need_forward_comm() override { return false; }
         // LocalQL 不走 forward_comm；必须覆盖，否则会继承 STEIN_QL 的非零字节数，
         // 把 Fix::comm_forward 撑大，进而把 reverse buffer 步长搞错。
-        int get_comm_forward_bytes() override { return 0; }
-        // int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
-        // void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+        virtual bool need_forward_comm() override { return false; }
+        virtual int get_comm_forward_bytes() override {return 0;};
+        virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override {};
+        virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override {};
         // // compute
         // double* get_peratom_ptr(const std::string &prop_name) override;
     };
@@ -446,40 +498,47 @@ namespace MetaD_zqc {
 // =============================================================================
 
 __global__ void get_environment_Steinhardt_Q(
-    int cutoff_Natoms, double cutoff_rsq, double box_x, double box_y, double box_z,
-    int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
+    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
+    int calc_count, int start_idx,
+    double cutoff_r, double cut_sigma_eps,
+    // in
+    int *d_group_indices, 
+    LAMMPS_NS::tagint *d_group_numneigh,
     int *d_firstneigh_ptrs, double *d_x_flat,
-    double *d_group_dminneigh, int *d_neigh_in_cutoff_r, int *d_neigh_both_in_r_N,
-    LAMMPS_NS::tagint *d_calculated_numneigh
-);
+    LAMMPS_NS::tagint *d_full_to_half,
+    // out
+    int *d_neigh_in_cutoff_r, int *d_active_pair_mask,
+    double *d_neigh_in_switching,
+    LAMMPS_NS::tagint *d_calculated_numneigh);
 
 
 template <int L>
 __global__ void steinhardt_cv_kernel(
-    int group_count, int cutoff_Natoms, int *d_group_indices,
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql
-);
+    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
+    int calc_count, double cutoff_r, double cutoff_eps,
+    int *d_group_indices,
+    int *d_neigh_in_cutoff_r,
+    LAMMPS_NS::tagint *d_group_numneigh,
+    LAMMPS_NS::tagint *d_calculated_firstneigh_ptrs,
+    LAMMPS_NS::tagint *d_calculated_numneigh,
+    double *d_x_flat,
+    double *d_neigh_in_switching,
+    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql);
 
 
 template <int L>
-__global__ void steinhardt_dcv_AVE_kernel(
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr, double *d_dcvdx
-);
-
-
-template <int L>
-__global__ void steinhardt_dcv_SW_FUNC_kernel(
-    MetaD_zqc::SwitchFunctionRequest sw_params,
-    int cutoff_Natoms, int group_count, int groupbit, int all_count, 
-    int *d_mask, LAMMPS_NS::tagint *d_group_indices, LAMMPS_NS::tagint *calculated_numneigh, 
-    int *d_neigh_both_in_r_N, double *d_group_dminneigh,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr, double *d_dcvdx
+__global__ void steinhardt_dcv_kernel(
+    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
+    MetaD_zqc::SwitchFunctionRequest sw_params_q,
+    double q_weight_scale,
+    LAMMPS_NS::tagint pair_all, int groupbit,
+    int *d_mask,
+    LAMMPS_NS::tagint *d_active_pair_ids,
+    LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
+    double *d_x_flat,
+    int *d_neigh_in_cutoff_r, double *d_neigh_in_switching,
+    double *d_stein_ql, double *d_stein_qlm,
+    double *d_dYlm_dr, double *d_dcvdx, double *d_a_virial
 );
 
 

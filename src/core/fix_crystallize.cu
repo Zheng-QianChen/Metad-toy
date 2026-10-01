@@ -79,6 +79,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     // }
     // Check dim configuration:
     // bool *has_dim_configured = nullptr;
+    virial_global_flag = 1;
+    virial_peratom_flag = 1;
     while (i < narg) {
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
@@ -299,6 +301,9 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     virial_global_flag = 1;
     thermo_energy = 1;
     thermo_virial = 1;
+
+    // virial
+    memory->create(a_virial, (1)*6, "metad:GaussianHill:cv_bound");
 }
 
 FixMetadynamics::~FixMetadynamics() {
@@ -306,6 +311,7 @@ FixMetadynamics::~FixMetadynamics() {
   memory->destroy(cv_history);
   memory->destroy(dVdcvs);
   memory->destroy(f_before_bias);
+  memory->destroy(a_virial);
   cv_values = cv_history = dVdcvs = nullptr;
   f_before_bias = nullptr;
   for (auto const& pair : cal_registry) {
@@ -391,20 +397,22 @@ void FixMetadynamics::post_force(int vflag) {
 
   // 为 virial 记账准备：只累加“本 fix 新加上的力”
   v_init(vflag);
-  double **f = atom->f;
-  double **x = atom->x;
-  imageint *image = atom->image;
-  int nlocal = atom->nlocal;
-  if (nlocal > max_f_before_bias) {
-    memory->destroy(f_before_bias);
-    max_f_before_bias = atom->nmax;
-    memory->create(f_before_bias, max_f_before_bias, 3, "metad:f_before_bias");
-  }
-  for (int i = 0; i < nlocal; i++) {
-    f_before_bias[i][0] = f[i][0];
-    f_before_bias[i][1] = f[i][1];
-    f_before_bias[i][2] = f[i][2];
-  }
+  memory->grow(a_virial, atom->nmax * 6, "metad:a_virial");
+  std::fill(a_virial, a_virial + atom->nlocal * 6, 0.0);
+  // double **f = atom->f;
+  // double **x = atom->x;
+  // imageint *image = atom->image;
+  // int nlocal = atom->nlocal;
+  // if (nlocal > max_f_before_bias) {
+  //   memory->destroy(f_before_bias);
+  //   max_f_before_bias = atom->nmax;
+  //   memory->create(f_before_bias, max_f_before_bias, 3, "metad:f_before_bias");
+  // }
+  // for (int i = 0; i < nlocal; i++) {
+  //   f_before_bias[i][0] = f[i][0];
+  //   f_before_bias[i][1] = f[i][1];
+  //   f_before_bias[i][2] = f[i][2];
+  // }
 
   // -----calculate cv_compute and add cv_history-----
   for (auto const& pair : cal_registry) {
@@ -449,22 +457,10 @@ void FixMetadynamics::post_force(int vflag) {
     cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
   }
 
-  // 用 Δf = f_after - f_before 做 r⊗F 维里；自动覆盖 STEINH / WEIGHT_CHEM / DISTANCE 等全部 CV
-  if (vflag && thermo_virial) {
-    double v[6], unwrap[3];
-    for (int i = 0; i < nlocal; i++) {
-      double dfx = f[i][0] - f_before_bias[i][0];
-      double dfy = f[i][1] - f_before_bias[i][1];
-      double dfz = f[i][2] - f_before_bias[i][2];
-      if (dfx == 0.0 && dfy == 0.0 && dfz == 0.0) continue;
-      domain->unmap(x[i], image[i], unwrap);
-      v[0] = dfx * unwrap[0];
-      v[1] = dfy * unwrap[1];
-      v[2] = dfz * unwrap[2];
-      v[3] = dfx * unwrap[1];
-      v[4] = dfx * unwrap[2];
-      v[5] = dfy * unwrap[2];
-      v_tally(i, v);
+  // 各个cv内部已经进行了累计，所以在这里只需要直接加上就可以了。
+  if (vflag_global || vflag_atom) {
+    for (int i = 0; i < atom->nlocal; i++) {
+      v_tally(i, &a_virial[6*i]);
     }
   }
 

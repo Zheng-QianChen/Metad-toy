@@ -44,7 +44,7 @@ MetaD_zqc::STEIN_LocalQL<L>::STEIN_LocalQL(LAMMPS_NS::LAMMPS *lmp,
     this->my_cv_SWfunc = req.SW_FUNC_cv;
     register_buffer(d_stein_LQlm,"d_stein_LQlm");
     register_buffer(d_dcvdx_rjk_prefix,"d_dcvdx_rjk_prefix");
-    register_buffer(sum_of_qlm_value_weights,"sum_of_qlm_value_weights");
+    // register_buffer(sum_of_qlm_value_weights,"sum_of_qlm_value_weights");
 }
 
 template <int L>
@@ -54,45 +54,43 @@ MetaD_zqc::STEIN_LocalQL<L>::~STEIN_LocalQL(){
 MetaD_zqc::STEIN_LocalQL_env::STEIN_LocalQL_env(LAMMPS_NS::LAMMPS *lmp, 
              LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
              MetaD_zqc::SteinhardtRequest req)
-        :Steinhardt_env(lmp, Fixmetad, f_check, 
-                        req.group_id, req.cutoff_r, 12),
-        cutoff_eps_r(req.cutoff_eps){
+        :Steinhardt_env(lmp, Fixmetad, f_check, req){
     
 
-    this->my_r_SWfunc = req.SW_FUNC_r;
+    // this->my_r_SWfunc = req.SW_FUNC_r;
     auto atom = lmp->atom;
     
 
-    lmp->memory->grow(h_LQ_mask, ((lmp->atom)->nmax), "STEIN_LocalQL:h_LQ_mask");
-    lmp->memory->grow(h_calc_tag, ((lmp->atom)->nmax), "STEIN_LocalQL:h_calc_tag");
-    lmp->memory->grow(h_neigh_in_switching, ((lmp->atom)->nmax), "STEIN_LocalQL:h_neigh_in_switching");
-    lmp->memory->grow(h_calculated_firstneigh_ptrs, ((lmp->atom)->nmax), "STEIN_LocalQL:h_calculated_firstneigh_ptrs");
+    lmp->memory->create(h_LQ_mask, ((lmp->atom)->nmax), "STEIN_LocalQL:h_LQ_mask");
+    lmp->memory->create(h_calc_tag, ((lmp->atom)->nmax), "STEIN_LocalQL:h_calc_tag");
+    // lmp->memory->create(h_neigh_in_switching, ((lmp->atom)->nmax), "STEIN_LocalQL:h_neigh_in_switching");
+    // lmp->memory->create(h_calculated_firstneigh_ptrs, ((lmp->atom)->nmax), "STEIN_LocalQL:h_calculated_firstneigh_ptrs");
 
     std::memset(h_LQ_mask, 0, (lmp->atom)->nmax * sizeof(int));
     std::memset(h_calc_tag, -1, (lmp->atom)->nmax * sizeof(LAMMPS_NS::tagint));
-    std::memset(h_neigh_in_switching, 0, (lmp->atom)->nmax * sizeof(double));
-    std::memset(h_calculated_firstneigh_ptrs, 0, (lmp->atom)->nmax * sizeof(LAMMPS_NS::tagint));
+    // std::memset(h_neigh_in_switching, 0, (lmp->atom)->nmax * sizeof(double));
+    // std::memset(h_calculated_firstneigh_ptrs, 0, (lmp->atom)->nmax * sizeof(LAMMPS_NS::tagint));
 
     register_buffer(d_pure_J_write_offset,"d_pure_J_write_offset");
-    register_buffer(d_calculated_firstneigh_ptrs,"d_calculated_firstneigh_ptrs");
+    // register_buffer(d_calculated_firstneigh_ptrs,"d_calculated_firstneigh_ptrs");
     register_buffer(d_LQ_mask,"d_LQ_mask");
     register_buffer(d_calc_tag,"d_calc_tag");
-    register_buffer(d_neigh_in_switching,"d_neigh_in_switching");
+    // register_buffer(d_neigh_in_switching,"d_neigh_in_switching");
     // register_buffer(d_is_pure_J,"d_is_pure_J");
     
 
     d_pure_J_write_offset.grow_to(1, __FILE__, __LINE__);
-    d_calculated_firstneigh_ptrs.grow_to(atom->nmax, __FILE__, __LINE__);
     d_LQ_mask.grow_to(atom->nmax, __FILE__, __LINE__);
     d_calc_tag.grow_to(atom->nmax, __FILE__, __LINE__);
-    d_neigh_in_switching.grow_to(atom->nmax, __FILE__, __LINE__);
+    // d_neigh_in_switching.grow_to(atom->nmax, __FILE__, __LINE__);
+    // d_calculated_firstneigh_ptrs.grow_to(atom->nmax, __FILE__, __LINE__);
 }
 
 MetaD_zqc::STEIN_LocalQL_env::~STEIN_LocalQL_env(){
     lmp->memory->destroy(h_LQ_mask);
     lmp->memory->destroy(h_calc_tag);
-    lmp->memory->destroy(h_neigh_in_switching);
-    lmp->memory->destroy(h_calculated_firstneigh_ptrs);
+    // lmp->memory->destroy(h_neigh_in_switching);
+    // lmp->memory->destroy(h_calculated_firstneigh_ptrs);
 }
 
 void MetaD_zqc::STEIN_LocalQL_env::refresh_lmpbox(){
@@ -175,7 +173,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::compute_Q_peratoms(){
         // stein_q for all aim atoms
         // LOG("=====================================================================");
         lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_locQL:cv_bound");
-
     }
     DEBUG_LOG("group_count=%lld",(long long)my_loc_env->group_count);
 
@@ -245,7 +242,6 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
     if (!(neigh_rebuilt_now || env_not_ready_this_step)) {
         DEBUG_LOG("we skip rebuild in environment when %lld.", (long long)lmp->neighbor->lastcall);
     } else {
-        DEBUG_LOG("cutoff_Natoms is %d",cutoff_Natoms);
         DEBUG_LOG("cutoff_r is %f",cutoff_r);
         DEBUG_LOG("group_count is %d",group_count);
         // =========================================================================
@@ -349,7 +345,7 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
         d_firstneigh_ptrs.grow_to(grow_pairs, __FILE__, __LINE__);
         DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[atom_all]=%d", (int)all_neigh_pairs);
         for (int gr_i = 0; gr_i < atom_all; gr_i++) {
-            i = gr_i; // 获取原子索引
+            i = h_group_indices[gr_i]; // 获取原子索引
             ba_i = h_group_numneigh[gr_i];
             nnumber = h_group_numneigh[gr_i+1]-h_group_numneigh[gr_i];
             DEBUG_LOG("h_group_numneigh=%d, num=%d" ,ba_i,nnumber);
@@ -770,9 +766,9 @@ template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::apply_bias_force(double dVdcv, int mode) {
     double **f = lmp->atom->f;
     int c_tag;
-    this->get_dcvdx_AVE(cv_value, h_dcvdx);
-    for (int c_atom=0; c_atom<(my_loc_env->group_count); c_atom++){
-        c_tag = (my_loc_env->h_group_indices)[c_atom];
+    this->get_dcvdx(cv_value, h_dcvdx);
+    for (int c_atom=0; c_atom<(lmp->atom->nlocal); c_atom++){
+        c_tag = c_atom;
         ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),
                  "STEIN_LocalQL FRAC: force is NaN before bias.");
         f[c_tag][0] -= dVdcv*h_dcvdx[c_tag*3 + 0];
@@ -784,7 +780,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::apply_bias_force(double dVdcv, int mode) {
 }
 
 template <int L>
-void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
+void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx(double cv_value, double *dcvdx){
     int group_count = my_loc_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal+lmp->atom->nghost;
     int last_group_count = my_loc_env->last_group_count;
@@ -853,7 +849,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx_AVE(double cv_value, double *dcvdx){
 
 template <int L>
 void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
-    int cutoff_Natoms = my_loc_env->cutoff_Natoms;
     int last_group_count = my_loc_env->last_group_count;
     int group_count = my_loc_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
@@ -903,8 +898,8 @@ void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
     d_stein_LQlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
     d_stein_LQlm.clear_async();
 
-    sum_of_qlm_value_weights.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
-    sum_of_qlm_value_weights.clear_async();
+    // sum_of_qlm_value_weights.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
+    // sum_of_qlm_value_weights.clear_async();
 
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
@@ -1118,7 +1113,7 @@ int MetaD_zqc::STEIN_LocalQL<L>::pack_comm_reverse_ubuf(int n, int first,
     if (!comm_mode){
         return (3);
     }
-    // reverse_comm 在 get_dcvdx_AVE 里调用；若 h_dcvdx 未分配则空指针解引用 → (nil) segfault
+    // reverse_comm 在 get_dcvdx 里调用；若 h_dcvdx 未分配则空指针解引用 → (nil) segfault
     if (h_dcvdx == nullptr) {
         return (3);
     }

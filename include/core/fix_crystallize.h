@@ -51,9 +51,10 @@ namespace MetaD_zqc {
       LAMMPS_NS::Error *error = nullptr;
       LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
       bool comm_mode=false;               // 当前正在处于哪种通信状态
-      double cv_value;
-      double *dcvdx;
-      double dVdcv;
+      double cv_value = 0.0;
+      double *dcvdx = nullptr;
+      double dVdcv = 0.0;
+      // double virial[6]={0.0};
     public:
       CV(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
           : lmp(lmp), f_check(f_check), Fixmetad(Fixmetad) {error=lmp->error; }
@@ -72,6 +73,8 @@ namespace MetaD_zqc {
       // virtual void bias_force(double dVdcv) = 0; // 计算梯度
       virtual void summary(FILE* f) = 0;
       // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
+
+      inline void set_cv_value(double value) noexcept {cv_value = value;}
 
       // GPU buffer manager
       template<typename T>
@@ -168,6 +171,7 @@ namespace LAMMPS_NS {
 
     // get_parameters
     MetaD_zqc::SwitchFunction* get_switching_function(const std::string& name) const;
+    double *a_virial;
   private:
     int cv_dim,nbin_num;
     MetaD_zqc::Gaussian_Hill_Base *p_gaussian;

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <source_location>
 #include <cub/cub.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
 
 #include "lammps.h"
 #include "pair.h"
@@ -40,6 +41,7 @@ namespace MetaD_zqc {
         size_t capacity = 0;
         void* d_temp_storage = nullptr;
         size_t temp_storage_capacity = 0;
+        int* d_select_count = nullptr;
 
         // 构造函数初始化
         GpuBuffer() {
@@ -226,7 +228,63 @@ namespace MetaD_zqc {
                                         count, stream);
         }
 
-        ~GpuBuffer() { if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, __FILE__, __LINE__); }
+        /**
+        * @brief 按 0/1 标记收集下标。this 是标记，输出是 mask[h]==1 的 h。
+        * @param d_output_buf 选中的下标，容量至少为 count
+        * @param count 标记长度
+        * @param h_num_selected 主机上的选中个数
+        */
+        template <typename OutT>
+        void flag_to(GpuBuffer<OutT>& d_output_buf, size_t count, int* h_num_selected, cudaStream_t stream = 0) {
+            ERR_COND(h_num_selected == nullptr,
+                    "Flag Input Buffer [%s] host count pointer is null", this->name);
+            if (count == 0) {
+                *h_num_selected = 0;
+                return;
+            }
+            ERR_COND(count > this->capacity,
+                    "Flag Input Buffer [%s] capacity too small: need %zu, have %zu",
+                    this->name, count, this->capacity);
+            ERR_COND(count > d_output_buf.capacity,
+                    "Flag Output Buffer [%s] capacity too small: need %zu, have %zu",
+                    d_output_buf.name, count, d_output_buf.capacity);
+            ERR_COND(count > static_cast<size_t>(INT_MAX),
+                    "Flag Input Buffer [%s] count %zu exceeds INT_MAX", this->name, count);
+
+            if (d_select_count == nullptr) {
+                cudaMalloc(&d_select_count, sizeof(int));
+            }
+            cub::CountingInputIterator<OutT> indices(OutT(0));
+            const int num_items = static_cast<int>(count);
+            size_t temp_bytes = 0;
+            cudaError_t err = cub::DeviceSelect::Flagged(
+                    nullptr, temp_bytes,
+                    indices, this->ptr,
+                    d_output_buf.ptr, d_select_count,
+                    num_items, stream);
+            ERR_COND(err != cudaSuccess,
+                    "Flag Buffer [%s] temp size failed: %s", this->name, cudaGetErrorString(err));
+            if (temp_bytes > this->temp_storage_capacity) {
+                if (this->d_temp_storage) cudaFree(this->d_temp_storage);
+                cudaMalloc(&this->d_temp_storage, temp_bytes);
+                this->temp_storage_capacity = temp_bytes;
+            }
+            size_t run_bytes = this->temp_storage_capacity;
+            err = cub::DeviceSelect::Flagged(
+                    this->d_temp_storage, run_bytes,
+                    indices, this->ptr,
+                    d_output_buf.ptr, d_select_count,
+                    num_items, stream);
+            ERR_COND(err != cudaSuccess,
+                    "Flag Buffer [%s] select failed: %s", this->name, cudaGetErrorString(err));
+            cudaMemcpyAsync(h_num_selected, d_select_count, sizeof(int), cudaMemcpyDeviceToHost, stream);
+            cudaStreamSynchronize(stream);
+        }
+
+        ~GpuBuffer() {
+            if (ptr) SAFE_CUDA_FREE_NOFILE(ptr, __FILE__, __LINE__);
+            if (d_select_count) cudaFree(d_select_count);
+        }
     };
     
 

@@ -23,7 +23,7 @@ namespace MetaD_zqc {
         int neighbor_type = 0;
         LAMMPS_NS::tagint all_count;
         size_t N;
-        double cv_value;
+        using CV::cv_value;
 
         std::string env_setNum;
         MetaD_zqc::Averager* my_averager;
