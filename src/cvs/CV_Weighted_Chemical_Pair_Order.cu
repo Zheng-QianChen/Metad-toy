@@ -266,26 +266,17 @@ void MetaD_zqc::Weighted_chem_pair::environment(){
 }
 
 
-auto MetaD_zqc::Weighted_chem_pair::set_CV_calculate(std::string func_name) -> CV_Calculation {
+auto MetaD_zqc::Weighted_chem_pair::resolve_cv_eval(const std::string& func_name) -> CVEval {
     if (func_name == "AVE") {
-        return static_cast<CV_Calculation>(&Weighted_chem_pair::compute_cv_AVE);
+        return bind_cv_eval(&Weighted_chem_pair::compute_cv_AVE,
+                            &Weighted_chem_pair::bias_force_AVE);
     } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Weighted_chem_pair::compute_cv_FILTER_SUM);
+        // FILTER_SUM is not implemented; same empty result as before.
     } else if (func_name == "COUNT") {
-        return static_cast<CV_Calculation>(&Weighted_chem_pair::compute_cv_COUNT);
+        return bind_cv_eval(&Weighted_chem_pair::compute_cv_COUNT,
+                            &Weighted_chem_pair::bias_force_COUNT);
     }
-    return nullptr;
-}
-
-auto MetaD_zqc::Weighted_chem_pair::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
-    if (func_name == "AVE") {
-        return static_cast<CV_BiasForce>(&Weighted_chem_pair::bias_force_AVE);
-    } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Weighted_chem_pair::bias_force_FILTER_SUM);
-    } else if (func_name == "COUNT") {
-        return static_cast<CV_BiasForce>(&Weighted_chem_pair::bias_force_COUNT);
-    }
-    return nullptr;
+    return {};
 }
 
 void MetaD_zqc::Weighted_chem_pair::base_calc(){

@@ -777,59 +777,27 @@ void MetaD_zqc::STEIN_QL<L>::environment(){
 }
 
 template <int L>
-auto MetaD_zqc::STEIN_QL<L>::set_CV_calculate(std::string func_name) -> CV_Calculation {
-    // 1. 按照 "." 分割 func_name
-    std::string main_func = func_name;
-    std::string sub_param = "";
-    
-    size_t dot_pos = func_name.find('.');
-    if (dot_pos != std::string::npos) {
-        main_func = func_name.substr(0, dot_pos);   // 拿到 "." 前面的部分，如 "SW_FUNC"
-        sub_param = func_name.substr(dot_pos + 1);  // 拿到 "." 后面的部分，如 "Fermi" 或 "Cubic"
-    }
-
+auto MetaD_zqc::STEIN_QL<L>::resolve_cv_eval(const std::string& func_name) -> CVEval {
+    std::string main_func;
+    std::string sub_param;
+    split_cv_func_name(func_name, main_func, sub_param);
 
     if (main_func == "AVE") {
-        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_AVE);
+        return bind_cv_eval(&STEIN_QL<L>::compute_cv_AVE, &STEIN_QL<L>::bias_force_AVE);
     } else if (main_func == "LOC_AVE") {
-        // return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_LOC_AVE);
+        // LOC_AVE is not implemented.
+        return {};
     } else if (main_func == "SW_FUNC") {
         auto it = Fixmetad->get_switching_function(sub_param);
         if (it != nullptr) {
-            // 成功让类中的成员指针指向已经构造好的 SW1 (RATIONAL 实例)
             this->my_cv_SWfunc = it;
         } else {
-            // 如果脚本里写错了名字（比如写成了 SW2 却没声明），直接让 LAMMPS 报错
             ERR_COND(1, "Switching function %s used in SYMBOL but not defined in CAL!", sub_param.c_str());
         }
-        return static_cast<CV_Calculation>(&STEIN_QL<L>::compute_cv_SW_FUNC);
+        return bind_cv_eval(&STEIN_QL<L>::compute_cv_SW_FUNC, &STEIN_QL<L>::bias_force_SW_FUNC);
     } else {
         ERR_COND(1, "We can't find the func %s.", main_func.c_str());
-        return nullptr;
-    }
-}
-
-template <int L>
-auto MetaD_zqc::STEIN_QL<L>::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
-    // 1. 按照 "." 分割 func_name
-    std::string main_func = func_name;
-    std::string sub_param = "";
-    
-    size_t dot_pos = func_name.find('.');
-    if (dot_pos != std::string::npos) {
-        main_func = func_name.substr(0, dot_pos);   // 拿到 "." 前面的部分，如 "SW_FUNC"
-        sub_param = func_name.substr(dot_pos + 1);  // 拿到 "." 后面的部分，如 "Fermi" 或 "Cubic"
-    }
-
-    if (main_func == "AVE") {
-        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_AVE);
-    } else if (main_func == "LOC_AVE") {
-        // return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_LOC_AVE);
-    } else if (main_func == "SW_FUNC") {
-        return static_cast<CV_BiasForce>(&STEIN_QL<L>::bias_force_SW_FUNC);
-    } else {
-        ERR_COND(1, "We can't find the func %s.", main_func.c_str());
-        return nullptr;
+        return {};
     }
 }
 

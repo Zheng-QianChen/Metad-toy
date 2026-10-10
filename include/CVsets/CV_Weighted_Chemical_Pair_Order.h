@@ -47,8 +47,7 @@ namespace MetaD_zqc {
                     std::string env_setNum, int group_id, MetaD_zqc::Stru_fact_chem_env* my_env,
                     int d_block_size);
         ~Weighted_chem_pair() override;
-        CV_Calculation set_CV_calculate(std::string func_name) override;
-        CV_BiasForce set_CV_bias_force(std::string func_name) override;
+        CVEval resolve_cv_eval(const std::string& func_name) override;
 
         void base_calc() override; // 计算 CV 值
         void compute_Weighted_chem_pair_peratoms();

@@ -127,13 +127,9 @@ void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
 
 void MetaD_zqc::Distance::base_calc(){}; // 计算 CV 值
 
-MetaD_zqc::CV::CV_Calculation MetaD_zqc::Distance::set_CV_calculate(std::string func_name){
-  return static_cast<MetaD_zqc::CV::CV_Calculation>(&MetaD_zqc::Distance::compute_cv);
-}
-
-
-MetaD_zqc::CV::CV_BiasForce MetaD_zqc::Distance::set_CV_bias_force(std::string func_name){
-  return static_cast<MetaD_zqc::CV::CV_BiasForce>(&MetaD_zqc::Distance::bias_force);
+MetaD_zqc::CVEval MetaD_zqc::Distance::resolve_cv_eval(const std::string& func_name){
+  (void)func_name;
+  return bind_cv_eval(&Distance::compute_cv, &Distance::bias_force);
 }
 
 

@@ -161,10 +161,7 @@ namespace MetaD_zqc {
                     double q_factor, int d_block_size);
         ~Stru_factor() override;
 
-        using CV_Calculation = typename CV::CV_Calculation;
-        using CV_BiasForce = typename CV::CV_BiasForce;
-        CV_Calculation set_CV_calculate(std::string func_name) override;
-        CV_BiasForce set_CV_bias_force(std::string func_name) override;
+        CVEval resolve_cv_eval(const std::string& func_name) override;
 
         // void cv_method();
         void base_calc() override;

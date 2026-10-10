@@ -14,10 +14,8 @@ namespace MetaD_zqc {
         char name[64];       // 符号名，如 "v1"
         int var_idx=0;
         int padding;
-        class CV* cv_ptr;             // 对应的底层 CV 实例
-        // 成员函数指针，用于调用计算和受力
-        double (CV::*compute_func)();
-        void (CV::*bias_func)(double);
+        // One base CV. forward() then backward(du/dc) on that scalar.
+        CVLeaf leaf;
     };
 
     struct DimConfig {
@@ -34,9 +32,6 @@ namespace MetaD_zqc {
         std::vector<double> var_values;
 
         std::vector<DimConfig> dim_configs;
-        // std::vector<MetaD_zqc::CV*> base_cv;
-        // std::vector<MetaD_zqc::CV::CV_Calculation> cv_compute;
-        // std::vector<MetaD_zqc::CV::CV_BiasForce> cv_biasforce;
 
         
         // exprtk::symbol_table<double>                 symbol_table;

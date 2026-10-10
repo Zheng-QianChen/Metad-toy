@@ -32,8 +32,7 @@ namespace MetaD_zqc {
                 :CV(lmp, Fixmetad, f_check){}
         virtual ~Steinhardt() override{};
         void summary(FILE* f) override = 0;
-        virtual CV_Calculation set_CV_calculate(std::string func_name) = 0;
-        virtual CV_BiasForce set_CV_bias_force(std::string func_name) = 0;
+        virtual CVEval resolve_cv_eval(const std::string& func_name) = 0;
         virtual void base_calc() = 0; // 计算 CV 值
         // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
     };
@@ -242,16 +241,13 @@ namespace MetaD_zqc {
             int                                         dcvdx_flag = -1;
             
         public:
-            using CV_Calculation = typename CV::CV_Calculation;
-            using CV_BiasForce = typename CV::CV_BiasForce;
             STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
                                 FILE *f_check, 
                                 std::string env_setNum, int group_id, int stein_l, 
                                 MetaD_zqc::Steinhardt_env* my_env,
                                 int d_block_size);
             ~STEIN_QL() override;
-            virtual CV_Calculation set_CV_calculate(std::string func_name) override;
-            virtual CV_BiasForce set_CV_bias_force(std::string func_name) override;
+            CVEval resolve_cv_eval(const std::string& func_name) override;
             // void cv_method();
             void base_calc() override;
             virtual void compute_Q_peratoms();
@@ -459,10 +455,7 @@ namespace MetaD_zqc {
         void call_steinhardt_Local_cv_AVE_kernel();
         void call_steinhardt_Local_dcv_AVE_kernel();
 
-        using CV_Calculation = typename CV::CV_Calculation;
-        using CV_BiasForce = typename CV::CV_BiasForce;
-        CV_Calculation set_CV_calculate(std::string func_name) override;
-        CV_BiasForce set_CV_bias_force(std::string func_name) override;
+        CVEval resolve_cv_eval(const std::string& func_name) override;
 
         // communication for Ghost atoms
         virtual bool need_reverse_comm() override {return true;}; // 是否需要跨进程同步 Ghost 属性

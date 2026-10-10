@@ -612,16 +612,10 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
 // }
 
 template <int L>
-auto MetaD_zqc::STEIN_LocalQL<L>::set_CV_calculate(std::string func_name)
-    -> typename MetaD_zqc::CV::CV_Calculation {
-    using CV_Calculation = typename MetaD_zqc::CV::CV_Calculation;
-    std::string main_func = func_name;
-    std::string sub_param = "";
-    size_t dot_pos = func_name.find('.');
-    if (dot_pos != std::string::npos) {
-        main_func = func_name.substr(0, dot_pos);
-        sub_param = func_name.substr(dot_pos + 1);
-    }
+auto MetaD_zqc::STEIN_LocalQL<L>::resolve_cv_eval(const std::string& func_name) -> CVEval {
+    std::string main_func;
+    std::string sub_param;
+    split_cv_func_name(func_name, main_func, sub_param);
 
     auto bind_sw = [&]() {
         if (sub_param.empty()) return;
@@ -636,55 +630,28 @@ auto MetaD_zqc::STEIN_LocalQL<L>::set_CV_calculate(std::string func_name)
     if (main_func == "MEAN_SOLID" || main_func == "AVE") {
         bind_sw();
         local_reduce_mode = 0;
-        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_AVE);
+        return bind_cv_eval(&STEIN_LocalQL<L>::compute_cv_AVE,
+                            &STEIN_LocalQL<L>::bias_force_AVE);
     }
     // NSOLID = Σ f；SW_FUNC 为兼容别名（不再走非 Local 力路径）
     if (main_func == "NSOLID" || main_func == "SW_FUNC") {
         bind_sw();
         local_reduce_mode = 1;
-        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_NSOLID);
+        return bind_cv_eval(&STEIN_LocalQL<L>::compute_cv_NSOLID,
+                            &STEIN_LocalQL<L>::bias_force_NSOLID);
     }
     if (main_func == "FRAC") {
         bind_sw();
         local_reduce_mode = 2;
-        return static_cast<CV_Calculation>(&STEIN_LocalQL<L>::compute_cv_FRAC);
+        return bind_cv_eval(&STEIN_LocalQL<L>::compute_cv_FRAC,
+                            &STEIN_LocalQL<L>::bias_force_FRAC);
     }
 
     ERR_COND(1,
         "LocalQL: unsupported SYMBOL func '%s'. "
         "Use MEAN_SOLID (alias AVE), NSOLID (alias SW_FUNC), or FRAC.",
         main_func.c_str());
-    return nullptr;
-}
-
-template <int L>
-auto MetaD_zqc::STEIN_LocalQL<L>::set_CV_bias_force(std::string func_name)
-    -> typename MetaD_zqc::CV::CV_BiasForce {
-    using CV_BiasForce = typename MetaD_zqc::CV::CV_BiasForce;
-    std::string main_func = func_name;
-    size_t dot_pos = func_name.find('.');
-    if (dot_pos != std::string::npos) {
-        main_func = func_name.substr(0, dot_pos);
-    }
-
-    if (main_func == "MEAN_SOLID" || main_func == "AVE") {
-        local_reduce_mode = 0;
-        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_AVE);
-    }
-    if (main_func == "NSOLID" || main_func == "SW_FUNC") {
-        local_reduce_mode = 1;
-        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_NSOLID);
-    }
-    if (main_func == "FRAC") {
-        local_reduce_mode = 2;
-        return static_cast<CV_BiasForce>(&STEIN_LocalQL<L>::bias_force_FRAC);
-    }
-
-    ERR_COND(1,
-        "LocalQL: unsupported bias func '%s'. "
-        "Use MEAN_SOLID/AVE, NSOLID/SW_FUNC, or FRAC.",
-        main_func.c_str());
-    return nullptr;
+    return {};
 }
 
 template <int L>

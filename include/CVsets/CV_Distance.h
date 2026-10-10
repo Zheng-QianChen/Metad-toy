@@ -20,8 +20,7 @@ namespace MetaD_zqc {
                          FILE *f_check, int narg, char **arg, int &i);
         Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2);
         ~Distance() override;
-        CV_Calculation set_CV_calculate(std::string func_name) override;
-        CV_BiasForce set_CV_bias_force(std::string func_name) override;
+        CVEval resolve_cv_eval(const std::string& func_name) override;
         void base_calc(); // 计算 CV 值
         double compute_cv();
         void bias_force(double dVdcv);

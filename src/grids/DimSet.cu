@@ -32,12 +32,9 @@ void MetaD_zqc::MetaDimensionManager::add_symbol(const char* name, MetaD_zqc::CV
     SymbolLink link;
     strncpy(link.name, name, 63);
     link.name[63] = '\0'; // 确保强制结尾，防止溢出
-    link.cv_ptr = ptr;
 
-    
-    // 使用辅助函数获取函数指针
-    link.compute_func = ptr->set_CV_calculate(func_name);
-    link.bias_func = ptr->set_CV_bias_force(func_name);
+    // One lookup binds this symbol's forward and backward together.
+    link.leaf = CVLeaf(ptr, ptr->resolve_cv_eval(func_name));
 
     link.var_idx = var_values.size();
     var_values.push_back(0.0); 
@@ -69,7 +66,7 @@ void MetaD_zqc::MetaDimensionManager::compute_total_cv() {
     auto& links = (*static_cast<std::vector<SymbolLink>*>(p_links));
     // 更新所有被绑定的基础 CV 值
     for (auto& link : links) {
-        var_values[link.var_idx] = (link.cv_ptr->*(link.compute_func))();
+        var_values[link.var_idx] = link.leaf.forward();
         // printf("[%d]=%g\n", link.var_idx, var_values[link.var_idx]);
     }
 }
@@ -88,14 +85,12 @@ void MetaD_zqc::MetaDimensionManager::distribute_dim_bias_force(int dim_idx, dou
     for (auto& link : links) {
         // 自动微分：计算当前维度对该符号的偏导
         // 如果表达式是 v1 * v2，对 v1 求导就是 v2 的当前值
-        const double value = var_values[link.var_idx];
         const double dS_dv = exprtk::derivative(expr, link.name);
         
         if (dS_dv == 0.0) continue; // 表达式中不含该符号则跳过
 
-        // 为了防止采用了两种模式比如 QL.MEAN 同时 QL.NSOLID.此时由于他们仍然是同一个对象，会导致在计算 dS_dv 时使用了错误的 current_val
-        // 链式法则：(dV/dS) * (dS/dv)
-        link.cv_ptr->set_cv_value(value);
-        (link.cv_ptr->*(link.bias_func))(total_grad * dS_dv);
+        // 链式法则：(dV/dS) * (dS/dv)。CVLeaf 在 backward 里写回本次 forward 的标量，
+        // 避免同一 CV 对象绑了两种 SYMBOL 模式时 get_dcvdx 读到另一模式的 cv_value。
+        link.leaf.backward(total_grad * dS_dv);
     }
 }

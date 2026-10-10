@@ -613,26 +613,15 @@ void MetaD_zqc::Stru_factor::environment(){
     DEBUG_LOG("last_update_step is %lld, group_count=%d", (long long)my_env->last_update_step, my_env->group_count);
 }
 
-auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string func_name) -> CV_Calculation {
+auto MetaD_zqc::Stru_factor::resolve_cv_eval(const std::string& func_name) -> CVEval {
     if (func_name == "AVE") {
-        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_AVE);
+        return bind_cv_eval(&Stru_factor::compute_cv_AVE, &Stru_factor::bias_force_AVE);
     } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Stru_factor::compute_cv_FILTER_SUM);
+        // FILTER_SUM is not implemented; same empty result as before.
     } else if (func_name == "COUNT") {
-        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_COUNT);
+        return bind_cv_eval(&Stru_factor::compute_cv_COUNT, &Stru_factor::bias_force_COUNT);
     }
-    return nullptr;
-}
-
-auto MetaD_zqc::Stru_factor::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
-    if (func_name == "AVE") {
-        return static_cast<CV_BiasForce>(&Stru_factor::bias_force_AVE);
-    } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Stru_factor::bias_force_FILTER_SUM);
-    } else if (func_name == "COUNT") {
-        return static_cast<CV_BiasForce>(&Stru_factor::bias_force_COUNT);
-    }
-    return nullptr;
+    return {};
 }
 
 void MetaD_zqc::Stru_factor::base_calc(){

@@ -10,6 +10,7 @@
 
 #include "fix.h"
 #include "neigh_hub.h"
+#include "cv_scalar_node.h"
 
 #include <map> 
 #include <string>
@@ -21,6 +22,30 @@ namespace LAMMPS_NS {
 
 namespace MetaD_zqc {
   template<typename T> struct GpuBuffer;
+
+  class CV;
+
+  // One named reduction of a single CV: forward scalar + reverse force.
+  // resolve_cv_eval() is the only dispatch. Both pointers are chosen together
+  // so a mode cannot forward with one reduction and backprop with another.
+  struct CVEval {
+    using ForwardFn = double (CV::*)();
+    using BackwardFn = void (CV::*)(double);
+    ForwardFn forward = nullptr;
+    BackwardFn backward = nullptr;
+
+    bool paired() const { return forward != nullptr && backward != nullptr; }
+  };
+
+  // Cast a derived reduction pair onto the CV member-pointer slots.
+  template <typename Derived>
+  inline CVEval bind_cv_eval(double (Derived::*forward)(),
+                             void (Derived::*backward)(double)) {
+    CVEval eval;
+    eval.forward = static_cast<CVEval::ForwardFn>(forward);
+    eval.backward = static_cast<CVEval::BackwardFn>(backward);
+    return eval;
+  }
 
   class CV_info {
     protected:
@@ -64,10 +89,9 @@ namespace MetaD_zqc {
               dcvdx = nullptr;
           }
       }
-      typedef double (CV::*CV_Calculation)();
-      typedef void (CV::*CV_BiasForce)(double);
-      virtual CV_Calculation set_CV_calculate(std::string func_name) = 0;
-      virtual CV_BiasForce set_CV_bias_force(std::string func_name) = 0;
+      // Pick this CV's forward() and backward(du/dc) for one func name
+      // (AVE, SW_FUNC, COUNT, MEAN_SOLID, ...). Extensions add a pair here.
+      virtual CVEval resolve_cv_eval(const std::string& func_name) = 0;
       virtual void base_calc() = 0; // 计算 CV 值
       // virtual double compute_cv() = 0; // 计算 CV 值
       // virtual void bias_force(double dVdcv) = 0; // 计算梯度
@@ -108,6 +132,23 @@ namespace MetaD_zqc {
 
       // Compute接口
       virtual double* get_peratom_ptr(const std::string &prop_name) { return nullptr; }
+  };
+
+  // Leaf of one scalar CV. forward() runs the resolved reduction.
+  // backward(du/dc) restores that scalar, then the CV's bias_force applies
+  // du/dx = (du/dc)*(dc/dx) and the existing virial tally.
+  class CVLeaf final : public CVScalarNode {
+  public:
+    CVLeaf() = default;
+    CVLeaf(CV* cv, CVEval eval);
+    double forward() override;
+    void backward(double du_dc) override;
+    CV* cv() const { return cv_; }
+    const CVEval& eval() const { return eval_; }
+
+  private:
+    CV* cv_ = nullptr;
+    CVEval eval_{};
   };
 
   class MetaDimensionManager;
