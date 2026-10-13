@@ -1,5 +1,36 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 project(fix_crystallize_plugin LANGUAGES CXX CUDA)
+
+
+# 独立验证图的源码生成和 NVRTC 编译，不构建 LAMMPS 插件。
+option(ZQC_GRAPH_STANDALONE "Build experimental CUDA graph validation programs" OFF)
+find_package(CUDAToolkit REQUIRED)
+find_program(XXD NAMES xxd REQUIRED)
+
+# 普通 CUDA 编译与 NVRTC 使用同一份设备函数源码。
+set(ZQC_GRAPH_DEVICE_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/utils/zqc_graph_device.cuh")
+set(ZQC_GRAPH_EMBED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/embed/zqc_graph_device.cpp")
+add_custom_command(
+    OUTPUT "${ZQC_GRAPH_EMBED_SOURCE}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/embed"
+    COMMAND "${CMAKE_COMMAND}"
+            "-DXXD=${XXD}"
+            "-DINPUT=${ZQC_GRAPH_DEVICE_HEADER}"
+            "-DSYMBOL=zqc_graph_device_source"
+            "-DOUTPUT=${ZQC_GRAPH_EMBED_SOURCE}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/xxd_embed.cmake"
+    DEPENDS "${ZQC_GRAPH_DEVICE_HEADER}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/xxd_embed.cmake"
+    VERBATIM
+)
+
+if(ZQC_GRAPH_STANDALONE)
+    # Keep the generated source and its owning target in the same directory scope.
+    add_library(zqc_graph_embedded STATIC "${ZQC_GRAPH_EMBED_SOURCE}")
+    enable_testing()
+    add_subdirectory(benchmarks/graph)
+    return()
+endif()
 
 # -------------------------------------------------------------------
 # 模式切换开关：默认关闭调试
@@ -139,3 +170,9 @@ if(NOT CMAKE_CUDA_ARCHITECTURES)
 endif()
 
 set_target_properties(fix_crystallize_plugin PROPERTIES PREFIX "" SUFFIX ".so")
+
+
+# 将自动嵌入的设备源码一起放入运行库。
+target_sources(fix_crystallize_plugin PRIVATE "${ZQC_GRAPH_EMBED_SOURCE}")
+target_link_libraries(fix_crystallize_plugin PRIVATE
+    CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)

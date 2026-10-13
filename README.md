@@ -109,6 +109,8 @@ fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
 
 ## 🧪 开发与调试
 
+运行时 CUDA 图编译目前为 **实验性原型（experimental prototype）**，尚未接入正式 LAMMPS 计算流程。功能验证入口、构建命令和当前限制见 [benchmarks/graph](benchmarks/graph/README.md)。
+
 ---
 
 ## 使用文档 / Documentation

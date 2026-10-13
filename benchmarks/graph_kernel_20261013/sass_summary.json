@@ -1,0 +1,86 @@
+[
+  {
+    "case": "mean_exp",
+    "variant": "graph_nvrtc",
+    "function": "cv_backward",
+    "non_nop_instructions": 73,
+    "call_instructions": []
+  },
+  {
+    "case": "mean_exp",
+    "variant": "graph_nvrtc",
+    "function": "cv_forward",
+    "non_nop_instructions": 62,
+    "call_instructions": []
+  },
+  {
+    "case": "mean_exp",
+    "variant": "manual_nvrtc",
+    "function": "cv_backward",
+    "non_nop_instructions": 69,
+    "call_instructions": []
+  },
+  {
+    "case": "mean_exp",
+    "variant": "manual_nvrtc",
+    "function": "cv_forward",
+    "non_nop_instructions": 61,
+    "call_instructions": []
+  },
+  {
+    "case": "mean_exp",
+    "variant": "manual_nvcc",
+    "function": "cv_backward",
+    "non_nop_instructions": 69,
+    "call_instructions": []
+  },
+  {
+    "case": "mean_exp",
+    "variant": "manual_nvcc",
+    "function": "cv_forward",
+    "non_nop_instructions": 61,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "graph_nvrtc",
+    "function": "cv_backward",
+    "non_nop_instructions": 32,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "graph_nvrtc",
+    "function": "cv_forward",
+    "non_nop_instructions": 22,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "manual_nvrtc",
+    "function": "cv_backward",
+    "non_nop_instructions": 33,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "manual_nvrtc",
+    "function": "cv_forward",
+    "non_nop_instructions": 23,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "manual_nvcc",
+    "function": "cv_backward",
+    "non_nop_instructions": 33,
+    "call_instructions": []
+  },
+  {
+    "case": "two_dims",
+    "variant": "manual_nvcc",
+    "function": "cv_forward",
+    "non_nop_instructions": 23,
+    "call_instructions": []
+  }
+]

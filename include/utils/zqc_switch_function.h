@@ -4,33 +4,39 @@
 #include <cuda_runtime.h>
 #include <math.h>
 #include <cmath>
+#include <limits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
+#include "zqc_switch_function_device.cuh"
 
 #include "error.h"
 #include "comm.h"
 
 #include "zqc_debug.h"
-#include "fix_crystallize.h"
+#include "lammps.h"
+#include "utils.h"
+
+namespace LAMMPS_NS { class FixMetadynamics; }
 
 namespace MetaD_zqc {
 
-    enum SwitchType {
-        LINE = 0,
-        STEP = 1,
-        FERMI = 2,
-        TANH_TYPE = 3,
-        RATIONAL = 4  // 标准 PLUMED 经典有理函数
+    // Host-side metadata: a mathematical radius, never a neighbor-list skin.
+    enum class RadialSupportKind { Finite, Epsilon, Unavailable };
+
+    struct RadialSupport {
+        RadialSupportKind kind;
+        double radius;
+        const char *error; // nullptr for a valid result, including manual-cutoff LINE.
+
+        bool has_radius() const {
+            return error == nullptr && kind != RadialSupportKind::Unavailable;
+        }
     };
 
-    struct SwitchFunctionRequest {
-        SwitchType type;
-        double r_0;    // 基础特征距离/阈值（对应 Fermi 里的 q_bar 或 Rational 里的 r_0）
-        double d_0;
-        double alpha;  // 陡峭系数（针对 Fermi/Tanh）
-        int n;         // 针对 Rational 的分子幂次（通常为 6）
-        int m;         // 针对 Rational 的分母幂次（通常为 12）
-    };
-
-    class SwitchFunction {
+    class SwitchFunction : public SwitchFunctionMath {
     public:
         // SwitchType type;
         // double r_0;    // 基础特征距离/阈值（对应 Fermi 里的 q_bar 或 Rational 里的 r_0）
@@ -164,207 +170,110 @@ namespace MetaD_zqc {
             return SwitchFunction::f(this->params, S_i); 
         }
         
-        // 🌟 1. 计算 f_sw(S_i)
-        static __host__ __device__ __forceinline__ double f(const SwitchFunctionRequest& p, double S_i) {
-            int n = p.n;
-            int m = p.m;
-            switch (p.type) {
-                case LINE: {
-                    return 1.0;
-                }
-                case STEP: {
-                    return f_step(p, S_i);
-                }
-                case FERMI: {
-                    return f_fermi(p, S_i);
-                }
-                case TANH_TYPE: {
-                    return f_tanh(p, S_i);
-                }
-                case RATIONAL: {
-                    return f_rational(p, S_i);
-                }
-                default: return 1.0;
-            }
-        }
-
-        // 🌟 2. 计算解析导数 df_sw / dS_i
-        static __host__ __device__ __forceinline__ double df(const SwitchFunctionRequest& p, double S_i) {
-            int n = p.n;
-            int m = p.m;
-            switch (p.type) {
-                case LINE: {
-                    return 0.0;
-                }
-                case STEP: {
-                    return df_step(p, S_i);
-                }
-                case FERMI: {
-                    return df_fermi(p, S_i);
-                }
-                case TANH_TYPE: {
-                    return df_tanh(p, S_i);
-                }
-                case RATIONAL: {
-                    return df_rational(p, S_i);
-                }
-                default: return 0.0;
-            }
-        }
+        // Keep the existing static f(params,x), df(params,x) and f_*/df_* APIs.
+        using SwitchFunctionMath::f;
+        using SwitchFunctionMath::df;
 
         static SwitchFunction* get_default_step() {
             static SwitchFunction instance(LINE, 0.0, 0.0, 0.0, 0, 0);
             return &instance;
         }
 
-        static __host__ __device__ __forceinline__ double f_step(const SwitchFunctionRequest& p, double S_i) {
-            if (S_i < p.r_0) {
-                return 1.0;
-            } else {
-                return 0.0;
-            }
-        }
+        // Query radial support on r >= 0. Epsilon means a numerical tail
+        // truncation, not exact compact support. LINE requires a caller cutoff.
+        // RATIONAL currently accepts d_0 == 0 only: positive-offset plateau
+        // semantics are not implemented in f()/df() and are a separate change.
+        // 用来确定容差的。
+        static __host__ inline RadialSupport query_radial_support(
+                const SwitchFunctionRequest& p, double eps) {
+            const auto unavailable = [](const char *error) {
+                return RadialSupport{RadialSupportKind::Unavailable, 0.0, error};
+            };
+            if (!std::isfinite(eps) || !(eps > 0.0 && eps < 1.0))
+                return unavailable("Radial cutoff epsilon must be finite and in (0,1).");
 
-        static __host__ __device__ __forceinline__ double df_step(const SwitchFunctionRequest& p, double S_i) {
-            return 0.0;
-        }
-
-        static __host__ __device__ __forceinline__ double f_fermi(const SwitchFunctionRequest& p, double S_i) {
-            return 1.0 / (1.0 + exp(-p.alpha * (S_i - p.r_0)));
-        }
-
-        static __host__ __device__ __forceinline__ double df_fermi(const SwitchFunctionRequest& p, double S_i) {
-            double exp_term = exp(-p.alpha * (S_i - p.r_0));
-            double denom = 1.0 + exp_term;
-            return (p.alpha * exp_term) / (denom * denom);
-        }
-
-        static __host__ __device__ __forceinline__ double f_tanh(const SwitchFunctionRequest& p, double S_i) {
-            return 0.5 * (1.0 + tanh(p.alpha * (S_i - p.r_0)));
-        }
-
-        static __host__ __device__ __forceinline__ double df_tanh(const SwitchFunctionRequest& p, double S_i) {
-            double t = tanh(p.alpha * (S_i - p.r_0));
-            return 0.5 * p.alpha * (1.0 - t * t);
-        }
-
-        static __host__ __device__ __forceinline__ double f_rational(const SwitchFunctionRequest& p, double S_i) {
-            int n = p.n;
-            int m = p.m;
-            double x = (S_i-p.d_0) / p.r_0;
-            if (n == 6 && m == 12) {
-                // PLUMED 标准有理函数的优化版本：
-                double x2 = POW2(x);       // x^2
-                double x6 = POW3(x2);     // x^6
-                return 1.0 / (1.0 + x6); // (1-x^6)/(1-x^12)=1/(1+x^6)
-            } else if (n==4 && m==8) {
-                // 4-8 有理函数的优化版本：
-                double x2 = POW2(x);       // x^2
-                double x4 = POW2(x2);     // x^4
-                return 1.0 / (1.0 + x4); // (1-x^4)/(1-x^8)=1/(1+x^4)
-            } else if (2*n==m){
-                // m=2n 的特殊情况优化：
-                double x_n = std::pow(x, n);   // x^n
-                return 1.0 / (1.0 + x_n); // (1-x^n)/(1-x^(2m))=1/(1+x^n)
-            } else if (n==2*m){
-                // n=2m 的特殊情况优化：
-                double x_m = std::pow(x, m);   // x^m
-                return (1.0 + x_m); // (1-x^m)/(1-x^(2m))=1/(1+x^m)
-            }
-            return (1-std::pow(x, n))/(1-std::pow(x, m));
-        }
-
-        static __host__ __device__ __forceinline__ double df_rational(const SwitchFunctionRequest& p, double S_i) {
-            int n = p.n;
-            int m = p.m;
-            double x = (S_i-p.d_0) / p.r_0;
-            if (n == 6 && m == 12) {
-                // PLUMED 标准有理函数的优化版本：
-                double x2 = POW2(x);       // x^2
-                double x5 = POW2(x2)*x;     // x^5
-                double x6 = POW3(x2);     // x^6
-                return -n*x5 / POW2(1.0 + x6) / p.r_0; // (1-x^6)/(1-x^12)=1/(1+x^6)
-            } else if (n==4 && m==8) {
-                // 4-8 有理函数的优化版本：
-                double x2 = POW2(x);       // x^2
-                double x3 = x2 * x;        // x^3
-                double x4 = POW2(x2);     // x^4
-                return -(double)n*x3 / POW2(1.0 + x4) / p.r_0; // (1-x^4)/(1-x^8)=1/(1+x^4)
-            } else if (2*n==m){
-                // m=2n 的特殊情况优化：
-                double x_nm1 = std::pow(x, n-1);   // x^n
-                double x_n = std::pow(x, n);   // x^n
-                return -(double)n*x_nm1 / POW2(1.0 + x_n) / p.r_0; // (1-x^n)/(1-x^(2m))=1/(1+x^n)
-            } else if (n==2*m){
-                // n=2m 的特殊情况优化：
-                double x_mm1 = std::pow(x, m-1);   // x^n
-                return (double)m*x_mm1 / p.r_0; // (1-x^m)/(1-x^(2m))=1/(1+x^m)
-            }
-            double x_mm1 = std::pow(x, m-1);       // x^(m-1)
-            double x_m = x_mm1 * x;       // x^m
-
-            if (std::fabs(1.0 - x_m) < 1e-12) {
-                return -0.5 * (double)(n * (n - m)) / (double)m / p.r_0;
-            }
-
-            double x_nm1 = std::pow(x, n - 1); // x^(n-1)
-            double x_n = x_nm1 * x;       // x^n
-            return ((double)(n-m)*x_nm1*x_m + m*x_mm1 - n*x_nm1)/POW2(1-x_m) / p.r_0; // (m*x^(m-1) - n*x^(n-1) + (n-m)*x^(n+m-1)) / (1-x^m)^2
-        }
-
-        
-        // 获得 f(r) = eps 的反解 r, 通过数值二分法求解
-        // 数值二分法兜底 (适用于任意单调递减的开关函数, 包括通用n,m的RATIONAL)
-        static __host__ inline double invert_bisect(const SwitchFunctionRequest& p, double target_eps) {
-            double lo = 0.0, hi = 1.0;
-            // 先找一个足够大的hi, 使f(hi) < target_eps
-            while (f(p, hi) > target_eps) {
-                hi *= 2.0;
-                if (hi > 1e8) break;  // 保护, 防止死循环(比如STEP这种恒为1的类型不应该调这个函数)
-            }
-            // 标准二分, 假设f在[lo,hi]上单调递减
-            for (int iter = 0; iter < 100; iter++) {
-                double mid = 0.5*(lo+hi);
-                if (f(p, mid) > target_eps) {
-                    lo = mid;
-                } else {
-                    hi = mid;
-                }
-            }
-            return 0.5*(lo+hi);
-        }
-
-        // 给定希望达到的截断精度eps, 反推出对应的距离r (即 f(r)=eps 的解)
-        // 对每种类型, 优先用闭式解(快, 精确), 无法闭式求解时用数值二分兜底
-        static __host__ inline double invert_for_eps(const SwitchFunctionRequest& p, double eps) {
+            double radius = 0.0;
             switch (p.type) {
-                case STEP: {
-                    // STEP恒为1, 没有衰减, 反推没有意义, 直接返回一个不可用的标记
-                    return p.r_0;
-                }
-                case FERMI: {
-                    return p.r_0 - std::log(1.0/eps - 1.0)/p.alpha;
-                }
+                case LINE:
+                    return unavailable(nullptr);
+                case STEP:
+                    if (!std::isfinite(p.r_0) || !(p.r_0 > 0.0))
+                        return unavailable("Radial STEP requires a finite positive r_0.");
+                    return {RadialSupportKind::Finite, p.r_0, nullptr};
+                case FERMI:
                 case TANH_TYPE: {
-                    return p.r_0 + std::atanh(2.0*eps - 1.0)/p.alpha;
+                    if (!std::isfinite(p.r_0) || !std::isfinite(p.alpha)
+                            || !(p.alpha < 0.0))
+                        return unavailable("Radial FERMI/TANH requires finite r_0 and negative alpha.");
+                    const double log_odds = std::log1p(-eps) - std::log(eps);
+                    const double factor = p.type == FERMI ? 1.0 : 0.5;
+                    radius = p.r_0 - factor * log_odds / p.alpha;
+                    break;
                 }
                 case RATIONAL: {
-                    if (p.n == 6 && p.m == 12) {
-                        double x = std::pow(1.0/eps - 1.0, 1.0/6.0);
-                        return x*p.r_0 + p.d_0;
-                    } else if (p.n == 4 && p.m == 8) {
-                        double x = std::pow(1.0/eps - 1.0, 1.0/4.0);
-                        return x*p.r_0 + p.d_0;
-                    } else if (2*p.n == p.m) {
-                        double x = std::pow(1.0/eps - 1.0, 1.0/p.n);
-                        return x*p.r_0 + p.d_0;
+                    if (!std::isfinite(p.r_0) || !(p.r_0 > 0.0)
+                            || !std::isfinite(p.d_0) || p.d_0 != 0.0
+                            || !(p.n > 0 && p.m > p.n))
+                        return unavailable("Radial RATIONAL requires r_0>0, d_0=0, and 0<n<m.");
+                    double x = 0.0;
+                    if (2LL * p.n == p.m) {
+                        x = std::exp((std::log1p(-eps) - std::log(eps)) / p.n);
+                    } else {
+                        // Bracket the decreasing dimensionless function on [0,hi].
+                        // This helper handles x=1 without the 0/0 in the generic
+                        // value formula, and avoids overflow in the long tail.
+                        double lo = 0.0, hi = 1.0;
+                        while (radial_rational_weight(hi, p.n, p.m) > eps) {
+                            if (hi > std::numeric_limits<double>::max() / 2.0)
+                                return unavailable("Radial RATIONAL could not bracket a finite epsilon radius.");
+                            hi *= 2.0;
+                        }
+                        for (int iter = 0; iter < 100; ++iter) {
+                            const double mid = lo + 0.5 * (hi - lo);
+                            if (mid == lo || mid == hi) break;
+                            if (radial_rational_weight(mid, p.n, p.m) > eps)
+                                lo = mid;
+                            else
+                                hi = mid;
+                        }
+                        x = hi;
                     }
-                    // 通用n,m情况, 没有简单闭式解, 用二分法兜底
-                    return invert_bisect(p, eps);
+                    radius = p.r_0 * x;
+                    break;
                 }
-                default: return -1.0;
+                default:
+                    return unavailable("Unknown radial switching-function type.");
             }
+            if (!std::isfinite(radius) || !(radius > 0.0))
+                return unavailable("Radial epsilon cutoff must be finite and positive; check switch parameters and epsilon.");
+            return {RadialSupportKind::Epsilon, radius, nullptr};
         }
+
+        // Compatibility wrappers. Callers needing diagnostics should use the
+        // metadata query; unavailable/invalid support never returns a fake radius.
+        static __host__ inline double invert_for_eps(
+                const SwitchFunctionRequest& p, double eps) {
+            const auto support = query_radial_support(p, eps);
+            return support.has_radius() ? support.radius
+                : std::numeric_limits<double>::quiet_NaN();
+        }
+
+        static __host__ inline double invert_bisect(
+                const SwitchFunctionRequest& p, double eps) {
+            return invert_for_eps(p, eps);
+        }
+
+    private:
+        static __host__ inline double radial_rational_weight(double x, int n, int m) {
+            if (x == 0.0) return 1.0;
+            if (x == 1.0) return static_cast<double>(n) / m;
+            const double log_x = std::log(x);
+            if (x < 1.0)
+                return std::expm1(n * log_x) / std::expm1(m * log_x);
+            return std::exp((static_cast<double>(n) - m) * log_x)
+                * std::expm1(-n * log_x) / std::expm1(-m * log_x);
+        }
+
     };
 }
 

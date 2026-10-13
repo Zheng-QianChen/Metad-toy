@@ -40,3 +40,20 @@ test/test_StruFactor/*
 test/test_cvset/HILLS
 test/test_StruFactorSW/*
 test/smoke/*
+
+# Local CMake/CUDA build artifacts (including benchmark build directories).
+build*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+*.o
+*.a
+*.cubin
+*.ptx
+
+# Reproducible benchmark outputs; keep source and curated reports.
+/benchmarks/graph_kernel_20261013/results*/
+/benchmarks/q_force_layout_20260929/q_force_layout_bench

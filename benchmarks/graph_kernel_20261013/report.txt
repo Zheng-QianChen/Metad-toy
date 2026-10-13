@@ -1,0 +1,46 @@
+融合图与手写 CUDA kernel 性能对比
+
+环境：RTX 4080 SUPER，CUDA/NVRTC 12.6，sm_89，FP64，block=256；WSL 桌面 GPU，未锁频。
+图的实际生成源码与手写等价计算分别测试；手写同时使用 NVRTC 和 nvcc 编译。
+所有版本通过相同 CUDA Driver API、相同 stream、相同指针与参数启动，未使用 fast-math 或 restrict。
+主要指标是一次前向+反向的 GPU 耗时。CUDA Graph replay 每批串行执行64对，以摊薄 CPU 提交间隙；这是计时设施，不是被测的计算图。
+另有普通逐次提交的 wall-clock 指标，包含 CPU 提交和最终同步，见各轮 host_submit.csv。
+每种配置预热，三种版本随机交错测量9轮；百万级及以上另复测21轮。汇总保留全部样本。
+时间为中位数；ratio_of_medians=图中位数/手写nvcc中位数；paired_ratio为同轮比值的中位数。
+配对bootstrap区间只描述本次样本，不涵盖跨机器、桌面干扰、时钟变化等系统误差。
+显存分配、数据上传/下载、构图、NVRTC编译、模块加载、外部Mean/MPI规约均不在GPU计时内。
+独立测forward/backward时缓存工作集不同，因此不能把二者相加当作交替执行的pair时间。
+
+正确性：所有42个首轮+12个复测配置均与独立CPU解析结果核对；最大绝对误差 6.6613381477509392e-16。
+
+前向+反向汇总（微秒）：
+mean_exp N=3: 图 2.5440；手写NVRTC 2.6988；手写nvcc 2.6830；图/nvcc 0.9482；样本9
+mean_exp N=1024: 图 3.9069；手写NVRTC 3.7676；手写nvcc 3.8077；图/nvcc 1.0261；样本9
+mean_exp N=16384: 图 4.1769；手写NVRTC 4.0832；手写nvcc 4.3694；图/nvcc 0.9560；样本9
+mean_exp N=65536: 图 10.1648；手写NVRTC 9.4720；手写nvcc 10.5680；图/nvcc 0.9618；样本9
+mean_exp N=262144: 图 31.7863；手写NVRTC 26.9600；手写nvcc 28.3147；图/nvcc 1.1226；样本9
+mean_exp N=1048576: 图 115.3160；手写NVRTC 111.0680；手写nvcc 110.1320；图/nvcc 1.0471；样本30
+mean_exp N=4194304: 图 667.1560；手写NVRTC 660.7760；手写nvcc 658.7000；图/nvcc 1.0128；样本30
+two_dims N=3: 图 1.8550；手写NVRTC 1.9818；手写nvcc 2.0293；图/nvcc 0.9141；样本9
+two_dims N=1024: 图 2.2276；手写NVRTC 2.1531；手写nvcc 2.2270；图/nvcc 1.0003；样本9
+two_dims N=16384: 图 2.5845；手写NVRTC 2.4085；手写nvcc 2.4725；图/nvcc 1.0453；样本9
+two_dims N=65536: 图 3.5593；手写NVRTC 3.9956；手写nvcc 3.9440；图/nvcc 0.9025；样本9
+two_dims N=262144: 图 8.5456；手写NVRTC 9.5300；手写nvcc 8.5200；图/nvcc 1.0030；样本9
+two_dims N=1048576: 图 138.3280；手写NVRTC 142.3476；手写nvcc 141.0320；图/nvcc 0.9808；样本30
+two_dims N=4194304: 图 733.3160；手写NVRTC 725.9394；手写nvcc 725.6440；图/nvcc 1.0106；样本30
+
+NVRTC 编译开销（不含首次冷调用的重复编译中位数）：
+mean_exp/graph_nvrtc: 25.919 ms
+mean_exp/manual_nvrtc: 23.930 ms
+two_dims/graph_nvrtc: 19.918 ms
+two_dims/manual_nvrtc: 19.018 ms
+首次 mean_exp 图 NVRTC 编译为 60.5241 ms；该数字包含首次编译器初始化影响。
+
+SASS/资源检查：所有被测函数没有CALL指令，也没有local memory使用。代码并非逐条一致，具体指令数与寄存器数见 sass_summary.json 和 attributes.csv。
+结论边界：两个标量表达式的融合图与手写实现属于相同性能量级；百万级复测与首轮有波动，不能从几个百分点推断普遍的速度优势。
+对于相同图，构建、NVRTC编译和模块加载应完成一次后复用；如果每步重新编译，数十毫秒的编译成本会远超这里的kernel时间。
+
+复现：设置 LAMMPS_SOURCE_DIR 后运行 python3 benchmarks/graph_kernel_20261013/run.py；默认构建目录为 build/graph。
+大规模复测：python3 benchmarks/graph_kernel_20261013/run.py --focus --output benchmarks/graph_kernel_20261013/results_focus。
+绘图/汇总：python3 benchmarks/graph_kernel_20261013/analyze.py（需要两轮结果、numpy、matplotlib）。
+只新增基准与结果文件，未修改图的生产实现。

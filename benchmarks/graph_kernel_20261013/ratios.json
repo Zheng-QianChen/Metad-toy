@@ -1,0 +1,184 @@
+[
+  {
+    "case": "mean_exp",
+    "n": 3,
+    "samples": 9,
+    "graph_us": 2.544000106,
+    "manual_nvcc_us": 2.682999941,
+    "ratio_of_medians": 0.9481923823866384,
+    "median_paired_ratio": 0.9147649377454833,
+    "paired_ratio_ci95": [
+      0.8638428270033616,
+      1.0156632666706735
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 1024,
+    "samples": 9,
+    "graph_us": 3.906909038,
+    "manual_nvcc_us": 3.807714298,
+    "ratio_of_medians": 1.0260509933878448,
+    "median_paired_ratio": 1.043332844766956,
+    "paired_ratio_ci95": [
+      0.8203818366572658,
+      1.1329512241151871
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 16384,
+    "samples": 9,
+    "graph_us": 4.176889029,
+    "manual_nvcc_us": 4.36935015,
+    "ratio_of_medians": 0.9559520032973324,
+    "median_paired_ratio": 0.9323151064008912,
+    "paired_ratio_ci95": [
+      0.9058478611323699,
+      1.094998563343859
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 65536,
+    "samples": 9,
+    "graph_us": 10.16477744,
+    "manual_nvcc_us": 10.56800038,
+    "ratio_of_medians": 0.96184491620921,
+    "median_paired_ratio": 0.9494210444224652,
+    "paired_ratio_ci95": [
+      0.7934220829530727,
+      1.2134467782043015
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 262144,
+    "samples": 9,
+    "graph_us": 31.78633253,
+    "manual_nvcc_us": 28.31466744,
+    "ratio_of_medians": 1.1226101312104975,
+    "median_paired_ratio": 1.1226101312104975,
+    "paired_ratio_ci95": [
+      0.8863367304986339,
+      1.3515330893689455
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 1048576,
+    "samples": 30,
+    "graph_us": 115.3159998,
+    "manual_nvcc_us": 110.13200135,
+    "ratio_of_medians": 1.04707077313092,
+    "median_paired_ratio": 1.0595659181148231,
+    "paired_ratio_ci95": [
+      1.0015765401765877,
+      1.088017229417245
+    ]
+  },
+  {
+    "case": "mean_exp",
+    "n": 4194304,
+    "samples": 30,
+    "graph_us": 667.1560109,
+    "manual_nvcc_us": 658.69998935,
+    "ratio_of_medians": 1.012837439937329,
+    "median_paired_ratio": 1.014688144067036,
+    "paired_ratio_ci95": [
+      1.001836923776392,
+      1.0251837416082625
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 3,
+    "samples": 9,
+    "graph_us": 1.854958323,
+    "manual_nvcc_us": 2.029333264,
+    "ratio_of_medians": 0.9140727922350758,
+    "median_paired_ratio": 0.8934432200129659,
+    "paired_ratio_ci95": [
+      0.8375492966836816,
+      1.0064431075333014
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 1024,
+    "samples": 9,
+    "graph_us": 2.227589679,
+    "manual_nvcc_us": 2.22702707,
+    "ratio_of_medians": 1.000252627822795,
+    "median_paired_ratio": 1.0255288434925913,
+    "paired_ratio_ci95": [
+      0.9197494717950613,
+      1.0455536774585026
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 16384,
+    "samples": 9,
+    "graph_us": 2.584470546,
+    "manual_nvcc_us": 2.472470569,
+    "ratio_of_medians": 1.045298810996686,
+    "median_paired_ratio": 0.9750346459265317,
+    "paired_ratio_ci95": [
+      0.8843930790535077,
+      1.2014148452471296
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 65536,
+    "samples": 9,
+    "graph_us": 3.559272736,
+    "manual_nvcc_us": 3.94400006,
+    "ratio_of_medians": 0.9024525055407834,
+    "median_paired_ratio": 0.9128893756479445,
+    "paired_ratio_ci95": [
+      0.874553290529516,
+      1.0659099115637054
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 262144,
+    "samples": 9,
+    "graph_us": 8.545599878,
+    "manual_nvcc_us": 8.519999683,
+    "ratio_of_medians": 1.0030047178348,
+    "median_paired_ratio": 1.003193068517879,
+    "paired_ratio_ci95": [
+      0.971553647894732,
+      1.0445070767733267
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 1048576,
+    "samples": 30,
+    "graph_us": 138.3280009,
+    "manual_nvcc_us": 141.0320029,
+    "ratio_of_medians": 0.9808270325571615,
+    "median_paired_ratio": 1.0056705621809279,
+    "paired_ratio_ci95": [
+      0.9665755625736397,
+      1.0279310598675153
+    ]
+  },
+  {
+    "case": "two_dims",
+    "n": 4194304,
+    "samples": 30,
+    "graph_us": 733.3160043,
+    "manual_nvcc_us": 725.6439924,
+    "ratio_of_medians": 1.0105726940212452,
+    "median_paired_ratio": 1.0100477670028787,
+    "paired_ratio_ci95": [
+      1.0045575316204698,
+      1.0172769320063346
+    ]
+  }
+]
