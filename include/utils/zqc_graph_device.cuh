@@ -8,33 +8,33 @@
 #endif
 
 // 乘法
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 double zqc_graph_mul(double a, double b) { return a * b; }
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_mul_bwd(double adj, double a, double b, double *a_adjv, double *b_adjv) { *a_adjv += adj*b; *b_adjv += adj*a; }
 
 // 加法
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 double zqc_graph_add(double a, double b) { return a + b; }
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_add_bwd(double adj, double *a_adjv, double *b_adjv) { *a_adjv += adj; *b_adjv += adj; }
 
 // 取负：反向累加到输入梯度，保留其他分支的贡献。
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 double zqc_graph_neg(double a) { return -a; }
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_neg_bwd(double adj, double *a_adjv) { *a_adjv -= adj; }
 
 // 线性函数
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 double zqc_graph_linear(double a, double k0, double b0) { return k0 * a + b0; }
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_linear_bwd(double adj, double k0, double *a_adjv) { *a_adjv += adj*k0; }
 
 // 指数函数
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 double zqc_graph_exp(const double a) { return exp(a); }
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_exp_bwd(const double adj, const double a, double *a_adjv) { *a_adjv += adj*exp(a);}
 
 // Scalar formulas shared by graph codegen and the radial switching adapter.
@@ -130,27 +130,27 @@ __host__ __device__ __forceinline__ double zqc_graph_rational_switch_df(double v
 }
 
 // Graph reverse-mode adapters accumulate into the input adjoint.
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_constant_one_bwd(double adj, double a, double* a_adj) {
     *a_adj += adj * zqc_graph_constant_one_df(a);
 }
 
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_step_switch_bwd(double adj, double a, double r0, double* a_adj) {
     *a_adj += adj * zqc_graph_step_switch_df(a, r0);
 }
 
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_fermi_bwd(double adj, double a, double r0, double alpha, double* a_adj) {
     *a_adj += adj * zqc_graph_fermi_df(a, r0, alpha);
 }
 
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_tanh_switch_bwd(double adj, double a, double r0, double alpha, double* a_adj) {
     *a_adj += adj * zqc_graph_tanh_switch_df(a, r0, alpha);
 }
 
-__device__ __forceinline__
+__host__ __device__ __forceinline__
 void zqc_graph_rational_switch_bwd(double adj, double a, double r0, int power_n, int power_m, double d0, double* a_adj) {
     *a_adj += adj * zqc_graph_rational_switch_df(a, r0, power_n, power_m, d0);
 }

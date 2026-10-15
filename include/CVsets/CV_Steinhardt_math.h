@@ -1111,6 +1111,128 @@ __device__ __forceinline__ void compute_Ylm_unit(
     }
 }
 
+// Unit-direction Ylm and the qlm-contracted Cartesian bond gradient.
+// Y_lm = P_lm(nz) * (nx + i*ny)^m; differentiate the ambient polynomial,
+// then use d n / d R = (I - n*n^T) / r. This stays regular at both poles.
+// All arithmetic is double precision. The factors match compute_Ylm_unit.
+template<int L, int M>
+__device__ __forceinline__ void compute_Ylm_unit_gradient_term(
+    double nx, double ny, double nz, double z2, double inv_r,
+    double phase_re, double phase_im, double previous_re, double previous_im,
+    double catom_ql_timesN, double neigh_ql_timesN,
+    int stein_qlm_base_id, int stein_qlm_neigh_id,
+    const double *d_stein_qlm, double *Ylm, double *gradient) {
+    double factor, dfactor;
+    if constexpr (L == 3) {
+        if constexpr (M == 0) {
+            factor = 0.3731763325901154 * nz * (5. * z2 - 3.);
+            dfactor = 0.3731763325901154 * (15. * z2 - 3.);
+        } else if constexpr (M == 1) {
+            factor = -0.32318018411415067 * (5. * z2 - 1.);
+            dfactor = -0.32318018411415067 * 10. * nz;
+        } else if constexpr (M == 2) {
+            factor = 1.0219854764332823 * nz;
+            dfactor = 1.0219854764332823;
+        } else {
+            factor = -0.4172238236327841;
+            dfactor = 0.0;
+        }
+    } else if constexpr (L == 4) {
+        if constexpr (M == 0) {
+            factor = 0.10578554691520431 * ((35. * z2 - 30.) * z2 + 3.);
+            dfactor = 0.10578554691520431 * nz * (140. * z2 - 60.);
+        } else if constexpr (M == 1) {
+            factor = -0.47308734787878004 * nz * (7. * z2 - 3.);
+            dfactor = -0.47308734787878004 * (21. * z2 - 3.);
+        } else if constexpr (M == 2) {
+            factor = 0.3345232717786446 * (7. * z2 - 1.);
+            dfactor = 0.3345232717786446 * 14. * nz;
+        } else if constexpr (M == 3) {
+            factor = -1.2516714708983523 * nz;
+            dfactor = -1.2516714708983523;
+        } else {
+            factor = 0.4425326924449826;
+            dfactor = 0.0;
+        }
+    } else if constexpr (L == 6) {
+        if constexpr (M == 0) {
+            factor = 0.06356920226762842 * (((231. * z2 - 315.) * z2 + 105.) * z2 - 5.);
+            dfactor = 0.06356920226762842 * nz * ((1386. * z2 - 1260.) * z2 + 210.);
+        } else if constexpr (M == 1) {
+            factor = -0.4119755163011408 * nz * ((33. * z2 - 30.) * z2 + 5.);
+            dfactor = -0.4119755163011408 * ((165. * z2 - 90.) * z2 + 5.);
+        } else if constexpr (M == 2) {
+            factor = 0.3256952429338579 * ((33. * z2 - 18.) * z2 + 1.);
+            dfactor = 0.3256952429338579 * nz * (132. * z2 - 36.);
+        } else if constexpr (M == 3) {
+            factor = -0.6513904858677158 * nz * (11. * z2 - 3.);
+            dfactor = -0.6513904858677158 * (33. * z2 - 3.);
+        } else if constexpr (M == 4) {
+            factor = 0.356781262853998 * (11. * z2 - 1.);
+            dfactor = 0.356781262853998 * 22. * nz;
+        } else if constexpr (M == 5) {
+            factor = -1.673452458100098 * nz;
+            dfactor = -1.673452458100098;
+        } else {
+            factor = 0.48308411358006625;
+            dfactor = 0.0;
+        }
+    }
+
+    Ylm[2*M] = factor * phase_re;
+    Ylm[2*M+1] = factor * phase_im;
+    const double parity = (L % 2 == 0) ? 1.0 : -1.0;
+    // m < 0 is represented by conjugacy; m > 0 therefore has weight 2.
+    const double weight = (M == 0) ? 1.0 : 2.0;
+    const double coeff_re = weight * (
+        catom_ql_timesN * d_stein_qlm[stein_qlm_base_id + 2*M] +
+        parity * neigh_ql_timesN * d_stein_qlm[stein_qlm_neigh_id + 2*M]);
+    const double coeff_im = weight * (
+        catom_ql_timesN * d_stein_qlm[stein_qlm_base_id + 2*M+1] +
+        parity * neigh_ql_timesN * d_stein_qlm[stein_qlm_neigh_id + 2*M+1]);
+    const double transverse = M * factor;
+    // n dot grad_n(Y) = (m*P + nz*P') * (nx+i*ny)^m.
+    const double radial = transverse + nz * dfactor;
+    const double dYdx_re = inv_r * (transverse * previous_re - nx * radial * phase_re);
+    const double dYdx_im = inv_r * (transverse * previous_im - nx * radial * phase_im);
+    const double dYdy_re = inv_r * (-transverse * previous_im - ny * radial * phase_re);
+    const double dYdy_im = inv_r * (transverse * previous_re - ny * radial * phase_im);
+    const double dYdz_re = inv_r * (dfactor - nz * radial) * phase_re;
+    const double dYdz_im = inv_r * (dfactor - nz * radial) * phase_im;
+    // Preserve the old helper layout: [x_re,x_im,y_re,y_im,z_re,z_im].
+    gradient[0] += coeff_re * dYdx_re;
+    gradient[1] += coeff_im * dYdx_im;
+    gradient[2] += coeff_re * dYdy_re;
+    gradient[3] += coeff_im * dYdy_im;
+    gradient[4] += coeff_re * dYdz_re;
+    gradient[5] += coeff_im * dYdz_im;
+
+    if constexpr (M < L) {
+        const double next_re = phase_re * nx - phase_im * ny;
+        const double next_im = phase_re * ny + phase_im * nx;
+        compute_Ylm_unit_gradient_term<L, M+1>(
+            nx, ny, nz, z2, inv_r, next_re, next_im, phase_re, phase_im,
+            catom_ql_timesN, neigh_ql_timesN, stein_qlm_base_id, stein_qlm_neigh_id,
+            d_stein_qlm, Ylm, gradient);
+    }
+}
+
+template<int L>
+__device__ __forceinline__ void compute_Ylm_unit_and_gradient(
+    double nx, double ny, double nz, double inv_r,
+    double catom_ql_timesN, double neigh_ql_timesN,
+    int stein_qlm_base_id, int stein_qlm_neigh_id,
+    const double *d_stein_qlm, double *Ylm, double *gradient) {
+    static_assert(L == 3 || L == 4 || L == 6, "Supported Steinhardt degrees: 3, 4, 6");
+    #pragma unroll
+    for (int k = 0; k < 6; ++k) gradient[k] = 0.0;
+    compute_Ylm_unit_gradient_term<L, 0>(
+        nx, ny, nz, nz*nz, inv_r, 1.0, 0.0, 0.0, 0.0,
+        catom_ql_timesN, neigh_ql_timesN, stein_qlm_base_id, stein_qlm_neigh_id,
+        d_stein_qlm, Ylm, gradient);
+}
+
+
 // Reuse the basic trigonometric values already available in the dcv kernel.
 template<int L>
 __device__ __forceinline__ void compute_Ylm_direct(

@@ -1,0 +1,336 @@
+{
+  "configurations": [
+    {
+      "np": 1,
+      "LEGACY": {
+        "median_ms": 2.1273233333333335,
+        "min_ms": 2.016426666666667,
+        "max_ms": 2.1624666666666665,
+        "samples_ms": [
+          2.1273233333333335,
+          2.016426666666667,
+          2.1624666666666665
+        ]
+      },
+      "GRAPH": {
+        "median_ms": 2.49567,
+        "min_ms": 2.3961,
+        "max_ms": 2.6226433333333334,
+        "samples_ms": [
+          2.3961,
+          2.49567,
+          2.6226433333333334
+        ]
+      },
+      "graph_time_change_percent": 17.315029685191252
+    },
+    {
+      "np": 2,
+      "LEGACY": {
+        "median_ms": 3.5885666666666665,
+        "min_ms": 3.5664000000000002,
+        "max_ms": 3.592366666666667,
+        "samples_ms": [
+          3.5664000000000002,
+          3.5885666666666665,
+          3.592366666666667
+        ]
+      },
+      "GRAPH": {
+        "median_ms": 3.8036666666666665,
+        "min_ms": 3.7804,
+        "max_ms": 3.8354333333333335,
+        "samples_ms": [
+          3.8036666666666665,
+          3.7804,
+          3.8354333333333335
+        ]
+      },
+      "graph_time_change_percent": 5.994036616290632
+    },
+    {
+      "np": 4,
+      "LEGACY": {
+        "median_ms": 5.9688,
+        "min_ms": 5.962566666666667,
+        "max_ms": 5.995233333333333,
+        "samples_ms": [
+          5.995233333333333,
+          5.9688,
+          5.962566666666667
+        ]
+      },
+      "GRAPH": {
+        "median_ms": 5.822766666666666,
+        "min_ms": 5.809566666666667,
+        "max_ms": 5.883100000000001,
+        "samples_ms": [
+          5.809566666666667,
+          5.822766666666666,
+          5.883100000000001
+        ]
+      },
+      "graph_time_change_percent": -2.4466112674797813
+    }
+  ],
+  "nvrtc_rank0_ms": {
+    "min": 22.573673,
+    "median": 30.269507,
+    "max": 43.599427
+  },
+  "matched_final_cv_energy_max_error": 2.220446049250313e-16,
+  "samples": [
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.38197,
+      "us_per_step": 2127.3233333333333,
+      "wall_s": 8.338227708998602,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_legacy_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.1883,
+      "us_per_step": 2396.1,
+      "wall_s": 9.290873388003092,
+      "nvrtc_ms": 36.417895,
+      "load_ms": 0.47806,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_graph_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.48701,
+      "us_per_step": 2495.67,
+      "wall_s": 9.4398226839985,
+      "nvrtc_ms": 22.573673,
+      "load_ms": 0.300149,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_graph_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.04928,
+      "us_per_step": 2016.4266666666667,
+      "wall_s": 7.937218147999374,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_legacy_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.4874,
+      "us_per_step": 2162.4666666666667,
+      "wall_s": 8.338807432010071,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_legacy_2"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.86793,
+      "us_per_step": 2622.6433333333334,
+      "wall_s": 9.893308209997485,
+      "nvrtc_ms": 30.269507,
+      "load_ms": 0.408387,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np1_graph_2"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.6992,
+      "us_per_step": 3566.4,
+      "wall_s": 12.949310857002274,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_legacy_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.411,
+      "us_per_step": 3803.6666666666665,
+      "wall_s": 13.705278865003493,
+      "nvrtc_ms": 32.655649,
+      "load_ms": 0.296326,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_graph_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.3412,
+      "us_per_step": 3780.4,
+      "wall_s": 13.653946663005627,
+      "nvrtc_ms": 24.071515,
+      "load_ms": 0.317927,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_graph_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.7657,
+      "us_per_step": 3588.5666666666666,
+      "wall_s": 12.953416137999739,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_legacy_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.7771,
+      "us_per_step": 3592.366666666667,
+      "wall_s": 12.948815898998873,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_legacy_2"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.5063,
+      "us_per_step": 3835.4333333333334,
+      "wall_s": 13.974104840002838,
+      "nvrtc_ms": 43.599427,
+      "load_ms": 0.36998,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np2_graph_2"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.9857,
+      "us_per_step": 5995.233333333334,
+      "wall_s": 20.824730334003107,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_legacy_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.4287,
+      "us_per_step": 5809.566666666667,
+      "wall_s": 20.227617893993738,
+      "nvrtc_ms": 28.157156,
+      "load_ms": 0.265107,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_graph_0"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.4683,
+      "us_per_step": 5822.766666666666,
+      "wall_s": 20.327598859003047,
+      "nvrtc_ms": 26.36398,
+      "load_ms": 0.382906,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_graph_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.9064,
+      "us_per_step": 5968.8,
+      "wall_s": 20.992660967007396,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_legacy_1"
+    },
+    {
+      "motion": "translate",
+      "executor": "LEGACY",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.8877,
+      "us_per_step": 5962.566666666667,
+      "wall_s": 20.723175562001416,
+      "nvrtc_ms": 0,
+      "load_ms": 0,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_legacy_2"
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.6493,
+      "us_per_step": 5883.1,
+      "wall_s": 20.5274053739995,
+      "nvrtc_ms": 35.540257,
+      "load_ms": 1.157548,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/timing-matched/np4_graph_2"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 # src/cvs/CMakeLists.txt
 
 # 1. 收集当前目录下的所有源文件
-file(GLOB CVS_SOURCES "*.cu" "*.cpp")
+file(GLOB CVS_SOURCES CONFIGURE_DEPENDS "*.cu" "*.cpp")
 
 # 2. 将这些源文件追加到全局变量中
 # 注意：使用 才能让主目录的 CMakeLists.txt 看到更新后的变量

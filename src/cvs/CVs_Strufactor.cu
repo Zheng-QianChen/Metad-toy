@@ -1,3 +1,10 @@
+#include "CV_Stru_factor.h"
+#include "CV_Weighted_Chemical_Pair_Order.h"
+#include <cmath>
+#include <stdexcept>
+
+// 独立 kernel 测试通过同一源文件编译设备数据与前后向计算。
+#ifndef ZQC_STRUFACTOR_KERNELS_ONLY
 #include "lammpsplugin.h"
 
 #include "lammps.h"
@@ -18,16 +25,23 @@
 
 #include "fix_crystallize.h"
 #include "zqc_debug.h"
-#include "CV_Stru_factor.h"
+#include "zqc_cv_assembly.cuh"
 #include "zqc_switch_function.h"
 
 
 #include <cuda_runtime.h>
 #include <cstring>
 #include <algorithm>
-#include <cmath>
+#include <iomanip>
+#include <sstream>
 
 using namespace LAMMPS_NS;
+
+namespace {
+void check_strufactor_cuda(cudaError_t status) {
+    if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
+}
+}
 
 std::map<std::string, MetaD_zqc::Stru_fact_env*> MetaD_zqc::Stru_fact_env::env_pool;
 
@@ -39,7 +53,8 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
 
     std::string cal_name = arg[i];
 
-    MetaD_zqc::StruFactorRequest req;
+    MetaD_zqc::StruFactorRequest req{};
+    req.q_factor = 1.0;
 
     req.cal_name = cal_name;
     // 原子环境分析-初始设置
@@ -54,14 +69,13 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
     req.d_block_size = 128;
     req.custom_weights.clear();
     int iarg=2 + i;
-    printf("im in Stru_factor::create, with group_name=%s, group_id=%d\n", req.group_name, req.group_id);
     while (iarg < narg) {
         if (strcmp(arg[iarg], "cutoff_r") == 0) {
             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
             req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
             iarg += 2;
         } else if (strcmp(arg[iarg], "q_factor") == 0) {
-            ERR_COND((iarg + 1 >= narg), "Error: \'q_factor\' keyword requires an integer");
+            ERR_COND((iarg + 1 >= narg), "Error: \'q_factor\' keyword requires a number");
             req.q_factor = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
             ERR_COND(req.q_factor <= 0, "Error: \'q_factor\' must be > 0");
             iarg += 2;
@@ -71,57 +85,7 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
             iarg += 2;
         } else if (strcmp(arg[iarg], "SW_func") == 0) {
-            ERR_COND((iarg + 1 >= narg), "Error: \'SW_func\' keyword requires a type (FERMI, TANH, RATIONAL)");
-            req.use_sw_func = true;
-            // 1. 解析开关函数类型
-            std::string sw_type_str = arg[iarg + 1];
-            if (sw_type_str == "FERMI") {
-                req.sw_func_req.type = FERMI;
-                // 设置该类型的默认值
-                req.sw_func_req.r_0 = 1.0; 
-                req.sw_func_req.alpha = 20.0;
-            } else if (sw_type_str == "TANH") {
-                req.sw_func_req.type = TANH_TYPE;
-                req.sw_func_req.r_0 = 1.0;
-                req.sw_func_req.alpha = 20.0;
-            } else if (sw_type_str == "RATIONAL") {
-                req.sw_func_req.type = RATIONAL;
-                // 标准 PLUMED 默认值
-                req.sw_func_req.r_0 = 1.25;
-                req.sw_func_req.d_0 = 0.0;
-                req.sw_func_req.n = 6;
-                req.sw_func_req.m = 12;
-            } else {
-                error->all(FLERR, "Error: Unknown SW_func type. Choose from FERMI, TANH, RATIONAL.");
-            }
-            iarg += 2; // 消耗掉 "SW_func" 和 "TYPE"
-            // 2. 内层循环：动态解析该开关函数的内部亚参数
-            while (iarg < narg) {
-                if (strcmp(arg[iarg], "r_0") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'r_0\' requires a numeric value");
-                    req.sw_func_req.r_0 = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "d_0") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'d_0\' requires a numeric value");
-                    req.sw_func_req.d_0 = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "alpha") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'alpha\' requires a numeric value");
-                    req.sw_func_req.alpha = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "n") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'n\' requires an integer value");
-                    req.sw_func_req.n = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "m") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: \'m\' requires an integer value");
-                    req.sw_func_req.m = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else {
-                    // 遇到不属于开关函数的参数（例如到了下一个主关键字 Chemical 或 cutoff_r），退出内层循环
-                    break;
-                }
-            }
+            error->all(FLERR, "STRU_FACTOR: express switching functions in Graph using the RAW input");
         } else if (strcmp(arg[iarg], "Chemical") == 0) {
             req.use_chemical_lock = true;
             iarg += 1;
@@ -182,9 +146,20 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
     }
     i = iarg;
 
-    // NeighHub: full occasional list (default pair cutoff; matches prior add_request w/o set_cutoff)
+    ERR_COND(!std::isfinite(req.q_factor) || req.q_factor <= 0,
+             "STRU_FACTOR: q_factor must be finite and positive");
+    ERR_COND(!std::isfinite(req.cutoff_r*req.cutoff_r) || req.cutoff_r <= 0,
+             "STRU_FACTOR: cutoff_r must be finite and positive");
+    ERR_COND(req.d_block_size <= 0 || req.d_block_size > 1024,
+             "STRU_FACTOR: d_block_size must be in [1,1024]");
+
+    // 按 CV 半径请求完整邻居表，并使 ghost 坐标覆盖 cutoff 与 skin。
     MetaD_zqc::NeighSpec nspec;
     nspec.full = 1;
+    nspec.ghost = 0;
+    nspec.use_cutoff = 1;
+    nspec.cutoff = req.cutoff_r;
+    lmp->comm->cutghostuser = std::max(lmp->comm->cutghostuser, req.cutoff_r+lmp->neighbor->skin);
     const int neigh_id = Fixmetad->neigh_hub.get_or_create(nspec);
 
     MetaD_zqc::Stru_factor* struc_factor = nullptr;
@@ -192,83 +167,59 @@ MetaD_zqc::CV* MetaD_zqc::Stru_factor::create(LAMMPS_NS::LAMMPS *lmp,
         LOG("Logging: set STRU_FACTOR as group_name=%s q_factor=%g cutoff_r=%f d_block_size=%d.\n         Chemical lock is ON, with c_target=%g and sigma=%g.",
             req.group_name, req.q_factor, req.cutoff_r, req.d_block_size,
             req.c_target, req.sigma);
-        // create Structure factor CV
-        // env for CV
-        // MetaD_zqc::Stru_fact_chem_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
-        //                         f_check, Fixmetad, req);
         MetaD_zqc::Stru_fact_chem_env *temp_env = static_cast<MetaD_zqc::Stru_fact_chem_env*>(
                                     MetaD_zqc::Stru_fact_env::get_or_create(lmp, Fixmetad, f_check, req)
                                 );
         temp_env->neigh_id = neigh_id;
         DEBUG_LOG("Stru_fact_chem_env is %p neigh_id=%d", temp_env, neigh_id);
-        std::string env_setNum = temp_env->get_env_key();
         i = iarg;
-        // return Stru_fact cv
         struc_factor = new MetaD_zqc::Stru_factor_chem(lmp, Fixmetad, f_check, 
-                                env_setNum, req.group_id, temp_env,
+                                temp_env,
                                 req.q_factor, req.d_block_size);
     } else {
         LOG("Logging: set STRU_FACTOR as group_name=%s q_factor=%g cutoff_r=%f d_block_size=%d.",
                             req.group_name, req.q_factor, req.cutoff_r, req.d_block_size);
-        // create Structure factor CV
-        // env for CV
         MetaD_zqc::Stru_fact_env *temp_env = MetaD_zqc::Stru_fact_env::get_or_create(lmp, 
                                     Fixmetad, f_check, req);
         temp_env->neigh_id = neigh_id;
         DEBUG_LOG("Stru_fact_env is %p neigh_id=%d", temp_env, neigh_id);
-        std::string env_setNum = temp_env->get_env_key();
-        // return Stru_fact cv
         struc_factor =  new MetaD_zqc::Stru_factor(lmp, Fixmetad, f_check, 
-                                env_setNum, req.group_id, temp_env,
+                                temp_env,
                                 req.q_factor, req.d_block_size);
     }
 
 
-    if (req.use_sw_func){
-        auto temp_sw = new MetaD_zqc::SwitchFunction(req.sw_func_req.type, req.sw_func_req.r_0, req.sw_func_req.d_0, 
-                               req.sw_func_req.alpha, req.sw_func_req.n, req.sw_func_req.m);
-        LOG("%s\n", temp_sw->get_summary_string().c_str());
-        struc_factor->h_sw_func = temp_sw;
-        struc_factor->use_sw_func = true;
-        struc_factor->sw_params  = req.sw_func_req;
-    }
-    
     return struc_factor;
 }
 
 MetaD_zqc::Stru_fact_env* MetaD_zqc::Stru_fact_env::get_or_create(LAMMPS_NS::LAMMPS *lmp,
                                             LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
                                             StruFactorRequest req) {
-    printf("In Stru_fact_env::get_or_create with group_id=%d, cutoff_r=%g, use_chemical_lock=%d, c_target=%g, sigma=%g\n",
-            req.group_id, req.cutoff_r, req.use_chemical_lock, req.c_target, req.sigma);
-    if (!req.use_chemical_lock){
-        // 1. generate a unique key for the environment based on its parameters
-        std::string key = std::to_string(req.group_id) + "_" + std::to_string(req.cutoff_r)
-                            + "_";
-        // 2. check if the environment already exist in the pool
-        if (env_pool.count(key)) {
-            return env_pool[key]; // if exits, return the existing environment
+    // 使用完整浮点精度和有序 Chem_map，保证不同权重配置各自持有正确的类型表。
+    std::ostringstream key_stream;
+    key_stream << std::setprecision(std::numeric_limits<double>::max_digits10)
+               << req.group_id << '_' << req.cutoff_r << '_' << req.use_chemical_lock;
+    if (req.use_chemical_lock) {
+        if (!std::isfinite(req.c_target) || !std::isfinite(req.sigma) || req.sigma <= 0)
+            throw std::invalid_argument("STRU_FACTOR Chemical: Chem_ctarget must be finite and Chem_sigma positive and finite");
+        key_stream << '_' << req.c_target << '_' << req.sigma;
+        for (const auto& entry : req.custom_weights) {
+            if (entry.first < 1 || entry.first > lmp->atom->ntypes || !std::isfinite(entry.second))
+                throw std::invalid_argument("STRU_FACTOR Chemical: Chem_map requires valid atom types and finite weights");
+            key_stream << '_' << entry.first << ':' << entry.second;
         }
-        // 3. new environment and store it in the pool if not exist
-        MetaD_zqc::Stru_fact_env *new_env = new Stru_fact_env(lmp, Fixmetad, f_check, 
-                                                    req.group_id, req.cutoff_r);
-        env_pool[key] = new_env; // store the new environment in the pool
-        return new_env;
-    } else {
-        // 1. generate a unique key for the environment based on its parameters
-        std::string key = std::to_string(req.group_id) + "_" + std::to_string(req.cutoff_r)
-                            + "_" + std::to_string(req.use_chemical_lock)
-                            + "_" + std::to_string(req.c_target) + "_" + std::to_string(req.sigma);
-        // 2. check if the environment already exist in the pool
-        if (env_pool.count(key)) {
-            return env_pool[key]; // if exits, return the existing environment
-        }
-        // 3. new environment and store it in the pool if not exist
-        MetaD_zqc::Stru_fact_chem_env *new_env = new Stru_fact_chem_env(lmp, Fixmetad, f_check, 
-                                                    req.group_id, req.cutoff_r, req.c_target, req.sigma, req.custom_weights);
-        env_pool[key] = new_env; // store the new environment in the pool
-        return new_env;
     }
+    const std::string key = key_stream.str();
+    const auto found = env_pool.find(key);
+    if (found != env_pool.end()) return found->second;
+    Stru_fact_env* environment;
+    if (req.use_chemical_lock)
+        environment = new Stru_fact_chem_env(lmp, Fixmetad, f_check, req.group_id,
+                                             req.cutoff_r, req.c_target, req.sigma, req.custom_weights);
+    else
+        environment = new Stru_fact_env(lmp, Fixmetad, f_check, req.group_id, req.cutoff_r);
+    env_pool.emplace(key, environment);
+    return environment;
 }
 
 std::string MetaD_zqc::Stru_fact_env::get_env_key(){
@@ -281,993 +232,567 @@ void MetaD_zqc::Stru_fact_env::clear_pool() {
     env_pool.clear();
 }
 
-MetaD_zqc::Stru_fact_env::Stru_fact_env(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-            FILE *f_check, int group_id, double cutoff_r)
-    : CV_info(lmp, Fixmetad, f_check),
-      group_id(group_id),
-      cutoff_r(cutoff_r)
-{
-    error = lmp->error;
-
-    pbc_x = (lmp->domain->xperiodic == 1);
-    pbc_y = (lmp->domain->yperiodic == 1);
-    pbc_z = (lmp->domain->zperiodic == 1);
-    // 这里可以添加一些初始化代码，例如分配内存、设置默认值等
-    DEBUG_LOG("Stru_fact_env initialized with cutoff_r=%g", cutoff_r);
-
-    // const char *group_name = arg[1];
-    groupbit = lmp->group->bitmask[group_id]; // 关键：存储原子组位掩码
-    // group_dminneigh = new double [2]; //inintial
-    // neigh_in_cutoff_r = new int [2]; //inintial
-    lmp->memory->create(group_dminneigh, 0, "metad:Stru_fact_env:group_dminneigh");
-    lmp->memory->create(neigh_in_cutoff_r, 0, "metad:Stru_fact_env:neigh_in_cutoff_r");
-    init_flag = false;
-
-    // comment name
-    register_buffer(d_group_numneigh,"d_group_numneigh");
-    register_buffer(d_x_flat,"d_x_flat");
-    register_buffer(d_mask,"d_mask");
-    register_buffer(d_group_indices,"d_group_indices");
-    register_buffer(d_firstneigh_ptrs,"d_firstneigh_ptrs");
-    register_buffer(d_group_dminneigh,"d_group_dminneigh");
-    register_buffer(d_neigh_in_cutoff_r,"d_neigh_in_cutoff_r");
-    register_buffer(d_neigh_both_in_r_N,"d_neigh_both_in_r_N");
-    register_buffer(d_calculated_numneigh,"d_calculated_numneigh");
+MetaD_zqc::Stru_fact_env::Stru_fact_env(LAMMPS* lmp, FixMetadynamics* Fixmetad,
+                                                    FILE* f_check, int group_id, double cutoff_r)
+    : CV_info(lmp, Fixmetad, f_check), cutoff_r(cutoff_r), group_id(group_id),
+      groupbit(lmp->group->bitmask[group_id]) {
+    data.set_context(f_check, lmp->error, lmp);
+    register_buffer(d_x_flat, "d_x_flat");
+    register_buffer(d_firstneigh_ptrs, "d_firstneigh_ptrs");
 }
 
-MetaD_zqc::Stru_factor::Stru_factor(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                             std::string env_setNum, int group_id,
-                             MetaD_zqc::Stru_fact_env* my_env,
-                             double q_factor, int d_block_size)
-                        : CV(lmp, Fixmetad, f_check),
-                            env_setNum(env_setNum),
-                            q_factor(q_factor),
-                        //   group_id(group_id),
-                            my_env(my_env),
-                            d_block_size(d_block_size){
-    // my_averager = new MetaD_zqc::CUBAverager();
-    my_averager = new MetaD_zqc::KahanAverager();
-    DEBUG_LOG("Logging: New a Stru_factor file, will generate %d lines in GPU,\n     with cutoff_r=%g",
-                d_block_size, my_env->cutoff_r);
-    my_env->d_block_size = d_block_size;
-    // gpu device settings
-    cudaGetLastError(); // clear history error
-    GPU_number = 0;
-    cudaGetDevice(&GPU_number);
-    DEBUG_LOG("GPU_number is %d",GPU_number);
-    my_env->GPU_number = GPU_number;
-    
-    all_count = lmp->group->count(my_env->group_id);
-    DEBUG_LOG("all_count = %lld", (long long)all_count);
-
-    // Q_per_atoms_value = new double [2]; //inintial
-    // stein_q = nullptr;
-    lmp->memory->create(h_stru_factor, 0, "metad:Stru_factor:h_stru_factor");
-    lmp->memory->create(h_dcvdx, 0, "metad:Stru_factor:h_dcvdx");
-    error = lmp->error;
-
-    int Threads_own_atoms = lmp->atom->nlocal;
-    lmp->memory->grow(h_stru_factor, Threads_own_atoms, "metad:Stru_factor:cv_bound");
-    
-    // comment name
-    register_buffer(d_stru_factor,"d_stru_factor");
-    register_buffer(d_dcvdx,"d_dcvdx");
+MetaD_zqc::Stru_factor::Stru_factor(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_check,
+                                  Stru_fact_env* env,
+                                  double q, int block_size)
+    : CV(lmp, Fixmetad, f_check), my_env(env), d_block_size(block_size), q_factor(q) {
+    my_env->d_block_size = block_size;
+    check_strufactor_cuda(cudaGetDevice(&my_env->GPU_number));
+    register_buffer(d_stru_factor, "d_stru_factor");
+    register_buffer(d_center_adjoint, "sf_center_adjoint");
+    register_buffer(d_graph_force, "sf_graph_force");
+    register_buffer(d_graph_virial, "sf_graph_virial");
 }
 
-MetaD_zqc::Stru_fact_env::~Stru_fact_env(){
-    atoms = nullptr;
-    // release all alloc
-    nlist = nullptr;
+MetaD_zqc::Stru_fact_env::~Stru_fact_env() {
     lmp->memory->destroy(h_group_numneigh);
-    numneigh = nullptr;
-    firstneigh = nullptr;
-    mask = nullptr;
     lmp->memory->destroy(h_x_flat);
     lmp->memory->destroy(h_group_indices);
     lmp->memory->destroy(h_firstneigh_ptrs);
-    lmp->memory->destroy(group_dminneigh);
-    lmp->memory->destroy(neigh_in_cutoff_r);
-    lmp->memory->destroy(neigh_both_in_r_N);
-    lmp->memory->destroy(calculated_numneigh);
-    // the GpuBuffer will automatically release its memory, 
-    // so we don't need to manually free it here
 }
 
-
-MetaD_zqc::Stru_factor::~Stru_factor(){
+MetaD_zqc::Stru_factor::~Stru_factor() {
     lmp->memory->destroy(h_stru_factor);
-    lmp->memory->destroy(h_dcvdx);
-    // the GpuBuffer will automatically release its memory, 
-    // so we don't need to manually free it here
 }
 
-
-void MetaD_zqc::Stru_fact_env::refresh_lmpbox(){
-    // clear the h_group_indices
+// 更新“压缩中心序号 -> owned localid”映射；中心顺序与 CVAssembly 的前缀保持一致。
+void MetaD_zqc::Stru_fact_env::refresh_lmpbox() {
     atom = lmp->atom;
-    mask = (atom)->mask;     // 原子组掩码
-
-    lmp->memory->grow(h_group_indices, ((atom)->nlocal), "Stru_fact:h_group_indices");
-    // group_count = how many aim atoms in local
-    last_group_count = group_count;
-    group_count = 0; // 当前local中有
-    for (int i = 0; i < (atom)->nlocal; i++) {
-        if ((mask)[i] & (groupbit)){
-            (h_group_indices)[(group_count)] = i; // record local index
-            (group_count)++;
-        }
+    lmp->memory->grow(h_group_indices, atom->nlocal, "Stru_fact:h_group_indices");
+    last_group_count = data.group_count;
+    data.group_count = 0;
+    if (atom_assembly) {
+        if (atom_assembly->nlocal() != atom->nlocal || atom_assembly->nghost() != atom->nghost)
+            throw std::logic_error("Stru_factor: stale atom assembly");
+        // 装配表前 group_count 项是本 rank 的 owned 中心。
+        data.group_count = atom_assembly->group_count();
+        if (data.group_count)
+            std::copy_n(atom_assembly->local_ids().begin(), data.group_count, h_group_indices);
+    } else {
+        for (int i = 0; i < atom->nlocal; ++i)
+            if (atom->mask[i] & groupbit) h_group_indices[data.group_count++] = i;
     }
-    DEBUG_LOG("group_count=%lld",((long long)group_count));
-
-    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), __FILE__, __LINE__);
-    SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(((atom)->nlocal+(atom)->nghost))*sizeof(int),cudaMemcpyHostToDevice,f_check);
-
-    // set up nvidia thread number
-    block_num = ((group_count) + d_block_size - 1)/d_block_size;
-    N = d_block_size*block_num;
-    LOG_COND((((box_x)<2*(cutoff_r))||((box_y)<2*(cutoff_r))||((box_z)<2*(cutoff_r))),"Warning: box < cutoff_r, please check your system !");
+    block_num = (data.group_count + d_block_size - 1) / d_block_size;
+    N = static_cast<size_t>(d_block_size) * block_num;
 }
 
-void MetaD_zqc::Stru_fact_env::get_env(){
-    DEBUG_LOG("im in get_env, current step is %lld, last_update_step is %lld", (long long)lmp->update->ntimestep, (long long)this->last_update_step);
-    size_t datalen = 0;
+// 准备共享几何：候选邻居按中心分段上传，再在 GPU 将有效邻居压到各段开头。
+// 分段起点保留候选容量，遍历有效数据时使用 d_neigh_in_cutoff_r 给出的数量。
+void MetaD_zqc::Stru_fact_env::get_env() {
     atom = lmp->atom;
-    // =======从 NeighHub 取已 ensure 的 list=========
-    ERR_COND((neigh_id < 1),"STRU_FACTOR env has invalid neigh_id.");
+    if (neigh_id < 1) throw std::logic_error("STRU_FACTOR: invalid neighbor request");
     Fixmetad->neigh_hub.ensure(neigh_id);
     nlist = Fixmetad->neigh_hub.list(neigh_id);
-    ERR_COND((nlist == nullptr),"STRU_FACTOR CV failed to find neighbor list now.");
-    // =======防止lammps运行过程体积更改==========
-    ERR_COND((lmp->domain == NULL),"domain list not initialized");
-    box_x = (pbc_x) ? lmp->domain->xprd : INFINITY;
-    box_y = (pbc_y) ? lmp->domain->yprd : INFINITY;
-    box_z = (pbc_z) ? lmp->domain->zprd : INFINITY;
-
-    // utilize different environment set
-    // such as neighbor list, atom position, box size, to get the local structure information for each atom in the group
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&((numneigh != nullptr))&&(init_flag)){
-        DEBUG_LOG("we skip rebuild in environment when %lld.", (long long)lmp->neighbor->lastcall);
-    } else {
-        // =========================================================================
-        // neighbour list and its copy to devise
-        // h_group_indices / d_group_indices: where the group atoms in locals' tag
-        // =========================================================================
-        DEBUG_LOG("cutoff_r is %f",cutoff_r);
-        DEBUG_LOG("group_count is %d",group_count);
-        // DEBUG_LOG("lastcall = %d", lmp->neighbor->lastcall);
-        // int *d_group_indices;
-        // SAFE_CUDA_FREE(d_group_indices);
-        // SAFE_CUDA_MALLOC(&d_group_indices, (group_count)*sizeof(int), f_check);
-        d_group_indices.grow_to(group_count, __FILE__, __LINE__);
-        SAFE_CUDA_MEMCPY(d_group_indices.ptr,h_group_indices,(group_count)*sizeof(int),cudaMemcpyHostToDevice,f_check);
-        // alloc
-        DEBUG_LOG_COND((d_group_indices.ptr == NULL),"d_group_indices list not initialized");
-        DEBUG_LOG("h_group_indices list %d" ,h_group_indices[0]);
-        // =========================================================================
-        // h_group_numneigh / d_group_numneigh :
-        //      flatten index of the neighbour list. such as we have 20 neighbour
-        //      for atom 1, then the list will be : [0, 20, ...]
-        // =========================================================================
-        // int *numneigh = nlist->numneigh;
-        // int **firstneigh = nlist->firstneigh;
-        numneigh = nlist->numneigh;
-        firstneigh = nlist->firstneigh;
-        DEBUG_LOG_COND((numneigh == NULL),"numneigh list not initialized");
-        DEBUG_LOG_COND((firstneigh == NULL),"firstneigh list not initialized");
-        // 2. creating number array of start num in different c_atom's neighbor
-        // LAMMPS_NS::tagint *h_group_numneigh = new LAMMPS_NS::tagint[group_count + 1];
-        // LAMMPS_NS::tagint *d_group_numneigh;
-        datalen = group_count + 1;
-        lmp->memory->grow(h_group_numneigh, datalen, "STRU_FACTOR:h_group_numneigh");
-        d_group_numneigh.grow_to(datalen, __FILE__, __LINE__);
-        DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
-        // 3. 逐原子拷贝邻居列表数据到GPU
-        DEBUG_LOG("group_count=%d" ,group_count);
-        h_group_numneigh[0] = 0;
-        for (int gr_i = 0; gr_i < group_count; gr_i++) {
-            int i = h_group_indices[gr_i]; // 获取原子索引
-            int jnum = numneigh[i]; // 邻居数量
-            h_group_numneigh[gr_i+1] = h_group_numneigh[gr_i] + jnum;
-            DEBUG_LOG("gr_i=%d, tag=%d, jnum=%d, sum=%d", gr_i, i,jnum,h_group_numneigh[gr_i+1]);
-        }
-        SAFE_CUDA_MEMCPY(d_group_numneigh.ptr,h_group_numneigh,(group_count + 1)*sizeof(LAMMPS_NS::tagint),cudaMemcpyHostToDevice,f_check);
-        // =========================================================================
-        // h_group_numneigh / d_group_numneigh :
-        //      flatten index of the neighbour list. such as we have 20 neighbour
-        //      for atom 1, then the list will be : [0, 20, ...]
-        // h_firstneigh_ptrs / d_firstneigh_ptrs :
-        //      flatten neighbour list
-        // =========================================================================
-        lmp->memory->grow(h_firstneigh_ptrs, h_group_numneigh[group_count], "STRU_FACTOR:h_firstneigh_ptrs");
-        LAMMPS_NS::tagint ba_i;
-        LAMMPS_NS::tagint nnumber;
-        int i;
-        // SAFE_CUDA_FREE(d_firstneigh_ptrs);
-        // SAFE_CUDA_MALLOC(&d_firstneigh_ptrs, (h_group_numneigh[group_count]) * sizeof(int),f_check); // 分配设备端指针数组
-        d_firstneigh_ptrs.grow_to(h_group_numneigh[group_count], __FILE__, __LINE__);
-        DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[group_count + 1]=%d",h_group_numneigh[group_count]);
-        for (int gr_i = 0; gr_i < group_count; gr_i++) {
-            i = h_group_indices[gr_i]; // 获取原子索引
-            ba_i = h_group_numneigh[gr_i];
-            nnumber = h_group_numneigh[gr_i+1]-h_group_numneigh[gr_i];
-            DEBUG_LOG("h_group_numneigh=%d, num=%d" ,ba_i,nnumber);
-            DEBUG_LOG("end of firstneigh[i]=%d,h_firstneigh_ptrs[h_group_numneigh[gr_i+1]-1] = %d",firstneigh[i][nnumber-1],h_firstneigh_ptrs[h_group_numneigh[gr_i+1]-1]);
-            memcpy(&(h_firstneigh_ptrs[ba_i]),firstneigh[i],(nnumber)*sizeof(int));
-            DEBUG_LOG("h_firstneigh_ptrs[h_group_numneigh[gr_i+1]-1] = %d",h_firstneigh_ptrs[h_group_numneigh[gr_i+1]-1]);
-            if (gr_i==10){
-                for (int i =ba_i; i<ba_i+nnumber ;i++){
-                    DEBUG_LOG("%d,",atom->tag[h_firstneigh_ptrs[i]]);
-                }
-            }
-        }
-        SAFE_CUDA_MEMCPY(d_firstneigh_ptrs.ptr,h_firstneigh_ptrs,
-            (h_group_numneigh[group_count]) * sizeof(int),cudaMemcpyHostToDevice,f_check);
-        DEBUG_LOG_COND((d_firstneigh_ptrs.ptr == NULL),"d_firstneigh_ptrs list not initialized");
-        DEBUG_LOG("d_firstneigh_ptrs list %d %d %d" ,h_firstneigh_ptrs[1],h_firstneigh_ptrs[2],h_firstneigh_ptrs[3]);
-        DEBUG_LOG("generate end d_firstneigh_ptrs");
-        if (init_flag) {init_flag = true;}
-    }
-    // =========================================================================
-    // h_x / h_x_flat / d_x_flat :
-    //      atoms coordinate position
-    // =========================================================================
-    // int *h_tag = atom->tag;       // 原子全局ID数组(主机)
-    // int *d_tag;             // 设备端坐标二级指针
-    double **h_x = atom->x;      // 原子坐标数组(主机)
-    DEBUG_LOG("d_x_flat=%p",d_x_flat.ptr);
-    lmp->memory->grow(h_x_flat, (atom->nlocal + atom->nghost) * 3, "STRU_FACTOR:h_x_flat");
-    for (int i = 0; i < (atom->nlocal + atom->nghost); i++) {
-        memcpy(&(h_x_flat[i*3]), h_x[i], 3*sizeof(double));
-    }
-    DEBUG_LOG("there are %d, h_x_flat[10]=%f",(atom->nlocal + atom->nghost),h_x_flat[10]);
-    // SAFE_CUDA_FREE(d_x_flat); 
-    // SAFE_CUDA_MALLOC(&d_x_flat, ((atom->nlocal + atom->nghost) * 3)*sizeof(double),f_check);
-    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, __FILE__, __LINE__);
-    SAFE_CUDA_MEMCPY(d_x_flat.ptr,h_x_flat,((atom->nlocal + atom->nghost) * 3)*sizeof(double),cudaMemcpyHostToDevice, f_check);
-    // check the pointer
-    // DEBUG_LOG("alloc h_x,h_tag.....");
-    ERR_COND((h_x == NULL),"h_x list not initialized");
-    ERR_COND((h_x_flat == NULL),"h_x_flat list not initialized");
-    ERR_COND((d_x_flat.ptr == NULL),"d_x_flat list not initialized");
-    DEBUG_LOG("d_x_flat Allocated at: %p", d_x_flat.ptr);
-    cudaDeviceSynchronize(); // waiting memory
-
-    // =========================================================================
-    // create output address
-    // d_group_dminneigh : [dx, dy, dz, rsq] * (sum of whole pairs)
-    // d_neigh_in_cutoff_r : count of c_atoms' neighbours that satisfied cutoff_r
-    // =========================================================================
-    DEBUG_LOG("release end");
-    // beacause we cant foresee how many atoms will be in with a c_atoms neighbor
-    // so we just allocate a large memory for the result, which is group_count*cutoff_Natoms*4 for d_group_dminneigh and group_count*cutoff_Natoms for d_calculated_numneigh 
-    d_group_dminneigh.grow_to(h_group_numneigh[group_count]*4, __FILE__, __LINE__);
-    d_neigh_in_cutoff_r.grow_to(N, __FILE__, __LINE__);
-    d_calculated_numneigh.grow_to(h_group_numneigh[group_count]*2, __FILE__, __LINE__);
-
-    // box_x=box_y=box_z=40.0;
-    DEBUG_LOG("box_lim x:%f y:%f z:%f max:%f" ,box_x,box_y,box_z,box_x+box_y+box_z );
-    DEBUG_LOG("neigh finding .......");
-    DEBUG_LOG("i will start a kernel");
-    // kernel function will run
-    cudaError_t launchErr = cudaGetLastError();
-    cudaDeviceSynchronize(); // waiting memory
-    double cutoff_rsq = cutoff_r*cutoff_r;
-
-    // cudaDeviceSynchronize(); //catch kernel done
-    launchErr = cudaGetLastError();
-    get_environment_Strufactor<<<block_num,d_block_size>>>
-      (cutoff_rsq, box_x, box_y, box_z, 
-      group_count, d_group_indices.ptr, d_group_numneigh.ptr, d_firstneigh_ptrs.ptr, d_x_flat.ptr,
-      d_group_dminneigh.ptr, d_neigh_in_cutoff_r.ptr, d_calculated_numneigh.ptr) ;
-    DEBUG_LOG("env refresh out, kernel launched");
-    cudaDeviceSynchronize(); //catch kernel done
-    // cudaError_t launchErr = cudaGetLastError();
-    if (launchErr != cudaSuccess) {
-        // 输出到您的文件
-        fprintf(f_check, "CUDA Kernel launch failed: %s\n", cudaGetErrorString(launchErr));
-        fflush(f_check);
-        // 尝试输出到标准错误流 (确保在 LAMMPS 终端可见)
-        fprintf(stderr, "LAMMPS CUDA ERROR: Kernel launch failed: %s\n", cudaGetErrorString(launchErr));
-        error->all(FLERR, "Kernel launch failed. Check output for detailed CUDA error.");
-    }
-    cudaError_t syncErr = cudaDeviceSynchronize();
-    if (syncErr != cudaSuccess) {
-        fprintf(f_check, "Kernel execution error: %s\n", cudaGetErrorString(syncErr));
-        error->all(FLERR, "Kernel execution error\n");
-    }
-    DEBUG_LOG("im out");
-    DEBUG_LOG("neigh find finished");
-
-
-    // return the array for neigh
-    DEBUG_LOG("copy result array to cpu: group_dminneigh, neigh_in_cutoff_r, neigh_both_in_r_N");
-    // DEBUG_LOG((group_dminneigh == NULL),"group_dminneigh list not initialized");
-    // DEBUG_LOG((neigh_in_cutoff_r == NULL),"neigh_in_cutoff_r list not initialized");
-    // delete[] group_dminneigh;
-    // group_dminneigh = new double [h_group_numneigh[group_count]*4];
-    lmp->memory->grow(group_dminneigh, (h_group_numneigh[group_count]*4), "STRU_FACTOR:group_dminneigh");
-    SAFE_CUDA_MEMCPY(group_dminneigh, d_group_dminneigh.ptr,
-      (h_group_numneigh[group_count]*4) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-    // delete[] neigh_in_cutoff_r;
-    // neigh_in_cutoff_r = new int [group_count];
-    lmp->memory->grow(neigh_in_cutoff_r, (group_count), "STRU_FACTOR:neigh_in_cutoff_r");
-    SAFE_CUDA_MEMCPY(neigh_in_cutoff_r, d_neigh_in_cutoff_r.ptr,
-      (group_count) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
-    // delete[] calculated_numneigh;
-    // calculated_numneigh = new LAMMPS_NS::tagint [h_group_numneigh[group_count]];
-    lmp->memory->grow(calculated_numneigh, (h_group_numneigh[group_count]), "STRU_FACTOR:calculated_numneigh");
-    SAFE_CUDA_MEMCPY(calculated_numneigh, d_calculated_numneigh.ptr,
-      (h_group_numneigh[group_count]) * sizeof(LAMMPS_NS::tagint), cudaMemcpyDeviceToHost,f_check);
-    cudaDeviceSynchronize(); //catch kernel done
-    DEBUG_LOG("copy end");
-    DEBUG_LOG("group_dminneigh Allocated at: %p", group_dminneigh);
-    this->last_update_step = lmp->update->ntimestep;
-}
-
-void MetaD_zqc::Stru_factor::environment(){
-    DEBUG_LOG("last_update_step is %lld, group_count=%d", (long long)my_env->last_update_step, my_env->group_count);
-    if (lmp->update->ntimestep > my_env->last_update_step){
-        my_env->get_env();
-    }
-    // DEBUG_LOG("environment function in, env_setNum is %s, get_env done",env_setNum);
-    DEBUG_LOG("last_update_step is %lld, group_count=%d", (long long)my_env->last_update_step, my_env->group_count);
-}
-
-auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string func_name) -> CV_Calculation {
-    if (func_name == "AVE") {
-        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_AVE);
-    } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Stru_factor::compute_cv_FILTER_SUM);
-    } else if (func_name == "COUNT") {
-        return static_cast<CV_Calculation>(&Stru_factor::compute_cv_COUNT);
-    }
-    return nullptr;
-}
-
-auto MetaD_zqc::Stru_factor::set_CV_bias_force(std::string func_name) -> CV_BiasForce {
-    if (func_name == "AVE") {
-        return static_cast<CV_BiasForce>(&Stru_factor::bias_force_AVE);
-    } else if (func_name == "FILTER_SUM") {
-        // return static_cast<CV_Calculation>(&Stru_factor::bias_force_FILTER_SUM);
-    } else if (func_name == "COUNT") {
-        return static_cast<CV_BiasForce>(&Stru_factor::bias_force_COUNT);
-    }
-    return nullptr;
-}
-
-void MetaD_zqc::Stru_factor::base_calc(){
-    compute_stru_factor_peratoms();
-}
-
-double MetaD_zqc::Stru_factor::compute_cv_AVE(){
-    DEBUG_LOG("im in compute_cv_AVE.");
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal;
-    DEBUG_LOG("group_count = %d",group_count);
-    double sf_ave_local=0;
-    DEBUG_LOG_COND((h_stru_factor == NULL),"h_stru_factor list not initialized");
-    if (group_count != 0) {
-        my_averager->compute(Threads_own_atoms, all_count, h_stru_factor, 
-            lmp->atom->mask, my_env->groupbit, sf_ave_local);
-    }
-    MPI_Allreduce(&sf_ave_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
-    DEBUG_LOG("group_count = %d, compute_cv_AVE = %g",group_count, cv_value);
-    return cv_value;
-}
-
-double MetaD_zqc::Stru_factor::compute_cv_COUNT(){
-    DEBUG_LOG("im in compute_cv_COUNT.");
-    int group_count = my_env->group_count;
-    DEBUG_LOG("group_count = %d",group_count);
-    double sf_count_local=0;
-    DEBUG_LOG_COND((h_stru_factor == NULL),"h_stru_factor list not initialized");
-    if (group_count != 0) {
-        for (int c_atom=0; c_atom<group_count; c_atom++){
-            int c_tag = (my_env->h_group_indices)[c_atom];
-            double Si = h_stru_factor[c_tag];
-            sf_count_local += h_sw_func->f(sw_params, Si);
-        }
-    }
-    MPI_Allreduce(&sf_count_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
-    DEBUG_LOG("group_count = %d, compute_cv_COUNT = %g",group_count, cv_value);
-    return cv_value;
-}
-
-// double MetaD_zqc::Stru_factor::compute_cv_FILTER_SUM(){
-//     DEBUG_LOG("Entering compute_cv_FILTER_SUM.");
-//     int group_count = my_env->group_count;
-//     double filter_sum_local = 0.0;
-    
-//     // 参数建议：s_0 是区分液固的阈值（论文中的 1.25），d_0 是平滑过渡的宽度
-//     double s_0 = 1.25; 
-//     double d_0 = 0.1;  
-
-//     if (group_count != 0 && h_stru_factor != NULL) {
-//         for (int i = 0; i < group_count; ++i) {
-//             double s_i = h_stru_factor[i];
-            
-//             // 使用平滑阶跃函数：f(s) = 1 / (1 + exp(-(s - s_0) / d_0))
-//             // 这样当 s_i 增加时，贡献度平滑地从 0 变到 1
-//             double exp_term = std::exp(-(s_i - s_0) / d_0);
-//             double filter_val = 1.0 / (1.0 + exp_term);
-            
-//             filter_sum_local += filter_val;
-//         }
-//     }
-
-//     // 汇总所有进程的固态原子数估计值
-//     MPI_Allreduce(&filter_sum_local, &cv_value, 1, MPI_DOUBLE, MPI_SUM, lmp->world);
-    
-//     DEBUG_LOG("FILTER_SUM (Estimated solid atoms): %g", cv_value);
-//     return cv_value;
-// }
-
-void MetaD_zqc::Stru_factor::compute_stru_factor_peratoms(){
-    // =======接受邻居更新消息,进行与设备端通信===========
-    if ((lmp->update->ntimestep > lmp->neighbor->lastcall)&&(lmp->update->ntimestep != 1)&&(this->init_flag)){
-        DEBUG_LOG("rebuilds = %lld", (long long)lmp->neighbor->lastcall);
-        DEBUG_LOG("now = %lld", (long long)lmp->update->ntimestep);
-        ERR_COND(((my_env->h_group_indices) == nullptr),"h_group_indices is nullptr.");
-        DEBUG_LOG("h_group_indices=%p",(my_env->h_group_indices));
-    } else {
-        // ===重建邻居列表后重新查找local中的目标原子=======
-        if (lmp->update->ntimestep > my_env->last_update_step){
-            my_env->refresh_lmpbox();
-        }
-        DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
-        block_num = my_env->block_num;
-        N = my_env->N;
-        // h_stru_factor for all aim atoms
-        int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-        lmp->memory->grow(h_stru_factor, Threads_own_atoms, "metad:Stru_factor:cv_bound");
-        DEBUG_LOG("d_block_size is %d, block_num is %d",d_block_size, block_num);
-    }
-    DEBUG_LOG("group_count=%lld",(long long)my_env->group_count);
-
-    // 2. calculate atoms' environment
-    DEBUG_LOG("environment function in, env_setNum is %s",env_setNum.c_str());
-    environment();
-    DEBUG_LOG("environment function out");
-
-    // 3. calculate atoms' other things
-    sf_param_calc(h_stru_factor);
-
-    DEBUG_LOG_COND((my_env->group_dminneigh == NULL),"group_dminneigh list not initialized");
-    DEBUG_LOG("group_dminneigh Allocated at: %p", my_env->group_dminneigh);
-    
-    // 输出group中每个原子的sf值
-    DEBUG_RUN(for(int c_atom=0;c_atom<my_env->group_count;c_atom++)
-                {
-                    DEBUG_LOG("Stru_factor[%lld] = %f",(long long)c_atom,
-                    h_stru_factor[my_env->h_group_indices[c_atom]]);
-                });
-    DEBUG_LOG("post_force function end");
-}
-
-
-void MetaD_zqc::Stru_factor::bias_force_AVE(double dVdcv){
-    // pass
-    DEBUG_LOG("MetaD_zqc::Stru_factor::bias_force_AVE");
-    double **f = lmp->atom->f;
-    double **x = lmp->atom->x;
-    int c_tag;
-    double sumForce[3] = {0.0, 0.0, 0.0};
-    DEBUG_LOG("MetaD_zqc::Stru_factor::bias_force_AVE");
-    this->get_dcvdx_AVE(cv_value, h_dcvdx);
-    // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
-    // DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-    for (int c_atom=0; c_atom<(my_env->group_count); c_atom++){
-        DEBUG_LOG("dcvdx, dcvdy, dcvdz  = %g, %g, %g", h_dcvdx[c_atom*3 + 0], h_dcvdx[c_atom*3 + 1], h_dcvdx[c_atom*3 + 2]);
-        DEBUG_LOG("dVdcv  = %g", dVdcv);
-        c_tag = (my_env->h_group_indices)[c_atom];
-        DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
-            printf("error: force is infinity, check your system or cv_value.\n");
-             error->all(FLERR, "Stru_factor CV error: force is infinity, check your system or cv_value.");
-        }
-        f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
-        f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
-        f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
-        DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        sumForce[0] += dVdcv*h_dcvdx[c_atom*3 + 0];
-        sumForce[1] += dVdcv*h_dcvdx[c_atom*3 + 1];
-        sumForce[2] += dVdcv*h_dcvdx[c_atom*3 + 2];
-    }
-    double sumforce_mod=sqrt(POW2(sumForce[0])+POW2(sumForce[1])+POW2(sumForce[2]));
-    DEBUG_LOG_COND(sumforce_mod>1e-10,"Warning: bias force will make the system flow. sumforce_mod=%g",sumforce_mod);
-    DEBUG_LOG("sumForce=%g",sumforce_mod);
-    DEBUG_LOG("post_force_r_end");
-}
-
-
-void MetaD_zqc::Stru_factor::get_dcvdx_AVE(double cv_value, double *dcvdx){
-    int group_count = my_env->group_count;
-    int last_group_count = my_env->last_group_count;
-    int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    size_t datalen = 0;
-    
-
-    // DEBUG_RUN(
-    datalen = Threads_own_atoms;
-    lmp->memory->grow(h_stru_factor, datalen, "Stru_factor:h_stru_factor");
-    SAFE_CUDA_MEMCPY(h_stru_factor, d_stru_factor.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
-
-
-    datalen = (group_count*3);
-    lmp->memory->grow(h_dcvdx, datalen, "Stru_factor:h_dcvdx");
-    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
-    SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
-
-    // sync Stein_qlm and stein_q with communication
-    // then we can directly use the data in device to calculate dcvdx, 
-    // without worrying about the data consistency between MPI processes.
-    DEBUG_LOG("[Rank:%d][Before Comm] Structure_factor[0] = %f, ptr = %p\n",lmp->comm->me, h_stru_factor[0], (void*)h_stru_factor);
-    cudaDeviceSynchronize(); // waiting memory
-    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
-    comm_mode=true;
-    lmp->comm->forward_comm(Fixmetad);
-    comm_mode=false;
-    DEBUG_LOG("[Rank:%d][After Comm] Structure_factor[0] = %f, ptr = %p\n",lmp->comm->me, h_stru_factor[0], (void*)h_stru_factor);
-    // for (int i=0; i<((Threads_own_atoms)); i++){
-    //     printf("Structure_factor[%d] = %f\n", i, h_stru_factor[i]);
-    // }
-
-
-    DEBUG_LOG("i will start a kernel of ql");
-    cudaDeviceSynchronize(); // waiting memory
-    call_structure_factor_dcv_AVE_kernel();
-    cudaDeviceSynchronize(); // waiting memory
-    DEBUG_LOG("i am out");
-
-    cudaMemcpy(h_dcvdx, d_dcvdx.ptr, (group_count*3)*sizeof(double), cudaMemcpyDeviceToHost);
-    // SAFE_CUDA_MEMCPY(h_dcvdx, d_dcvdx,
-    //   (group_count*3)*sizeof(double), cudaMemcpyDeviceToHost, file);
-    cudaDeviceSynchronize(); // waiting memory
-}
-
-void MetaD_zqc::Stru_factor::bias_force_COUNT(double dVdcv){
-    // pass
-    DEBUG_LOG("MetaD_zqc::Stru_factor::bias_force_COUNT");
-    double **f = lmp->atom->f;
-    double **x = lmp->atom->x;
-    int c_tag;
-    double sumForce[3] = {0.0, 0.0, 0.0};
-    DEBUG_LOG("MetaD_zqc::Stru_factor::bias_force_COUNT");
-    this->get_dcvdx_COUNT(cv_value, h_dcvdx);
-    // DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
-    // DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-    for (int c_atom=0; c_atom<(my_env->group_count); c_atom++){
-        DEBUG_LOG("dcvdx, dcvdy, dcvdz  = %g, %g, %g", h_dcvdx[c_atom*3 + 0], h_dcvdx[c_atom*3 + 1], h_dcvdx[c_atom*3 + 2]);
-        DEBUG_LOG("dVdcv  = %g", dVdcv);
-        c_tag = (my_env->h_group_indices)[c_atom];
-        DEBUG_LOG("fx0,fy0,fz0  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        if (isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])){
-            printf("error: force is infinity, check your system or cv_value.\n");
-             error->all(FLERR, "Stru_factor CV error: force is infinity, check your system or cv_value.");
-        }
-        f[c_tag][0] -= dVdcv*h_dcvdx[c_atom*3 + 0];
-        f[c_tag][1] -= dVdcv*h_dcvdx[c_atom*3 + 1];
-        f[c_tag][2] -= dVdcv*h_dcvdx[c_atom*3 + 2];
-        DEBUG_LOG("fx,fy,fz  = %g, %g, %g", f[c_tag][0], f[c_tag][1], f[c_tag][2]);
-        sumForce[0] += dVdcv*h_dcvdx[c_atom*3 + 0];
-        sumForce[1] += dVdcv*h_dcvdx[c_atom*3 + 1];
-        sumForce[2] += dVdcv*h_dcvdx[c_atom*3 + 2];
-    }
-    double sumforce_mod=sqrt(POW2(sumForce[0])+POW2(sumForce[1])+POW2(sumForce[2]));
-    DEBUG_LOG_COND(sumforce_mod>1e-10,"Warning: bias force will make the system flow. sumforce_mod=%g",sumforce_mod);
-    DEBUG_LOG("sumForce=%g",sumforce_mod);
-    DEBUG_LOG("post_force_r_end");
-}
-
-
-void MetaD_zqc::Stru_factor::get_dcvdx_COUNT(double cv_value, double *dcvdx){
-    int group_count = my_env->group_count;
-    int last_group_count = my_env->last_group_count;
-    int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    size_t datalen = 0;
-    
-
-    // DEBUG_RUN(
-    datalen = Threads_own_atoms;
-    lmp->memory->grow(h_stru_factor, datalen, "Stru_factor:h_stru_factor");
-    SAFE_CUDA_MEMCPY(h_stru_factor, d_stru_factor.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
-
-
-    datalen = (group_count*3);
-    lmp->memory->grow(h_dcvdx, datalen, "Stru_factor:h_dcvdx");
-    d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
-    SAFE_CUDA_MEMCPY(d_dcvdx.ptr,h_dcvdx, datalen*sizeof(double),cudaMemcpyHostToDevice,f_check);
-
-    // sync Stein_qlm and stein_q with communication
-    // then we can directly use the data in device to calculate dcvdx, 
-    // without worrying about the data consistency between MPI processes.
-    DEBUG_LOG("[Rank:%d][Before Comm] Structure_factor[0] = %f, ptr = %p\n",lmp->comm->me, h_stru_factor[0], (void*)h_stru_factor);
-    cudaDeviceSynchronize(); // waiting memory
-    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
-    comm_mode=true;
-    lmp->comm->forward_comm(Fixmetad);
-    comm_mode=false;
-    DEBUG_LOG("[Rank:%d][After Comm] Structure_factor[0] = %f, ptr = %p\n",lmp->comm->me, h_stru_factor[0], (void*)h_stru_factor);
-    // for (int i=0; i<((Threads_own_atoms)); i++){
-    //     printf("Structure_factor[%d] = %f\n", i, h_stru_factor[i]);
-    // }
-
-    DEBUG_LOG("i will start a kernel of ql");
-    cudaDeviceSynchronize(); // waiting memory
-    call_structure_factor_dcv_COUNT_kernel();
-    cudaDeviceSynchronize(); // waiting memory
-    DEBUG_LOG("i am out");
-
-    cudaMemcpy(h_dcvdx, d_dcvdx.ptr, (group_count*3)*sizeof(double), cudaMemcpyDeviceToHost);
-    // SAFE_CUDA_MEMCPY(h_dcvdx, d_dcvdx,
-    //   (group_count*3)*sizeof(double), cudaMemcpyDeviceToHost, file);
-    cudaDeviceSynchronize(); // waiting memory
-}
-
-
-void MetaD_zqc::Stru_factor::sf_param_calc(double *h_stru_factor){
-    int last_group_count = my_env->last_group_count;
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    cudaStream_t lammps_stream = 0; // Assuming you want to use the default stream. Adjust if you have a specific stream.
-
-    d_stru_factor.grow_to(Threads_own_atoms, __FILE__, __LINE__);
-    cudaMemsetAsync(d_stru_factor.ptr, 0, (Threads_own_atoms)*sizeof(double), lammps_stream);
-
-    DEBUG_LOG("i will start a kernel of ql");
-    cudaDeviceSynchronize(); // waiting memory
-    // TODO:
-    call_structure_factor_cv_kernel();
-    cudaDeviceSynchronize(); //catch kernel done
-    cudaError_t launchErr = cudaGetLastError();
-    if (launchErr != cudaSuccess) {
-        fprintf(f_check, "Kernel launch failed: %s\n", cudaGetErrorString(launchErr));
-        error->all(FLERR, "Kernel launch failed\n");
-    }
-    cudaError_t syncErr = cudaDeviceSynchronize();
-    if (syncErr != cudaSuccess) {
-        fprintf(f_check, "Kernel execution error: %s\n", cudaGetErrorString(syncErr));
-        error->all(FLERR, "Kernel execution error\n");
-    }
-    DEBUG_LOG("im out");
-    DEBUG_LOG("ql calculated find finished");
-
-    SAFE_CUDA_MEMCPY(h_stru_factor, d_stru_factor.ptr,
-      (Threads_own_atoms) * sizeof(double), cudaMemcpyDeviceToHost,f_check);
-}
-
-void MetaD_zqc::Stru_factor::summary(FILE* f){}
-
-int MetaD_zqc::Stru_factor::get_comm_forward_bytes(){ 
-    return 1; // Structure_factor
-}
-
-int MetaD_zqc::Stru_factor::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
-    if (!comm_mode){
-        return 1;
-    }
-    int m = slot_offset; 
-    int cycle_offset = comm_forward;
-
-    for (int i = 0; i < n; i++) {
-        int j = list[i];
-        u_buf[m + cycle_offset*i] = h_stru_factor[j];
-    }
-    
-    return 1;
-}
-
-void MetaD_zqc::Stru_factor::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
-    if (!comm_mode){
+    if (!nlist) throw std::runtime_error("STRU_FACTOR: neighbor list is unavailable");
+    if (data.group_count == 0) {
+        last_update_step = lmp->update->ntimestep;
         return;
     }
 
-    int m = slot_offset; 
-    int cycle_offset = comm_forward;
-    
-    // 从 first 开始，连续恢复 n 个 Ghost 原子的复合数据
-    for (int i = first; i < first + n; i++) {
-        h_stru_factor[i] = u_buf[ m+ cycle_offset*(i-first)];
+    // 按压缩中心顺序展平 LAMMPS 候选邻居，偏移末项记录总槽位数。
+    data.grow_centers(__FILE__, __LINE__);
+    check_strufactor_cuda(cudaMemcpy(data.d_group_indices.ptr, h_group_indices,
+                                     data.group_count*sizeof(*h_group_indices), cudaMemcpyHostToDevice));
+    lmp->memory->grow(h_group_numneigh, data.group_count+1, "STRU_FACTOR:h_group_numneigh");
+    h_group_numneigh[0] = 0;
+    for (int k = 0; k < data.group_count; ++k)
+        h_group_numneigh[k+1] = h_group_numneigh[k] + nlist->numneigh[h_group_indices[k]];
+    const size_t pairs = h_group_numneigh[data.group_count];
+    check_strufactor_cuda(cudaMemcpy(data.d_group_numneigh.ptr, h_group_numneigh,
+                                     (data.group_count+1)*sizeof(*h_group_numneigh), cudaMemcpyHostToDevice));
+    lmp->memory->grow(h_firstneigh_ptrs, pairs, "STRU_FACTOR:h_firstneigh_ptrs");
+    d_firstneigh_ptrs.grow_to(pairs, __FILE__, __LINE__);
+    for (int k = 0; k < data.group_count; ++k) {
+        const int count = nlist->numneigh[h_group_indices[k]];
+        if (count) std::copy_n(nlist->firstneigh[h_group_indices[k]], count,
+                               h_firstneigh_ptrs+h_group_numneigh[k]);
+    }
+    if (pairs) check_strufactor_cuda(cudaMemcpy(d_firstneigh_ptrs.ptr, h_firstneigh_ptrs,
+                                                pairs*sizeof(int), cudaMemcpyHostToDevice));
+
+    // 邻居 localid 直接索引 owned+ghost 坐标；周期镜像坐标由 LAMMPS 提供。
+    const size_t nall = static_cast<size_t>(atom->nlocal) + atom->nghost;
+    lmp->memory->grow(h_x_flat, 3*nall, "STRU_FACTOR:h_x_flat");
+    for (size_t i = 0; i < nall; ++i) std::copy_n(atom->x[i], 3, h_x_flat+3*i);
+    d_x_flat.grow_to(3*nall, __FILE__, __LINE__);
+    check_strufactor_cuda(cudaMemcpy(d_x_flat.ptr, h_x_flat, 3*nall*sizeof(double), cudaMemcpyHostToDevice));
+    data.grow_neighbors(pairs, data.group_count, __FILE__, __LINE__);
+    get_environment_Strufactor<<<block_num,d_block_size>>>(cutoff_r*cutoff_r,
+        data.group_count, data.d_group_indices.ptr, data.d_group_numneigh.ptr,
+        d_firstneigh_ptrs.ptr, d_x_flat.ptr, data.d_group_dminneigh.ptr,
+        data.d_neigh_in_cutoff_r.ptr, data.d_calculated_numneigh.ptr);
+    check_strufactor_cuda(cudaGetLastError());
+    // 后续前向、反向在默认流中复用本轮筛选后的几何数据。
+    last_update_step = lmp->update->ntimestep;
+}
+
+void MetaD_zqc::Stru_factor::environment() {
+    if (my_env->last_update_step != lmp->update->ntimestep) {
+        my_env->refresh_lmpbox();
+        my_env->get_env();
     }
 }
 
-double* MetaD_zqc::Stru_factor::get_peratom_ptr(const std::string &prop_name) {
-    if (prop_name == "stru_f") {
-        return h_stru_factor;
+auto MetaD_zqc::Stru_factor::set_CV_calculate(std::string) -> CV_Calculation {
+    throw std::runtime_error("STRU_FACTOR: use EXECUTOR GRAPH; reductions belong to the graph");
+}
+
+auto MetaD_zqc::Stru_factor::set_CV_bias_force(std::string) -> CV_BiasForce {
+    throw std::runtime_error("STRU_FACTOR: use EXECUTOR GRAPH for adjoint propagation");
+}
+
+void MetaD_zqc::Stru_factor::bind_assembly(std::shared_ptr<const CVAssembly> assembly) {
+    if (assembly && (assembly->groupbit() != my_env->groupbit ||
+                     assembly->nlocal() != lmp->atom->nlocal ||
+                     assembly->nghost() != lmp->atom->nghost))
+        throw std::invalid_argument("Stru_factor: incompatible atom assembly");
+    if (my_env->atom_assembly != assembly) {
+        my_env->atom_assembly = assembly;
+        my_env->last_update_step = -1;
     }
-    return nullptr;
+    raw_values_ready = false;
+    graph_evaluation_prepared = false;
+    CV::bind_assembly(std::move(assembly));
 }
 
-void MetaD_zqc::Stru_factor::call_structure_factor_cv_kernel(){
-    structure_factor_cv_kernel<<<block_num,d_block_size>>>(
-        (my_env->group_count), q_factor, POW2(my_env->cutoff_r),
-        (my_env->d_group_indices.ptr),
-        (my_env->d_group_numneigh.ptr), 
-        (my_env->d_group_dminneigh.ptr), 
-        (my_env->d_neigh_in_cutoff_r.ptr), 
-        d_stru_factor.ptr);
+void MetaD_zqc::Stru_factor::check_graph_values() const {
+    if (!assembly_)
+        throw std::logic_error("Stru_factor: bind an atom assembly before using the graph interface");
+    if (!raw_values_ready || raw_value_step != lmp->update->ntimestep)
+        throw std::logic_error("Stru_factor: base_calc is required before assembly/backward");
+    if (assembly_->nlocal() != lmp->atom->nlocal || assembly_->nghost() != lmp->atom->nghost ||
+        assembly_->group_count() != my_env->data.group_count)
+        throw std::logic_error("Stru_factor: owned/ghost layout changed; rebuild and bind it first");
 }
 
-void MetaD_zqc::Stru_factor::call_structure_factor_dcv_AVE_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    structure_factor_dcv_AVE_kernel<<<block_num,d_block_size>>>(
-        (my_env->group_count), (my_env->groupbit), all_count, POW2(my_env->cutoff_r),
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), 
-        (my_env->d_calculated_numneigh.ptr), (my_env->d_group_numneigh.ptr),
-        (my_env->d_neigh_in_cutoff_r.ptr), (my_env->d_group_dminneigh.ptr),
-        q_factor, d_stru_factor.ptr, 
-        d_dcvdx.ptr);
+// 从 localid 排列的原始值提取本组 owned 中心，装配到公共 Leaf 的 leaf_slots。
+void MetaD_zqc::Stru_factor::assemble_values(GpuBuffer<double>& values) {
+    check_graph_values();
+    assembly_->assemble_values(d_stru_factor, values);
 }
 
-void MetaD_zqc::Stru_factor::call_structure_factor_dcv_COUNT_kernel(){
-    // printf("[Rank:%d]d_stein_Ylm is located in %p\n",lmp->comm->me,d_stein_Ylm.ptr);
-    structure_factor_dcv_COUNT_kernel<<<block_num,d_block_size>>>(
-        sw_params,
-        (my_env->group_count), (my_env->groupbit), all_count, POW2(my_env->cutoff_r),
-        (my_env->d_mask.ptr), (my_env->d_group_indices.ptr), 
-        (my_env->d_calculated_numneigh.ptr), (my_env->d_group_numneigh.ptr),
-        (my_env->d_neigh_in_cutoff_r.ptr), (my_env->d_group_dminneigh.ptr),
-        q_factor, d_stru_factor.ptr, 
-        d_dcvdx.ptr);
+void MetaD_zqc::Stru_factor::prepare_graph_evaluation() {
+    // 每轮统一使共享环境失效，由首个使用者更新；支持同一步重复求值。
+    raw_values_ready = false;
+    my_env->last_update_step = -1;
+    graph_evaluation_prepared = true;
 }
 
-__global__ void get_environment_Strufactor(double cutoff_rsq,
-    double box_x, double box_y, double box_z,
-    int group_count, int *d_group_indices, LAMMPS_NS::tagint *d_group_numneigh,
-    int *d_firstneigh_ptrs, double *d_x_flat,
-    double *d_group_dminneigh, int *d_neigh_in_cutoff_r,
-    LAMMPS_NS::tagint *d_calculated_numneigh){
-    // get_environment_Strufactor in GPU
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    if(c_atom<group_count){
-        double r2,temp_r2,temp_x,temp_y,temp_z,neigh_x,neigh_y,neigh_z;
-        double delt_x,delt_y,delt_z;
-        int c_atom_tag = d_group_indices[c_atom];
-        int temp_tag = 0;
-        d_neigh_in_cutoff_r[c_atom] = 0;
-        // c_glob_tag = h_tag[c_atom_tag];
-        double c_x = d_x_flat[c_atom_tag*3];
-        double c_y = d_x_flat[c_atom_tag*3+1];
-        double c_z = d_x_flat[c_atom_tag*3+2];
-        int max_ii;
-        // DEBUG_LOG("now im in %d, c_atom_tag=%d, cx,cy,cz:%f,%f,%f",c_atom,c_atom_tag,c_x,c_y,c_z);
-        double max_r2 = (box_x+box_y+box_z)*(box_x+box_y+box_z);
-        int neigh_min, neigh_max;
-        neigh_min = d_group_numneigh[c_atom];
-        neigh_max = d_group_numneigh[c_atom+1];
-        for (int i=neigh_min;i<neigh_max;i++){
-            d_group_dminneigh[i*4]=-1;
-            d_calculated_numneigh[i] = -1;
-        }
-        //find curtoff_Natoms neigh
-        for (int neigh_atom = neigh_min; neigh_atom < neigh_max; neigh_atom++){
-            int n_local_tag = d_firstneigh_ptrs[neigh_atom];
-            // if (n_local_tag < 0 ) continue;
-            // int n_glob_tag = h_tag[n_local_tag];
-            neigh_x = d_x_flat[n_local_tag*3];
-            neigh_y = d_x_flat[n_local_tag*3+1];
-            neigh_z = d_x_flat[n_local_tag*3+2];
-            delt_x = (neigh_x - c_x);
-            delt_y = (neigh_y - c_y);
-            delt_z = (neigh_z - c_z);
-            // if (delt_x > box_x/2) {
-            //     delt_x -= box_x;
-            // } else if (delt_x < -box_x/2) {
-            //     delt_x += box_x;
-            // }
-            // if (delt_y > box_y/2) {
-            //     delt_y -= box_y;
-            // } else if (delt_y < -box_y/2) {
-            //     delt_y += box_y;
-            // }
-            // if (delt_z > box_z/2) {
-            //     delt_z -= box_z;
-            // } else if (delt_z < -box_z/2) {
-            //     delt_z += box_z;
-            // }
-            // DEBUG_LOG("c_atom_tag=%d, n_local_tag=%d, nx,ny,nz:%f,%f,%f",c_atom_tag,n_local_tag,delt_x,delt_y,delt_z);
-            r2 = delt_x*delt_x + delt_y*delt_y + delt_z*delt_z;
-            if ((r2 > cutoff_rsq )||(r2<1e-12)) continue;
-            d_group_dminneigh[neigh_min*4 + temp_tag*4 + 0 ] = delt_x;
-            d_group_dminneigh[neigh_min*4 + temp_tag*4 + 1 ] = delt_y;
-            d_group_dminneigh[neigh_min*4 + temp_tag*4 + 2 ] = delt_z;
-            d_group_dminneigh[neigh_min*4 + temp_tag*4 + 3 ] = r2;
-            d_calculated_numneigh[neigh_min + temp_tag] = n_local_tag;
-            temp_tag++;
-        }
-        d_neigh_in_cutoff_r[c_atom] = temp_tag;
+void MetaD_zqc::Stru_factor::base_calc(){
+    raw_values_ready = false;
+    if (assembly_) {
+        // 独立调用时刷新环境；Graph 调用使用 prepare 阶段的失效标记。
+        if (!graph_evaluation_prepared) my_env->last_update_step = -1;
+    }
+    graph_evaluation_prepared = false;
+    compute_stru_factor_peratoms();
+    raw_value_step = lmp->update->ntimestep;
+    raw_values_ready = true;
+}
+
+void MetaD_zqc::Stru_factor::apply_adjoint(const GpuBuffer<double>& leaf_adjoint) {
+    check_graph_values();
+    const size_t nall = static_cast<size_t>(lmp->atom->nlocal) + lmp->atom->nghost;
+    // Leaf 的公共排列可覆盖多个原子组，反向先提取本组紧凑的 dV/dS_i 数组。
+    d_center_adjoint.grow_to(my_env->data.group_count, __FILE__, __LINE__);
+    assembly_->gather_adjoint(leaf_adjoint, d_center_adjoint);
+    d_graph_force.grow_to(3*nall, __FILE__, __LINE__);
+    d_graph_virial.grow_to(6*nall, __FILE__, __LINE__);
+    h_graph_force.resize(3*nall);
+    h_graph_virial.resize(6*nall);
+    if (nall) {
+        check_strufactor_cuda(cudaMemset(d_graph_force.ptr, 0, 3*nall*sizeof(double)));
+        check_strufactor_cuda(cudaMemset(d_graph_virial.ptr, 0, 6*nall*sizeof(double)));
+    }
+    call_structure_factor_adjoint_kernel(d_center_adjoint.ptr, d_graph_force.ptr, d_graph_virial.ptr);
+    if (nall) {
+        check_strufactor_cuda(cudaMemcpy(h_graph_force.data(), d_graph_force.ptr,
+                                        3*nall*sizeof(double), cudaMemcpyDeviceToHost));
+        check_strufactor_cuda(cudaMemcpy(h_graph_virial.data(), d_graph_virial.ptr,
+                                        6*nall*sizeof(double), cudaMemcpyDeviceToHost));
+    }
+    // ghost 的力/virial 回到 owner；空中心组也参加这轮通信。
+    Fixmetad->communicate_reverse(*this);
+    for (int atom = 0; atom < lmp->atom->nlocal; ++atom) {
+        for (int c = 0; c < 3; ++c) lmp->atom->f[atom][c] += h_graph_force[3*atom+c];
+        if (Fixmetad->a_virial)
+            for (int c = 0; c < 6; ++c) Fixmetad->a_virial[6*atom+c] += h_graph_virial[6*atom+c];
     }
 }
 
-__global__ void structure_factor_cv_kernel(
-        int group_count, double q_factor, double cutoff_rsq,
-        int *d_group_indices,
-        LAMMPS_NS::tagint *d_group_numneigh,
-        double *d_group_dminneigh, int *d_neigh_in_cutoff_r, 
-        double *d_stru_factor){
+// 每个 ghost 打包 3 分量力和 6 分量 virial；offset、stride 的单位是 double。
+int MetaD_zqc::Stru_factor::pack_comm_reverse_ubuf(int n, int first, double* buf, int offset, int stride) {
+    for (int i = 0; i < n; ++i) {
+        for (int c = 0; c < 3; ++c)
+            buf[offset+i*stride+c] = h_graph_force[3*(first+i)+c];
+        for (int c = 0; c < 6; ++c)
+            buf[offset+i*stride+3+c] = h_graph_virial[6*(first+i)+c];
+    }
+    return 9;
+}
 
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    double r_on = 0.8*cutoff_rsq;
-    double s = 1.0;
-    // double ds = 0.0;
-    if(c_atom<group_count){
-        int neigh_min, neigh_max;
-        neigh_min = d_group_numneigh[c_atom];
-        neigh_max = d_group_numneigh[c_atom] + d_neigh_in_cutoff_r[c_atom];
-        double sf_value = 0;
-        int c_atom_tag = d_group_indices[c_atom];
-        d_stru_factor[c_atom_tag] = 0;
-        for (int neigh_atom = neigh_min; neigh_atom < neigh_max; neigh_atom++){
-            double delt_x, delt_y, delt_z, r2, r;
-            double theta;
-            double sin_theta, cos_theta;
-            delt_x = d_group_dminneigh[neigh_atom*4 + 0];
-            delt_y = d_group_dminneigh[neigh_atom*4 + 1];
-            delt_z = d_group_dminneigh[neigh_atom*4 + 2];
-            r2 = d_group_dminneigh[neigh_atom*4 + 3];
-            r      = sqrt(r2);
-            theta  = q_factor*r;
-            sincos(theta, &sin_theta, &cos_theta);
-            double s = 1.0;
-            if (r2 > r_on){
-                s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
-            }
-            d_stru_factor[c_atom_tag] += sin_theta/theta*s;
-        }
-        // d_stru_factor[c_atom_tag] /= (double)(d_neigh_in_cutoff_r[c_atom]);
-        d_stru_factor[c_atom_tag] += 1.0;
+// list 给出本 rank 的 owner localid，将接收贡献累加到 Host 力/virial 数组。
+void MetaD_zqc::Stru_factor::unpack_comm_reverse_ubuf(int n, int* list, double* buf, int offset, int stride) {
+    for (int i = 0; i < n; ++i) {
+        for (int c = 0; c < 3; ++c) h_graph_force[3*list[i]+c] += buf[offset+i*stride+c];
+        for (int c = 0; c < 6; ++c) h_graph_virial[6*list[i]+c] += buf[offset+i*stride+3+c];
     }
 }
 
-// __global__ void structure_factor_cv_Filter(
-//         int group_count, double q_factor_filter,
-//         LAMMPS_NS::tagint *d_group_numneigh,
-//         double *d_stru_factor){
-
-//     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-//     double r_on = 0.8*cutoff_rsq;
-//     double s = 1.0;
-//     // double ds = 0.0;
-//     if(c_atom<group_count){
-//         d_stru_factor[c_atom] = q_factor_filter;
-//     }
-// }
-
-__global__ void structure_factor_dcv_AVE_kernel(
-        int group_count, int groupbit, int all_count, double cutoff_rsq,
-        int *d_mask, LAMMPS_NS::tagint *d_group_indices, 
-        LAMMPS_NS::tagint *d_calculated_numneigh,
-        LAMMPS_NS::tagint *d_group_numneigh,
-        int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
-        double q_factor, double *d_stru_factor, 
-        double *d_dcvdx){
-    
-    double r_on = 0.8*cutoff_rsq;
-    // devise version=============
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    if(c_atom<group_count){
-    // host version===============
-    // for (int c_atom=0; c_atom<group_count; c_atom++){
-        int neigh_tag, neigh_Nb;
-        int neigh_min, neigh_max;
-        double NeighInGroupWeight, temp, Stru_fact;
-        int c_atom_tag = d_group_indices[c_atom];
-        // double sin_6phi, cos_6phi;
-        int Stru_fact_base_id, Stru_fact_neigh_id, Neigh_Nb;
-        double dcvdx_local[3] = {0.0, 0.0, 0.0};
-        neigh_min = d_group_numneigh[c_atom];
-        neigh_max = d_group_numneigh[c_atom] + d_neigh_in_cutoff_r[c_atom];
-        int neigh_num = d_neigh_in_cutoff_r[c_atom];
-        if (neigh_num == 0) {
-            neigh_max=neigh_min=0;
-        }
-        for(int neigh_atom=neigh_min; neigh_atom<neigh_max; neigh_atom++){
-            double dx, dy, dz, r2, r;
-            double theta, sin_theta, cos_theta;
-            double s = 1.0;
-            double ds = 0.0;
-            dx = d_group_dminneigh[ neigh_atom*4 + 0];
-            dy = d_group_dminneigh[ neigh_atom*4 + 1];
-            dz = d_group_dminneigh[ neigh_atom*4 + 2];
-            r2     = d_group_dminneigh[ neigh_atom*4 + 3];
-            r      = sqrt(r2);
-            theta = q_factor*r;
-            sincos(theta, &sin_theta, &cos_theta);
-            // 处理 neigh 与 cv-group 重合的部分
-            neigh_tag = d_calculated_numneigh[neigh_atom];
-            NeighInGroupWeight = 1.0;
-            if (d_mask[neigh_tag]&groupbit){
-                NeighInGroupWeight += 1.0;
-            }
-            if (r2 > r_on){
-                s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
-                ds = - 3*POW2((r2-r_on)/(cutoff_rsq-r_on)) * (2.0*r) / (cutoff_rsq-r_on);
-            } else {
-                s = 1.0;
-                ds = 0.0;
-            }
-            temp = (NeighInGroupWeight / all_count)*(
-                        (cos_theta/theta - sin_theta/POW2(theta)) *s * q_factor
-                        + ds*sin_theta/theta);
-            dcvdx_local[0] -= (temp)*dx/r;
-            dcvdx_local[1] -= (temp)*dy/r;
-            dcvdx_local[2] -= (temp)*dz/r;
-        }
-        d_dcvdx[c_atom_tag * 3 + 0] = dcvdx_local[0];
-        d_dcvdx[c_atom_tag * 3 + 1] = dcvdx_local[1];
-        d_dcvdx[c_atom_tag * 3 + 2] = dcvdx_local[2];
-    }
+// 原始值按 owned+ghost 的 localid 分配：清零后计算 owned 中心，下载 Host 副本供逐原子输出。
+void MetaD_zqc::Stru_factor::compute_stru_factor_peratoms() {
+    environment();
+    const size_t nall = static_cast<size_t>(lmp->atom->nlocal) + lmp->atom->nghost;
+    lmp->memory->grow(h_stru_factor, nall, "Stru_factor:h_stru_factor");
+    d_stru_factor.grow_to(nall, __FILE__, __LINE__);
+    if (nall) check_strufactor_cuda(cudaMemset(d_stru_factor.ptr, 0, nall*sizeof(double)));
+    if (my_env->data.group_count) call_structure_factor_cv_kernel();
+    if (nall) check_strufactor_cuda(cudaMemcpy(h_stru_factor, d_stru_factor.ptr,
+                                              nall*sizeof(double), cudaMemcpyDeviceToHost));
 }
 
-__global__ void structure_factor_dcv_COUNT_kernel(
-        MetaD_zqc::SwitchFunctionRequest sw_params,
-        int group_count, int groupbit, int all_count, double cutoff_rsq,
-        int *d_mask, LAMMPS_NS::tagint *d_group_indices, 
-        LAMMPS_NS::tagint *d_calculated_numneigh,
-        LAMMPS_NS::tagint *d_group_numneigh,
-        int *d_neigh_in_cutoff_r, double *d_group_dminneigh,
-        double q_factor, double *d_stru_factor, 
-        double *d_dcvdx){
-    
-    double r_on = 0.8*cutoff_rsq;
-    // devise version=============
-    int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
-    auto sw_func_df = [&](double S_val) {
-        return MetaD_zqc::SwitchFunction::df(sw_params, S_val);
-    };
-    if(c_atom<group_count){
-    // host version===============
-    // for (int c_atom=0; c_atom<group_count; c_atom++){
-        int neigh_tag, neigh_Nb;
-        int neigh_min, neigh_max;
-        double temp, Stru_fact;
-        int c_atom_tag = d_group_indices[c_atom];
-        double dSW_C = sw_func_df(d_stru_factor[c_atom_tag]);
-        // double sin_6phi, cos_6phi;
-        int Stru_fact_base_id, Stru_fact_neigh_id, Neigh_Nb;
-        double dcvdx_local[3] = {0.0, 0.0, 0.0};
-        neigh_min = d_group_numneigh[c_atom];
-        neigh_max = d_group_numneigh[c_atom] + d_neigh_in_cutoff_r[c_atom];
-        int neigh_num = d_neigh_in_cutoff_r[c_atom];
-        if (neigh_num == 0) {
-            neigh_max=neigh_min=0;
-        }
-        for(int neigh_atom=neigh_min; neigh_atom<neigh_max; neigh_atom++){
-            double dx, dy, dz, r2, r;
-            double theta, sin_theta, cos_theta;
-            double s = 1.0;
-            double ds = 0.0;
-            dx = d_group_dminneigh[ neigh_atom*4 + 0];
-            dy = d_group_dminneigh[ neigh_atom*4 + 1];
-            dz = d_group_dminneigh[ neigh_atom*4 + 2];
-            r2     = d_group_dminneigh[ neigh_atom*4 + 3];
-            r      = sqrt(r2);
-            theta = q_factor*r;
-            sincos(theta, &sin_theta, &cos_theta);
-            // 处理 neigh 与 cv-group 重合的部分
-            neigh_tag = d_calculated_numneigh[neigh_atom];
-            double dSW_N = 0;
-            if (d_mask[neigh_tag]&groupbit){
-                dSW_N = sw_func_df(d_stru_factor[neigh_tag]);
-            }
-            if (r2 > r_on){
-                s = 1.0 - POW3((r2-r_on)/(cutoff_rsq-r_on));
-                ds = - 3*POW2((r2-r_on)/(cutoff_rsq-r_on)) * (2.0*r) / (cutoff_rsq-r_on);
-            } else {
-                s = 1.0;
-                ds = 0.0;
-            }
-            temp = ( (dSW_C+dSW_N))*(
-                        (cos_theta/theta - sin_theta/POW2(theta)) *s * q_factor
-                        + ds*sin_theta/theta);
-            dcvdx_local[0] -= (temp)*dx/r;
-            dcvdx_local[1] -= (temp)*dy/r;
-            dcvdx_local[2] -= (temp)*dz/r;
-        }
-        d_dcvdx[c_atom_tag * 3 + 0] = dcvdx_local[0];
-        d_dcvdx[c_atom_tag * 3 + 1] = dcvdx_local[1];
-        d_dcvdx[c_atom_tag * 3 + 2] = dcvdx_local[2];
+void MetaD_zqc::Stru_factor::call_structure_factor_cv_kernel() {
+    strufactor_forward(my_env->data, q_factor, my_env->cutoff_r*my_env->cutoff_r,
+                       d_stru_factor.ptr, 0, d_block_size);
+}
+
+void MetaD_zqc::Stru_factor::call_structure_factor_adjoint_kernel(
+    const double* center_adjoint, double* atom_forces, double* atom_virials) {
+    strufactor_backward(my_env->data, q_factor, my_env->cutoff_r*my_env->cutoff_r,
+                        center_adjoint, atom_forces, atom_virials, 0, d_block_size);
+}
+
+void MetaD_zqc::Stru_factor::summary(FILE*) {}
+
+double* MetaD_zqc::Stru_factor::get_peratom_ptr(const std::string& name) {
+    return name == "stru_f" ? h_stru_factor : nullptr;
+}
+
+// 一线程处理一个中心，将 cutoff 内的邻居紧排到自己的候选段开头。
+// candidates 按 offsets 分段，coordinates 按 [3*localid+c] 排列；LAMMPS 已提供周期镜像坐标。
+// 输出 neighbors[slot] 和 geometry[4*slot+c] 共享槽位，counts[k] 记录每段有效前缀长度。
+__global__ void get_environment_Strufactor(double cutoff_rsq, int group_count,
+    int* centers, LAMMPS_NS::tagint* offsets, int* candidates, double* coordinates,
+    double* geometry, int* counts, LAMMPS_NS::tagint* neighbors) {
+    const int k = blockIdx.x*blockDim.x + threadIdx.x;
+    if (k >= group_count) return;
+    const int center = centers[k];
+    const int first = offsets[k], last = offsets[k+1];
+    int count = 0;
+    for (int p = first; p < last; ++p) {
+        const int neighbor = candidates[p] & NEIGHMASK;
+        const double dx = coordinates[3*neighbor] - coordinates[3*center];
+        const double dy = coordinates[3*neighbor+1] - coordinates[3*center+1];
+        const double dz = coordinates[3*neighbor+2] - coordinates[3*center+2];
+        const double r2 = dx*dx + dy*dy + dz*dz;
+        if (r2 > cutoff_rsq || r2 < 1e-12) continue;
+        const int slot = first + count++;
+        geometry[4*slot] = dx;
+        geometry[4*slot+1] = dy;
+        geometry[4*slot+2] = dz;
+        geometry[4*slot+3] = r2;
+        neighbors[slot] = neighbor;
     }
+    counts[k] = count;
 }
 
 REGISTER_CV("STRU_FACTOR", MetaD_zqc::Stru_factor::create);
+#endif // ZQC_STRUFACTOR_KERNELS_ONLY
+
+namespace MetaD_zqc {
+namespace {
+
+// 验证中心数和几何数组申请长度，防止负计数或容量乘法溢出。
+int checked_center_count(int count) {
+    if (count < 0) throw std::invalid_argument("Stru_factor: negative center count");
+    return count;
+}
+size_t geometry_size(size_t pair_count) {
+    if (pair_count > std::numeric_limits<size_t>::max()/4)
+        throw std::length_error("Stru_factor: neighbor geometry size overflow");
+    return 4*pair_count;
+}
+
+// value = phi(r)；derivative_over_r = (d phi / dr) / r。
+// 后者直接乘位移向量即可得到坐标导数；r=0 处使用解析极限。
+struct RadialValue { double value, derivative_over_r; };
+
+// 先定义参数/返回类型，再声明后半部分的设备函数。
+__device__ __forceinline__ RadialValue radial(double r2, double q, double cutoff_rsq);
+template<bool UseChemicalWeights, bool UseStructureFactor = true>
+__global__ void forward_kernel(StruFactorKernelView view, double q, double cutoff_rsq,
+                               const int* atom_types, const double* type_weights, double* values);
+template<bool UseChemicalWeights, bool UseStructureFactor = true>
+__global__ void backward_kernel(StruFactorKernelView view, double q, double cutoff_rsq,
+                                const int* atom_types, const double* type_weights,
+                                const double* adjoint, double* force, double* virial);
+
+// 检查主机可见的启动参数和中心指针。
+void check_arguments(const StruFactorKernelView& view, double cutoff_rsq, int block_size) {
+    if (block_size <= 0 || block_size > 1024 || view.group_count < 0 ||
+        !std::isfinite(cutoff_rsq) || cutoff_rsq <= 0)
+        throw std::invalid_argument("Stru_factor: invalid kernel parameters");
+    if (view.group_count && (!view.d_group_indices || !view.d_group_numneigh || !view.d_neigh_in_cutoff_r))
+        throw std::invalid_argument("Stru_factor: missing center data");
+}
+void check_wave_number(double q) {
+    if (!std::isfinite(q) || q <= 0)
+        throw std::invalid_argument("Stru_factor: q must be finite and positive");
+}
+// 报告 kernel 提交时的错误。
+void check_launch() {
+    const auto status = cudaGetLastError();
+    if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
+}
+} // namespace
+
+// 使用 GpuBuffer 的定长构造入口。
+StruFactorData::StruFactorData(int center_count, size_t pair_count)
+    : group_count(checked_center_count(center_count)),
+      d_group_indices(group_count), d_group_numneigh(static_cast<size_t>(group_count)+1),
+      d_neigh_in_cutoff_r(group_count), d_calculated_numneigh(pair_count),
+      d_group_dminneigh(geometry_size(pair_count)) {
+    set_context(nullptr, nullptr, nullptr);
+}
+
+// 所有共享数组在同一处绑定元数据。
+void StruFactorData::set_context(FILE* f_check, LAMMPS_NS::Error* error, LAMMPS_NS::LAMMPS* lmp) {
+    d_group_indices.set_name("d_group_indices", f_check, error, lmp);
+    d_group_numneigh.set_name("d_group_numneigh", f_check, error, lmp);
+    d_neigh_in_cutoff_r.set_name("d_neigh_in_cutoff_r", f_check, error, lmp);
+    d_calculated_numneigh.set_name("d_calculated_numneigh", f_check, error, lmp);
+    d_group_dminneigh.set_name("d_group_dminneigh", f_check, error, lmp);
+}
+
+// 主机启动入口：一个线程对应一个压缩中心 k；空中心组直接返回。
+// values 按 localid 输出，初始化由调用方完成；计算按指定 stream 异步提交。
+void strufactor_forward(const StruFactorData& data, double q, double cutoff_rsq,
+                        double* values, cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_wave_number(q);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!values) throw std::invalid_argument("Stru_factor: missing value buffer");
+    forward_kernel<false><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,q,cutoff_rsq,nullptr,nullptr,values);
+    check_launch();
+}
+// center_adjoint 按压缩中心顺序排列，force/virial 已由调用方初始化。
+// kernel 累加 owned 和 ghost 的输出，CV 层在下载之后执行 reverse communication。
+void strufactor_backward(const StruFactorData& data, double q, double cutoff_rsq,
+                         const double* center_adjoint, double* force, double* virial,
+                         cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_wave_number(q);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!center_adjoint || !force)
+        throw std::invalid_argument("Stru_factor: missing adjoint/force buffer");
+    backward_kernel<false><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,q,cutoff_rsq,nullptr,nullptr,center_adjoint,force,virial);
+    check_launch();
+}
+
+
+// 化学版选择编译期特化，在每个邻居项上乘固定的元素对权重。
+void strufactor_chem_forward(const StruFactorData& data, double q, double cutoff_rsq,
+                             const int* atom_types, const double* type_weights,
+                             double* values, cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_wave_number(q);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!atom_types || !type_weights || !values)
+        throw std::invalid_argument("Stru_factor_chem: missing type/weight/value buffer");
+    forward_kernel<true><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,q,cutoff_rsq,atom_types,type_weights,values);
+    check_launch();
+}
+
+void strufactor_chem_backward(const StruFactorData& data, double q, double cutoff_rsq,
+                              const int* atom_types, const double* type_weights,
+                              const double* center_adjoint, double* force, double* virial,
+                              cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_wave_number(q);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!atom_types || !type_weights || !center_adjoint || !force)
+        throw std::invalid_argument("Stru_factor_chem: missing type/weight/adjoint/force buffer");
+    backward_kernel<true><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,q,cutoff_rsq,atom_types,type_weights,center_adjoint,force,virial);
+    check_launch();
+}
+
+// WEIGHT_CHEM 复用两端受力及 virial 的遍历，只选择径向开关 s(r)。
+void weighted_chem_forward(const StruFactorData& data, double cutoff_rsq,
+                           const int* atom_types, const double* type_weights,
+                           double* values, cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!atom_types || !type_weights || !values)
+        throw std::invalid_argument("WEIGHT_CHEM: missing type/weight/value buffer");
+    forward_kernel<true,false><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,0.0,cutoff_rsq,atom_types,type_weights,values);
+    check_launch();
+}
+void weighted_chem_backward(const StruFactorData& data, double cutoff_rsq,
+                            const int* atom_types, const double* type_weights,
+                            const double* center_adjoint, double* force, double* virial,
+                            cudaStream_t stream, int block_size) {
+    const auto view = kernel_view(data);
+    check_arguments(view,cutoff_rsq,block_size);
+    if (!view.group_count) return;
+    if (!atom_types || !type_weights || !center_adjoint || !force)
+        throw std::invalid_argument("WEIGHT_CHEM: missing type/weight/adjoint/force buffer");
+    backward_kernel<true,false><<<(view.group_count-1)/block_size+1,block_size,0,stream>>>(
+        view,0.0,cutoff_rsq,atom_types,type_weights,center_adjoint,force,virial);
+    check_launch();
+}
+
+// 继续文件开头的匿名命名空间，使下面定义与前置声明属于同一作用域。
+namespace {
+
+// 共同的径向开关；WEIGHT_CHEM 直接使用 s，Stru_factor 再乘 sinc(qr)。
+// 返回 s 与 (ds/dr)/r，反向直接乘位移向量；内侧平坦区的导数为零。
+__device__ __forceinline__ RadialValue radial_window(double r2, double cutoff_rsq) {
+    if (r2 > cutoff_rsq) return {0.0,0.0};
+    const double onset = 0.8*cutoff_rsq;
+    if (r2 <= onset) return {1.0,0.0};
+    const double width = cutoff_rsq-onset;
+    const double scaled_distance = (r2-onset)/width;
+    return {1.0-scaled_distance*scaled_distance*scaled_distance,
+            -6.0*scaled_distance*scaled_distance/width};
+}
+
+// 一个中心-邻居项：phi(r) = sinc(q*r) * s(r)，sinc(x) = sin(x)/x。
+// 沿用原 Stru_factor 的径向平滑，阈值作用在 r^2 上：
+//   r^2 <= 0.8*rc^2 : s = 1
+//   0.8*rc^2 < r^2 <= rc^2 : s = 1-u^3，u=(r^2-0.8*rc^2)/(0.2*rc^2)
+//   r^2 > rc^2 : phi = 0
+// 此多项式保证 rc 处的值为零，但不保证截断处的一阶导数连续。
+// 这里的径向平滑是 S_i 定义的一部分，与图中作用在 CV 值上的开关函数分开。
+// 前向和反向共用本函数，返回 phi(r) 和 phi'(r)/r。
+__device__ __forceinline__ RadialValue radial(double r2, double q, double cutoff_rsq) {
+    if (r2 > cutoff_rsq) return {0.0, 0.0};
+    const double x2 = q*q*r2;
+    double sinc, dsinc_over_r;
+    // 小 qr 时直接计算 cos(x)-sinc(x) 会消减；分别使用各自的泰勒展开。
+    // r=0 时 sinc -> 1，(d sinc(qr)/dr)/r -> -q^2/3，无需除以 r。
+    if (x2 < 1e-6) {
+        sinc = 1.0 + x2*(-1.0/6.0 + x2*(1.0/120.0 - x2/5040.0));
+        dsinc_over_r = q*q*(-1.0/3.0 + x2*(1.0/30.0 + x2*(-1.0/840.0 + x2/45360.0)));
+    } else {
+        const double x = sqrt(x2);
+        double sn, cs;
+        sincos(x, &sn, &cs);
+        sinc = sn/x;
+        // (d sinc(qr)/dr)/r = q^2 * (cos(x)-sinc(x))/x^2。
+        dsinc_over_r = q*q*(cs-sinc)/x2;
+    }
+    const auto window = radial_window(r2,cutoff_rsq);
+    // 乘积求导：phi'(r)/r = [(d sinc(qr)/dr)/r]*s + sinc(qr)*[(ds/dr)/r]。
+    return {sinc*window.value, dsinc_over_r*window.value + sinc*window.derivative_over_r};
+}
+
+// 编译期选择径向定义，三种 CV 共用相同的中心/邻居索引与反向累加。
+template<bool UseStructureFactor>
+__device__ __forceinline__ RadialValue pair_radial(double r2, double q, double cutoff_rsq) {
+    if constexpr (UseStructureFactor) return radial(r2,q,cutoff_rsq);
+    else return radial_window(r2,cutoff_rsq);
+}
+
+// 原始结构因子 S_i = 1 + sum_j phi(r_ij)，化学版的每项另乘 w_i*w_j。
+// 常数 1 沿用原定义，邻居表只提供中心以外的原子。
+// 每线程独占一个中心的输出，在寄存器中完成邻居求和后写回。
+// k 用于中心表和邻居段，values 使用转换后的原子 localid。
+template<bool UseChemicalWeights, bool UseStructureFactor>
+__global__ void forward_kernel(StruFactorKernelView view, double q, double cutoff_rsq,
+                               const int* atom_types, const double* type_weights, double* values) {
+    const int k = blockIdx.x*blockDim.x + threadIdx.x;
+    if (k >= view.group_count) return;
+    double value = 1.0;
+    double center_weight = 1.0;
+    if constexpr (UseChemicalWeights) center_weight = type_weights[atom_types[view.d_group_indices[k]]];
+    // 有效邻居编号和几何使用相同槽位，段尾可能保留未使用槽位。
+    const auto first = view.d_group_numneigh[k];
+    for (int t = 0; t < view.d_neigh_in_cutoff_r[k]; ++t) {
+        const auto pair = first+t;
+        double pair_weight = 1.0;
+        if constexpr (UseChemicalWeights)
+            pair_weight = center_weight*type_weights[atom_types[view.d_calculated_numneigh[pair]]];
+        value += pair_weight*pair_radial<UseStructureFactor>(view.d_group_dminneigh[4*pair+3], q, cutoff_rsq).value;
+    }
+    // 按 LAMMPS 原子顺序写回；无邻居中心仍得到 1，组外位置不在这里清零。
+    values[view.d_group_indices[k]] = value;
+}
+
+// 对中心 i 的每个有向邻居项应用链式法则，seed = dV/dS_i。
+// 若 i、j 都是中心，i->j 与 j->i 分属 S_i 和 S_j，各使用自己的 seed；
+// 因此无需再根据邻居是否在组内乘 2，也不在这里做 AVE 的归一化。
+template<bool UseChemicalWeights, bool UseStructureFactor>
+__global__ void backward_kernel(StruFactorKernelView view, double q, double cutoff_rsq,
+                                const int* atom_types, const double* type_weights,
+                                const double* adjoint, double* force, double* virial) {
+    const int k = blockIdx.x*blockDim.x + threadIdx.x;
+    if (k >= view.group_count) return;
+    // adjoint 使用压缩中心序号 k；force/virial 使用原子 localid。
+    const double seed = adjoint[k];
+    if (seed == 0.0) return;
+    const auto center = view.d_group_indices[k];
+    double center_weight = 1.0;
+    if constexpr (UseChemicalWeights) center_weight = type_weights[atom_types[center]];
+    // 本线程先累加自身中心的贡献，结束后统一写回，减少中心上的原子加次数。
+    double center_force[3] = {0.0,0.0,0.0};
+    double center_virial[6] = {0.0,0.0,0.0,0.0,0.0,0.0};
+    const auto first = view.d_group_numneigh[k];
+    for (int t = 0; t < view.d_neigh_in_cutoff_r[k]; ++t) {
+        const auto pair = first+t;
+        const auto neighbor = view.d_calculated_numneigh[pair];
+        const double* dr = view.d_group_dminneigh+4*pair;
+        // dr = r_j-r_i；dr[3] 保存 r^2，不是第四个坐标。
+        // dS_i/dr_i = -phi'(r)*dr/r，物理力还需取负号，故：
+        // F_i += seed*phi'(r)*dr/r，F_j -= seed*phi'(r)*dr/r。
+        double pair_weight = 1.0;
+        if constexpr (UseChemicalWeights) pair_weight = center_weight*type_weights[atom_types[neighbor]];
+        // 类型权重固定，链式求导时与图传入的中心 seed 一起乘到径向导数上。
+        const double scale = seed*pair_weight*pair_radial<UseStructureFactor>(dr[3],q,cutoff_rsq).derivative_over_r;
+        double f[3];
+        for (int c=0; c<3; ++c) {
+            f[c] = scale*dr[c];
+            center_force[c] += f[c];
+            // 不同中心可能共享同一个邻居（包括 ghost），必须原子累加。
+            atomicAdd(force+3*neighbor+c, -f[c]);
+        }
+        if (virial) {
+            // 本有向项的总 virial：W = r_i tensor F_i + r_j tensor F_j
+            //                           = -(r_j-r_i) tensor F_i。
+            // 六分量顺序为 xx,yy,zz,xy,xz,yz；径向力与 dr 平行，张量对称。
+            // 将每项的一半记到中心、另一半记到邻居，使逐原子求和等于总 W。
+            // 这个 1/2 只用于 virial 分摊，不用于力或 S_i 的求和。
+            const double half[6] = {-.5*dr[0]*f[0], -.5*dr[1]*f[1], -.5*dr[2]*f[2],
+                                    -.5*dr[0]*f[1], -.5*dr[0]*f[2], -.5*dr[1]*f[2]};
+            for (int c=0; c<6; ++c) {
+                center_virial[c] += half[c];
+                atomicAdd(virial+6*neighbor+c, half[c]);
+            }
+        }
+    }
+    // 中心也可能是其他线程的邻居，最后写回仍需 atomicAdd。
+    // ghost 贡献暂存在本 rank 的输出中，后续由 CV 层反向通信汇总到 owner。
+    for (int c=0; c<3; ++c) atomicAdd(force+3*center+c, center_force[c]);
+    if (virial)
+        for (int c=0; c<6; ++c) atomicAdd(virial+6*center+c, center_virial[c]);
+}
+} // namespace
+} // namespace MetaD_zqc

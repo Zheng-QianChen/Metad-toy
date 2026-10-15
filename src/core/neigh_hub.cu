@@ -172,13 +172,14 @@ void NeighHub::invalidate_all()
 
 NeighList *NeighHub::resolve_list(int id)
 {
-  // Prefer live pointer from Neighbor::lists[] matching request id.
+  // Request ids are local to a requestor (MEAM also uses ids 1/2).
+  // Match both this Fix and the request id when resolving a live list.
   // Avoids dangling NeighList* after Neighbor rebuilds between run segments.
   if (!lmp_ || !lmp_->neighbor) return nullptr;
   NeighList **lists = lmp_->neighbor->lists;
   const int nlist = lmp_->neighbor->nlist;
   for (int i = 0; i < nlist; ++i) {
-    if (lists[i] && lists[i]->id == id) {
+    if (lists[i] && lists[i]->requestor == fix_ && lists[i]->id == id) {
       lists_[id] = lists[i];
       return lists[i];
     }

@@ -22,18 +22,15 @@ def run(cmd,log):
         print((out/log).read_text());raise SystemExit(result.returncode)
 if not args.run_only:
     run([CMAKE,'-S',str(ROOT),'-B',str(BUILD),'-DZQC_GRAPH_STANDALONE=ON','-DLAMMPS_SOURCE_DIR='+LAMMPS,'-DCMAKE_CUDA_COMPILER='+NVCC,'-DCMAKE_CUDA_ARCHITECTURES=89'],'project_configure.log')
-    run([CMAKE,'--build',str(BUILD),'--target','zqc_graph_smoke','-j2'],'project_build.log')
-    mpi_c=shlex.split(subprocess.check_output(['mpicxx','--showme:compile'],text=True))
-    mpi_l=shlex.split(subprocess.check_output(['mpicxx','--showme:link'],text=True))
-    run([NVCC,'-std=c++17','-O3','-arch=sm_89','-DFMT_HEADER_ONLY','-I'+str(ROOT/'include/utils'),'-I'+LAMMPS]+mpi_c+[str(HERE/'emit_graphs.cu'),str(BUILD/'embed/zqc_graph_device.cpp')]+mpi_l+['-o',str(out/'emit_graphs')],'emit_build.log')
-    run([str(out/'emit_graphs'),str(out)],'emit_run.log')
+    run([CMAKE,'--build',str(BUILD),'--target','zqc_graph_smoke','zqc_graph_emit','-j2'],'project_build.log')
+    run([str(BUILD/'benchmarks/graph/zqc_graph_emit'),str(out)],'emit_run.log')
     for case in ['mean_exp','two_dims']:
         shutil.copy2(HERE/(case+'.manual.cu'),out/(case+'.manual.cu'))
         run([NVCC,'-std=c++17','-O3','-arch=sm_89','--cubin',str(HERE/(case+'.manual.cu')),'-o',str(out/(case+'.manual_nvcc.cubin'))],case+'.nvcc.log')
     run([NVCC,'-std=c++17','-O3','-arch=sm_89',str(HERE/'benchmark.cu'),'-L/usr/lib/wsl/lib','-lcuda','-lnvrtc','-o',str(out/'benchmark')],'benchmark_build.log')
     metadata={
         'commands':commands,
-        'source_sha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'include/utils/zqc_graph.cuh',ROOT/'include/utils/zqc_graph_device.cuh',ROOT/'include/utils/zqc_gpu_buffer.cuh',HERE/'benchmark.cu',HERE/'mean_exp.manual.cu',HERE/'two_dims.manual.cu']},
+        'source_sha256':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'include/utils/zqc_graph.cuh',ROOT/'src/utils/zqc_graph.cu',ROOT/'src/utils/zqc_graph_nodes.cu',ROOT/'src/utils/zqc_graph_parser.cu',ROOT/'src/utils/zqc_graph_execution.cu',ROOT/'include/utils/zqc_graph_device.cuh',ROOT/'include/utils/zqc_gpu_buffer.cuh',HERE/'benchmark.cu',HERE/'mean_exp.manual.cu',HERE/'two_dims.manual.cu']},
         'gpu':subprocess.check_output(['/usr/lib/wsl/lib/nvidia-smi','--query-gpu=name,driver_version,pstate,temperature.gpu,utilization.gpu,memory.used','--format=csv,noheader'],text=True).strip(),
         'nvcc':subprocess.check_output([NVCC,'--version'],text=True),
         'mode':'focus' if args.focus else 'full',

@@ -2,6 +2,7 @@
 #include "zqc_switch_function.h"
 #include <cuda.h>
 #include <nvrtc.h>
+#include <fmt/printf.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -87,6 +88,32 @@ bool matches_kind(const Node* node, SwitchType type) {
     }
     return false;
 }
+
+void register_test_graph_nodes(Graph& graph);
+
+std::string direct_switch_call(const Params& p) {
+    switch (p.type) {
+        case LINE: return "constant_one(cv)";
+        case STEP: return fmt::sprintf("step(cv, %.18g)", p.r_0);
+        case FERMI: return fmt::sprintf("fermi(cv, %.18g, %.18g)", p.r_0, p.alpha);
+        case TANH_TYPE: return fmt::sprintf("tanh(cv, %.18g, %.18g)", p.r_0, p.alpha);
+        case RATIONAL: return fmt::sprintf("rational(cv, %.18g, %d, %d, %.18g)", p.r_0, p.n, p.m, p.d_0);
+    }
+    throw std::runtime_error("unknown direct switching function");
+}
+
+void check_syntax_tree() {
+    const auto call = GraphExprParser("rational(cv, 1.25, 6, 12)").parse();
+    require(call.kind == GraphExpr::Kind::Call && call.name == "rational" && call.args.size() == 4,
+            "syntax parser needs no graph or GPU allocation");
+    require(call.args[0].kind == GraphExpr::Kind::Symbol && call.args[0].name == "cv",
+            "symbol argument was not retained");
+    close(call.number_arg(1), 1.25, "numeric syntax argument");
+    const auto precedence = GraphExprParser("a + b * -c").parse();
+    require(precedence.name == "+" && precedence.args[1].name == "*" &&
+            precedence.args[1].args[1].name == "neg", "operator precedence changed");
+}
+
 void check_case(const char* name,const Params& p) {
     const std::array<double,16> basis={-2,-1,-1+1e-8,-.5,0,.25,.9,1-1e-8,1,1+1e-8,1.0002,1.25,1.6,2,2.5,3};
     int n=257;
@@ -108,7 +135,7 @@ void check_case(const char* name,const Params& p) {
     put(eager->adj,s);put(a.adj,std::vector<double>(n,.75));eager->backward();
     auto eager_gradient=read(a.adj,n);
     Graph graph(Graph::Symbols{{"cv",&a}},Graph::Switches{{"gate",p}});
-    graph.parse_expr("sw_func(cv, gate)");graph.parse_expr("cv * sw_func(cv, gate)");
+    graph.parse_expr("sw_func(cv, gate)");graph.parse_expr("cv * " + direct_switch_call(p));
     require(matches_kind(graph.outputs[0],p.type),"parser produced wrong concrete node");
     // Nodes own parameter snapshots; a later registry edit must not alter them.
     graph.switches["gate"]={LINE,0,0,0,0,0};graph.build();
@@ -203,8 +230,71 @@ void check_direct_nodes_and_radial() {
     }
     std::cout<<"PASS direct Fermi/shared node, radial weights/derivatives/cutoffs\n";
 }
+
+void check_registered_nodes() {
+    const std::vector<double> x = {-.2, .4, 1.25};
+    Leaf a(x);
+    Graph graph(Graph::Symbols{{"cv", &a}});
+    register_test_graph_nodes(graph);
+    graph.parse_expr("scaled_square(cv, -2e0) + linear(cv, .5, +.25)");
+    graph.parse_expr("exp(-cv) + rational(cv, 1.25, 6, 12)");
+    graph.parse_expr("scaled_square(cv, 1).AVERAGE");
+    graph.build();
+    require(graph.outputs.back()->is_reduction(), "custom reduction capability missing");
+    Module module(graph.kernel_source);
+    int n = static_cast<int>(x.size());
+    double reduced_seed = 2.5 / n;
+    GpuBuffer<double> y0(n), y1(n), y2(n), grad(n), s0(n), s1(n);
+    put(s0.ptr, std::vector<double>(n, .4));
+    put(s1.ptr, std::vector<double>(n, .7));
+    void* fargs[] = {&n, &a.val, &y0.ptr, &y1.ptr, &y2.ptr};
+    launch(module.forward, n, fargs);
+    void* bargs[] = {&n, &a.val, &s0.ptr, &s1.ptr, &reduced_seed, &grad.ptr};
+    launch(module.backward, n, bargs);
+    const auto first = read(y0.ptr, n);
+    const auto second = read(y1.ptr, n);
+    const auto third = read(y2.ptr, n);
+    const auto gradients = read(grad.ptr, n);
+    const Params p{RATIONAL, 1.25, 0, 0, 6, 12};
+    for (int i = 0; i < n; ++i) {
+        close(first[i], -2*x[i]*x[i] + .5*x[i] + .25, "registered composition value");
+        close(second[i], std::exp(-x[i]) + reference(p, x[i]), "builtin nested value");
+        close(third[i], x[i]*x[i], "custom reduction input");
+        close(gradients[i], .4*(-4*x[i] + .5) + .7*(-std::exp(-x[i]) + derivative(p, x[i]))
+                           + reduced_seed*2*x[i], "registered mixed-output gradients");
+    }
+    const auto count = graph.owned_nodes.size();
+    const auto outputs = graph.outputs.size();
+    const auto source = graph.kernel_source;
+    for (const char* bad : {"unknown(cv)", "exp(cv,cv)", "scaled_square(cv)",
+            "rational(cv,1,6.5,12)", "rational(cv,1,2147483648,12)",
+            "rational(cv,1,-1,12)", "rational(cv,0,6,12)", "fermi(cv,1,1e999)",
+            "fermi(cv,1,cv)", "exp(cv) + unknown(cv)", "exp(cv) + missing",
+            "exp(cv,)", "sw_func(cv,1)", "cv.UNKNOWN", "cv + 1", "exp(cv"}) {
+        bool threw = false;
+        try { graph.parse_expr(bad); } catch (const std::runtime_error&) { threw = true; }
+        require(threw && graph.owned_nodes.size() == count && graph.outputs.size() == outputs
+                && graph.kernel_source == source, "registered parse rollback changed the graph");
+    }
+    bool duplicate = false;
+    try { register_test_graph_nodes(graph); } catch (const std::runtime_error&) { duplicate = true; }
+    require(duplicate, "duplicate registration accepted");
+    Graph isolated(Graph::Symbols{{"cv", &a}});
+    bool unknown = false;
+    try { isolated.parse_expr("scaled_square(cv,2)"); } catch (const std::runtime_error&) { unknown = true; }
+    require(unknown, "registration leaked to another graph");
+    Leaf single(std::vector<double>{0.4});
+    Graph invalid(Graph::Symbols{{"cv", &single}});
+    register_test_graph_nodes(invalid);
+    bool rejected = false;
+    try { invalid.parse_expr("external_average(cv) * cv"); invalid.build(); } catch (const std::runtime_error&) { rejected = true; }
+    require(rejected, "implicit Global-to-PerAtom broadcasting accepted");
+    std::cout << "PASS separate-TU registration, direct calls, custom reduction, parser rollback\n";
+}
+
 int main() {
     try {
+        check_syntax_tree();
         graph_check_cuda(cudaSetDevice(0));graph_check_cuda(cudaFree(nullptr));
         const std::vector<std::pair<const char*,Params>> cases={
             {"LINE",{LINE,1,0,0,0,0}}, {"STEP",{STEP,1,0,0,0,0}},
@@ -219,6 +309,6 @@ int main() {
             {"RATIONAL 5/5",{RATIONAL,1.25,.25,0,5,5}}
         };
         for(const auto& item:cases)check_case(item.first,item.second);
-        check_parser();check_direct_nodes_and_radial();std::cout<<"SW_FUNC_PASS "<<cases.size()<<" configurations\n";
+        check_parser();check_direct_nodes_and_radial();check_registered_nodes();std::cout<<"SW_FUNC_PASS "<<cases.size()<<" configurations\n";
     } catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

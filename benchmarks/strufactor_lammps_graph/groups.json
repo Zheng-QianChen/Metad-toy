@@ -1,0 +1,56 @@
+[
+  {
+    "np": 1,
+    "cv_cpu_error": 4.218847493575595e-15,
+    "max_outside_group_force": 0.0060266999615975125,
+    "net_force": [
+      9.248244531301353e-17,
+      2.2888524300705704e-17,
+      -2.2768245622195593e-18
+    ]
+  },
+  {
+    "np": 2,
+    "cv_cpu_error": 4.440892098500626e-15,
+    "max_outside_group_force": 0.006026699961597513,
+    "net_force": [
+      4.716279450311944e-17,
+      -5.422704928322031e-18,
+      -7.26415455565288e-18
+    ],
+    "mpi_comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/groups/np1",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/groups/np2",
+      "max_position_error": 4.336808689942018e-19,
+      "max_force_error": 3.2742905609062234e-17,
+      "max_force": 0.00811602049972865,
+      "cv_energy_errors": [
+        4.440892098500626e-16,
+        2.220446049250313e-16,
+        1.3877787807814457e-17
+      ]
+    }
+  },
+  {
+    "np": 4,
+    "cv_cpu_error": 4.440892098500626e-15,
+    "max_outside_group_force": 0.006026699961597513,
+    "net_force": [
+      4.716279450311944e-17,
+      -5.422704928322031e-18,
+      -6.830473686658678e-18
+    ],
+    "mpi_comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/groups/np1",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/groups/np4",
+      "max_position_error": 4.336808689942018e-19,
+      "max_force_error": 3.2742905609062234e-17,
+      "max_force": 0.00811602049972865,
+      "cv_energy_errors": [
+        4.440892098500626e-16,
+        2.220446049250313e-16,
+        1.3877787807814457e-17
+      ]
+    }
+  }
+]

@@ -57,3 +57,10 @@ compile_commands.json
 # Reproducible benchmark outputs; keep source and curated reports.
 /benchmarks/graph_kernel_20261013/results*/
 /benchmarks/q_force_layout_20260929/q_force_layout_bench
+
+# Local simulation output and Python caches.
+/HILLS
+/cv.log
+/metad_debug_logging.txt
+__pycache__/
+*.py[cod]

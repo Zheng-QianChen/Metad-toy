@@ -1,0 +1,232 @@
+LAMMPS (29 Aug 2024)
+OMP_NUM_THREADS environment is not set. Defaulting to 1 thread. (src/comm.cpp:98)
+  using 1 OpenMP thread(s) per MPI task
+Lattice spacing in x,y,z = 4.05 4.05 4.05
+Created orthogonal box = (0 0 0) to (44.55 44.55 44.55)
+  1 by 1 by 1 MPI processor grid
+Created 5324 atoms
+  using lattice units in orthogonal box = (0 0 0) to (44.55 44.55 44.55)
+  create_atoms CPU = 0.000 seconds
+5324 atoms in group metad_group
+Resetting atom IDs ...
+WARNING: Communication cutoff is 0.0. No ghost atoms will be generated. Atoms may get lost. (src/comm_brick.cpp:210)
+Displacing atoms ...
+Loading plugin: Metad plugin v1.0 by ZQC
+  compiled for LAMMPS version ðXï"V, loaded into LAMMPS version 29 Aug 2024
+Loading plugin: Metadynamics CV Diagnostic Bus Probe v1.0 by ZQC
+  compiled for LAMMPS version ðXï"V, loaded into LAMMPS version 29 Aug 2024
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:47] New JOB STARTING WITH DEBUG MOD!
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:52] MPI_COMM_WORLD size: 1
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:54] Process Rank: 0 | Total Processes: 1 | Thread ID: 139920555911424
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:59] There are 59 args
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:96] Logging: set GAUSSIAN sigma, height, biasf: 0.04 0.1 10.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:97] Logging: attention, we use Joules/moles as the height's units, so if the lammps settings is not real, there will be a units transform.
+             If you set CV's bounds in physicals, this units will follows your lammps units settings.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:103] Logging: pace = 100000.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:144] Dueling with Q4
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:158] Creating switch function Q4
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:126] Logging: set STEINH as Q_type_str=Q Q_num=4 group_name=metad_group cutoff_r=3.300000 cutoff_Natoms=12 d_block_size=128.
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:145] Increasing communication cutoff to 3.65 for GPU pair style
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:144] Dueling with Q6
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:158] Creating switch function Q6
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:126] Logging: set STEINH as Q_type_str=Q Q_num=6 group_name=metad_group cutoff_r=3.300000 cutoff_Natoms=12 d_block_size=128.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:199] Logging: cv_compute=1 bound set at [0,1], total grid is 400.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:200] Logging: cv_compute=1 bound set expr as v4
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:199] Logging: cv_compute=2 bound set at [0,1], total grid is 400.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:200] Logging: cv_compute=2 bound set expr as v6
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:85] Im in arg loop
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:222] init calc set end, start to define Gaussian.
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:283] Fix init end.
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+[Rank:0][/home/zqc/work/Metad-toy/src/grids/GH_t0_uniformGrid.cu:91] dcv[k] = 0.0025
+[Rank:0][/home/zqc/work/Metad-toy/src/grids/GH_t0_uniformGrid.cu:91] dcv[k] = 0.0025
+[Rank:0][/home/zqc/work/Metad-toy/src/core/fix_crystallize.cu:502] communicate: total_size=28
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 4.35
+  ghost atom cutoff = 4.35
+  binsize = 2.175, bins = 21 21 21
+  2 neighbor lists, perpetual/occasional/extra = 1 1 0
+  (1) pair zero, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+  (2) fix metad, occasional
+      attributes: full, newton on, cut 3.3000000000000003
+      pair build: full/bin/atomonly
+      stencil: full/bin/3d
+      bin: standard
+Setting up Verlet run ...
+  Unit style    : metal
+  Current step  : 99999
+  Time step     : 0.001
+WARNING: Communication cutoff adjusted to 4.35 (src/comm.cpp:739)
+Per MPI rank memory allocation (min/avg/max) = 4.624 | 4.624 | 4.624 Mbytes
+   Step        Atoms        f_m[1]         f_m[2]          f_m      
+     99999        5324   0              0              0            
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_mask] expanded from 0 to 10926
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 421
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f200000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu:429] Warning: box < cutoff_r, please check your system !
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_group_indices] expanded from 0 to 5956
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 476
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f20ac00
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_group_numneigh] expanded from 0 to 5957
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 498
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f210a00
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_firstneigh_ptrs] expanded from 0 to 70376
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 529
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f216800
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_x_flat] expanded from 0 to 32578
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 573
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f25b400
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_group_dminneigh] expanded from 0 to 283952
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 598
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f400000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_neigh_in_cutoff_r] expanded from 0 to 23754
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 601
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f29b000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_neigh_both_in_r_N] expanded from 0 to 10926
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 606
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f2b2400
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_calculated_numneigh] expanded from 0 to 71063
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 610
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f2bd000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_Ylm] expanded from 0 to 702868
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1061
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70fa00000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_ql] expanded from 0 to 10926
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1065
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f302800
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_qlm] expanded from 0 to 108362
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1069
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x70f317e00
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_a_virial] expanded from 0 to 65057
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1071
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710000000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_Ylm] expanded from 0 to 983975
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1061
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710200000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_ql] expanded from 0 to 10926
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1065
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x71007f200
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_stein_qlm] expanded from 0 to 151666
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1069
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710094800
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_a_virial] expanded from 0 to 65057
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 1071
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710a00000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_dcvdx] expanded from 0 to 17669
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 892
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x7101bcc00
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_dYlm_dr] expanded from 0 to 35238
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 897
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710a7f200
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_dcvdx] expanded from 0 to 17669
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 892
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710ac4000
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:71] DEBUG: GPU Buffer [d_dYlm_dr] expanded from 0 to 35238
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:72] in /home/zqc/work/Metad-toy/src/cvs/CVs_Steinhardt.cu : 897
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:73] the past location is (nil)
+[Rank:0][/home/zqc/work/Metad-toy/src/cvs/../../include/utils/zqc_CVs_tools.h:81] now location is 0x710ae6a00
+    100000        5324   0.19094015     0.57421624     0.09999994   
+Loop time of 0.180402 on 1 procs for 1 steps with 5324 atoms
+
+Performance: 0.479 ns/day, 50.112 hours/ns, 5.543 timesteps/s, 29.512 katom-step/s
+14.1% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.83e-07   | 1.83e-07   | 1.83e-07   |   0.0 |  0.00
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 8.734e-06  | 8.734e-06  | 8.734e-06  |   0.0 |  0.00
+Output  | 1.6502e-05 | 1.6502e-05 | 1.6502e-05 |   0.0 |  0.01
+Modify  | 0.18036    | 0.18036    | 0.18036    |   0.0 | 99.98
+Other   |            | 1.696e-05  |            |       |  0.01
+
+Nlocal:           5324 ave        5324 max        5324 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           4518 ave        4518 max        4518 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:          47916 ave       47916 max       47916 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        63888 ave       63888 max       63888 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 63888
+Ave neighs/atom = 12
+Neighbor list builds = 0
+Dangerous builds = 0
+Displacing atoms ...
+Generated 0 of 0 mixed pair_coeff terms from geometric mixing rule
+Setting up Verlet run ...
+  Unit style    : metal
+  Current step  : 100000
+  Time step     : 0.001
+WARNING: Communication cutoff adjusted to 4.35 (src/comm.cpp:739)
+Per MPI rank memory allocation (min/avg/max) = 4.627 | 4.627 | 4.627 Mbytes
+   Step        Atoms        f_m[1]         f_m[2]          f_m         c_fsum[1]      c_fsum[2]      c_fsum[3]      c_fabs[1]      c_fabs[2]      c_fabs[3]      c_pfix[1]      c_pfix[2]      c_pfix[3]      c_pfix[4]      c_pfix[5]      c_pfix[6]   
+    100000        5324  0.1909401491799663 0.5742162379923087 0.099999940371662419 0 0 0 4.680178777367569e-310 0 1.5810100666919889e-322 -nan -nan -nan -nan -nan -nan
+    100001        5324  0.19094036046814405 0.5741791355713679 0.099999901109900174 -5.525264570930643e-19 1.9865569591073513e-20 -4.7207197558401289e-20 4.680178777367569e-310 0 1.5810100666919889e-322 2.5350062816057583e-06 2.3058441667624969e-06 -4.8408504483681852e-06 -1.7648402375647086e-06 -5.3964185697925436e-07 -6.3536161674553424e-07
+Loop time of 0.0231912 on 1 procs for 1 steps with 5324 atoms
+
+Performance: 3.726 ns/day, 6.442 hours/ns, 43.120 timesteps/s, 229.570 katom-step/s
+85.9% CPU use with 1 MPI tasks x 1 OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.7203e-05 | 1.7203e-05 | 1.7203e-05 |   0.0 |  0.07
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 1.845e-05  | 1.845e-05  | 1.845e-05  |   0.0 |  0.08
+Output  | 0.016044   | 0.016044   | 0.016044   |   0.0 | 69.18
+Modify  | 0.0070824  | 0.0070824  | 0.0070824  |   0.0 | 30.54
+Other   |            | 2.904e-05  |            |       |  0.13
+
+Nlocal:           5324 ave        5324 max        5324 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:           4518 ave        4518 max        4518 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:          47916 ave       47916 max       47916 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+FullNghs:        63888 ave       63888 max       63888 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 63888
+Ave neighs/atom = 12
+Neighbor list builds = 0
+Dangerous builds = 0
+Total wall time: 0:00:00

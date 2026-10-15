@@ -1,0 +1,34 @@
+{
+  "gpu": "NVIDIA GeForce RTX 4080 SUPER",
+  "driver": "610.88",
+  "cuda": "12.6.20",
+  "lammps": "29 Aug 2024",
+  "mpi": "Open MPI 5.0.6 (deepmd installation)",
+  "build": "Release, ENABLE_DEBUG=OFF, USE_ML_CVS=OFF, sm_89",
+  "plugin_sha256": "a73198aac62b7b5b9f8670132706c96f7a7cd95408fe752c6d5001c6c8ed5902",
+  "pair_style": "zero 4.0",
+  "atoms": 4000,
+  "cv": "S1 q=1.7 and S2 q=2.3, cutoff=3.3, all group",
+  "dimensions": [
+    "S1.AVE*S2.AVE",
+    "S1.AVE+S2.AVE"
+  ],
+  "motion": "prescribed rigid translation via fix move; forces calculated but do not drive positions",
+  "warmup_steps": 200,
+  "measured_steps": 3000,
+  "repeats": 3,
+  "ranks": [
+    1,
+    2,
+    4
+  ],
+  "gpu_binding": "all ranks GPU0; no MPS; shared desktop WSL GPU; --bind-to none; OMP_NUM_THREADS=1",
+  "timing": "last LAMMPS Loop time, excludes NVRTC/setup/startup/warmup",
+  "limitations": [
+    "Pair zero isolates the full CV pipeline; not a production potential or NPT benchmark.",
+    "Legacy Stru_factor AVE does not tally the per-atom virial that Graph raw backward computes. These are end-to-end paths, not equal-work device microkernels.",
+    "The preliminary free NVE run left the hill (zero seeds) and showed final CV differences up to 5.19e-5. It is retained as an observation, not a long-trajectory equivalence pass."
+  ],
+  "raw_directory": "/home/zqc/work/Metad-toy/build/graph-lammps",
+  "ctest": "9/9 passed including NVRTC failure log and dynamic length regression"
+}

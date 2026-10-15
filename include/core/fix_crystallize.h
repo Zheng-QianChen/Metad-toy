@@ -11,6 +11,9 @@
 #include "fix.h"
 #include "neigh_hub.h"
 
+#include <memory>
+#include <stdexcept>
+#include <utility>
 #include <map> 
 #include <string>
 #include <vector>
@@ -21,6 +24,8 @@ namespace LAMMPS_NS {
 
 namespace MetaD_zqc {
   template<typename T> struct GpuBuffer;
+  class CVAssembly;
+  class CVGraphExecution;
 
   class CV_info {
     protected:
@@ -50,10 +55,10 @@ namespace MetaD_zqc {
       LAMMPS_NS::LAMMPS *lmp;
       LAMMPS_NS::Error *error = nullptr;
       LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
-      bool comm_mode=false;               // 当前正在处于哪种通信状态
       double cv_value = 0.0;
       double *dcvdx = nullptr;
       double dVdcv = 0.0;
+      std::shared_ptr<const CVAssembly> assembly_; // 外部筛好的 owned/ghost 编号和 owned Leaf 写入位置
       // double virial[6]={0.0};
     public:
       CV(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
@@ -85,16 +90,32 @@ namespace MetaD_zqc {
           }
       }
 
-      // 通信
-      virtual bool need_forward_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
-      virtual int get_comm_forward_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
-      virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
-      virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
-      
-      virtual bool need_reverse_comm(){ return false; } // 是否需要跨进程同步 Ghost 属性
-      virtual int get_comm_reverse_bytes(){ return 0; } // 每个原子需要同步多少个 bytes
-      virtual int pack_comm_reverse_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) { return 0; } // 具体 CV 自己的打包逻辑
-      virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {} // 具体 CV 自己的解包逻辑
+      // 由管理层绑定装配表；装配前先完成 base_calc()，目标显存由 Leaf/调用方持有。
+      virtual void bind_assembly(std::shared_ptr<const CVAssembly> assembly) {
+          assembly_ = std::move(assembly);
+      }
+      // 负值表示尚未实现原始值/梯度接口；Graph 在运行前拒绝不支持的 CV。
+      virtual int graph_groupbit() const { return -1; }
+      // Graph 每轮先准备全部输入，再开始 base_calc；共享环境不能在逐个计算时失效。
+      virtual void prepare_graph_evaluation() {}
+      const CVAssembly* assembly() const { return assembly_.get(); }
+      virtual void assemble_values(GpuBuffer<double>&) {
+          throw std::logic_error("CV: value assembly is not implemented");
+      }
+      // 输入为 Leaf 排列的 dV/dcv_i；各 rank 按相同 CV 顺序调用，包含空组 rank。
+      virtual void apply_adjoint(const GpuBuffer<double>&) {
+          throw std::logic_error("CV: raw adjoint is not implemented");
+      }
+
+      // 通信宽度为每原子的 double 数；0 表示该方向无需通信，各 rank 使用同一宽度。
+      virtual int get_comm_forward_width() const { return 0; }
+      virtual int get_comm_reverse_width() const { return 0; }
+      // pack 返回每原子写入的 double 数，由 Fix 校验后换算为总发送长度。
+      // forward 将 owned 属性写入 ghost；reverse 将 ghost 贡献累加回 owner。
+      virtual int pack_comm_forward_ubuf(int n, int *list, double *buf, int offset, int stride) { return 0; }
+      virtual void unpack_comm_forward_ubuf(int n, int first, double *buf, int offset, int stride) {}
+      virtual int pack_comm_reverse_ubuf(int n, int first, double *buf, int offset, int stride) { return 0; }
+      virtual void unpack_comm_reverse_ubuf(int n, int *list, double *buf, int offset, int stride) {}
 
       // 返回该 CV 是否有“每个原子”的数据
       virtual bool has_per_atom_data() { return false; }
@@ -150,11 +171,13 @@ namespace LAMMPS_NS {
     ~FixMetadynamics() override;
     int setmask() override;
     void init() override;
+    void setup(int vflag) override;
     void init_list(int id, NeighList *ptr) override;
 
     // communication
-    int get_comm_forward_bytes();
-    int get_comm_reverse_bytes();
+    // 所有 rank 按相同 CV 顺序调用，包含本地中心组为空的 rank。
+    void communicate_forward(MetaD_zqc::CV& cv);
+    void communicate_reverse(MetaD_zqc::CV& cv);
     int pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) override;
     void unpack_forward_comm(int n, int first, double *buf) override;
     int pack_reverse_comm(int n, int first, double *buf) override;
@@ -173,6 +196,17 @@ namespace LAMMPS_NS {
     MetaD_zqc::SwitchFunction* get_switching_function(const std::string& name) const;
     double *a_virial;
   private:
+    enum class CommDirection { None, Forward, Reverse };
+    // 一次阻塞通信期间，由四个 LAMMPS 回调共同借用当前 CV。
+    struct CVCommunication {
+      MetaD_zqc::CV* cv = nullptr;
+      int width = 0;
+      CommDirection direction = CommDirection::None;
+    } active_comm;
+    void init_cv_communication();
+    void communicate(MetaD_zqc::CV& cv, CommDirection direction);
+    int comm_buffer_size(int n, CommDirection direction) const;
+    void evaluate_bias(int vflag, bool advance_history);
     int cv_dim,nbin_num;
     MetaD_zqc::Gaussian_Hill_Base *p_gaussian;
     int pace,rec_pace;
@@ -188,6 +222,7 @@ namespace LAMMPS_NS {
     };
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
     MetaD_zqc::MetaDimensionManager *cv_configs;
+    std::unique_ptr<MetaD_zqc::CVGraphExecution> graph_execution;
     // FILE *file;
     // FILE *f_hills;
     FILE *f_check=NULL;

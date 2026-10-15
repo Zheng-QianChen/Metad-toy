@@ -88,7 +88,7 @@ int main(){
         check_driver(cuModuleGetFunction(&bwd, module, "cv_backward"));
         check_driver(cuModuleUnload(module));
         module = nullptr;
-        std::cerr << "NVRTC PASS: embedded " << zqc_graph_device_source_len
+        std::cerr << "NVRTC PASS: embedded " << graph_device_source().size()
                   << " bytes, cubin " << cubin_size
                   << " bytes; cv_forward/cv_backward loaded\n";
         return 0;

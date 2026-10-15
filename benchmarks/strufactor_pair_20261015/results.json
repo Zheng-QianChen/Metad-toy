@@ -1,0 +1,608 @@
+{
+  "date": "2026-10-15",
+  "gpu": "NVIDIA GeForce RTX 4080 SUPER, 610.88, 55, 99 %",
+  "rounds": 9,
+  "benchmark_sha256": "e4eafee402049313c48cb6680dcd4c53be307d497c906d30bc2f1a81f2921bad",
+  "production_unchanged": true,
+  "production_source_sha256": {
+    "src/cvs/CVs_Strufactor.cu": "ae10a6ddadfbe700d8f33076f76f2ddc9df415d2a0c5e2ab036f41aa3132bc75",
+    "include/CVsets/CV_Stru_factor.h": "7accbce119e32fd40fbc440650c8459bd9aca9c3b0a74d986ea587e2b058c0f6",
+    "include/utils/zqc_gpu_buffer.cuh": "cd42bf30013cc7e4ba92f78bb73539842589f4b1068af7d36e506d3ba2ce537e"
+  },
+  "maximum_force_difference": 1.6875389974302e-14,
+  "maximum_virial_difference": 2.2204460492503e-14,
+  "maximum_net_force": 2.6001423236721e-13,
+  "finite_difference_force_error": 3.1777316889e-10,
+  "finite_difference_virial_error": 2.30346408614e-10,
+  "scope": "Fixed geometry single-GPU kernels; original center forward; output clears and 6-component virial included. MPI, geometry refresh, pair-table setup/upload, Graph/NVRTC, copies and full LAMMPS timestep excluded.",
+  "cases": [
+    {
+      "atoms": 5324,
+      "centers": 5324,
+      "average_neighbors": 12.0,
+      "cutoff": 0.82,
+      "host_half_mapping_ms": 1.651376,
+      "directed_edges": 63888,
+      "half_pairs": 31944,
+      "backward": {
+        "center": {
+          "median_ms": 0.037702094763517,
+          "speedup": 1.0,
+          "min_ms": 0.035851664841175,
+          "max_ms": 0.042739808559418
+        },
+        "directed_pair": {
+          "median_ms": 0.045353498309851,
+          "speedup": 0.8312940824529058,
+          "min_ms": 0.036325998604298,
+          "max_ms": 0.049327999353409
+        },
+        "half_pair": {
+          "median_ms": 0.02495507709682,
+          "speedup": 1.5107985688540044,
+          "min_ms": 0.021766563877463,
+          "max_ms": 0.025599179789424
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.053704001009464,
+          "speedup": 1.0,
+          "min_ms": 0.05256599932909,
+          "max_ms": 0.061353500932455
+        },
+        "directed_pair": {
+          "median_ms": 0.056839998811483,
+          "speedup": 0.9448276237228658,
+          "min_ms": 0.053241439163685,
+          "max_ms": 0.067553997039795
+        },
+        "half_pair": {
+          "median_ms": 0.039792001247406,
+          "speedup": 1.3496179967315645,
+          "min_ms": 0.038320954889059,
+          "max_ms": 0.045559272170067
+        }
+      }
+    },
+    {
+      "atoms": 5324,
+      "centers": 64,
+      "average_neighbors": 12.0,
+      "cutoff": 0.82,
+      "host_half_mapping_ms": 0.028883,
+      "directed_edges": 768,
+      "half_pairs": 768,
+      "backward": {
+        "center": {
+          "median_ms": 0.021688889712095,
+          "speedup": 1.0,
+          "min_ms": 0.020982043817639,
+          "max_ms": 0.024678912013769
+        },
+        "directed_pair": {
+          "median_ms": 0.0052961721085012,
+          "speedup": 4.095201074995444,
+          "min_ms": 0.0051361718215048,
+          "max_ms": 0.0059364843182266
+        },
+        "half_pair": {
+          "median_ms": 0.0061864187009633,
+          "speedup": 3.5058877778055626,
+          "min_ms": 0.0054697385057807,
+          "max_ms": 0.0065890233963728
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.033946447074413,
+          "speedup": 1.0,
+          "min_ms": 0.032496549189091,
+          "max_ms": 0.037915587425232
+        },
+        "directed_pair": {
+          "median_ms": 0.016686035320163,
+          "speedup": 2.0344225829003815,
+          "min_ms": 0.016526017338037,
+          "max_ms": 0.019677123054862
+        },
+        "half_pair": {
+          "median_ms": 0.017389714717865,
+          "speedup": 1.9520991359069708,
+          "min_ms": 0.016933143138885,
+          "max_ms": 0.019901713356376
+        }
+      }
+    },
+    {
+      "atoms": 5324,
+      "centers": 5324,
+      "average_neighbors": 42.0,
+      "cutoff": 1.3,
+      "host_half_mapping_ms": 7.067625,
+      "directed_edges": 223608,
+      "half_pairs": 111804,
+      "backward": {
+        "center": {
+          "median_ms": 0.13072457909584,
+          "speedup": 1.0,
+          "min_ms": 0.1241188570857,
+          "max_ms": 0.14835199713707
+        },
+        "directed_pair": {
+          "median_ms": 0.10347885638475,
+          "speedup": 1.2632974857181094,
+          "min_ms": 0.099510855972767,
+          "max_ms": 0.12772986292839
+        },
+        "half_pair": {
+          "median_ms": 0.070766933262348,
+          "speedup": 1.847255110112181,
+          "min_ms": 0.062837332487106,
+          "max_ms": 0.076450131833553
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.19796265661716,
+          "speedup": 1.0,
+          "min_ms": 0.18914133310318,
+          "max_ms": 0.24991999566555
+        },
+        "directed_pair": {
+          "median_ms": 0.16609600186348,
+          "speedup": 1.191856844211532,
+          "min_ms": 0.1616799980402,
+          "max_ms": 0.21505600214005
+        },
+        "half_pair": {
+          "median_ms": 0.13920913636684,
+          "speedup": 1.4220521855368342,
+          "min_ms": 0.12994614243507,
+          "max_ms": 0.1569462865591
+        }
+      }
+    },
+    {
+      "atoms": 5324,
+      "centers": 64,
+      "average_neighbors": 42.0,
+      "cutoff": 1.3,
+      "host_half_mapping_ms": 0.113509,
+      "directed_edges": 2688,
+      "half_pairs": 2686,
+      "backward": {
+        "center": {
+          "median_ms": 0.084985457360744,
+          "speedup": 1.0,
+          "min_ms": 0.080765090882778,
+          "max_ms": 0.097849369049072
+        },
+        "directed_pair": {
+          "median_ms": 0.0069352113641798,
+          "speedup": 12.254198595833985,
+          "min_ms": 0.0064290701411664,
+          "max_ms": 0.0077572320587933
+        },
+        "half_pair": {
+          "median_ms": 0.0065012634731829,
+          "speedup": 13.072144777903713,
+          "min_ms": 0.0062384670600295,
+          "max_ms": 0.0071930070407689
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.13254933059216,
+          "speedup": 1.0,
+          "min_ms": 0.12823466956615,
+          "max_ms": 0.15549866855145
+        },
+        "directed_pair": {
+          "median_ms": 0.060826350003481,
+          "speedup": 2.179143259205499,
+          "min_ms": 0.053266234695911,
+          "max_ms": 0.063285939395428
+        },
+        "half_pair": {
+          "median_ms": 0.055183060467243,
+          "speedup": 2.4019931020469967,
+          "min_ms": 0.053417414426804,
+          "max_ms": 0.061620704829693
+        }
+      }
+    },
+    {
+      "atoms": 5324,
+      "centers": 5324,
+      "average_neighbors": 140.0,
+      "cutoff": 2.05,
+      "host_half_mapping_ms": 48.019457,
+      "directed_edges": 745360,
+      "half_pairs": 372680,
+      "backward": {
+        "center": {
+          "median_ms": 0.39138799905777,
+          "speedup": 1.0,
+          "min_ms": 0.38243201375008,
+          "max_ms": 0.45819199085236
+        },
+        "directed_pair": {
+          "median_ms": 0.32911849021912,
+          "speedup": 1.1892008826279932,
+          "min_ms": 0.32039999961853,
+          "max_ms": 0.39304000139236
+        },
+        "half_pair": {
+          "median_ms": 0.18253600597382,
+          "speedup": 2.1441687461590693,
+          "min_ms": 0.17124800384045,
+          "max_ms": 0.22064800560474
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.66708797216415,
+          "speedup": 1.0,
+          "min_ms": 0.5935680270195,
+          "max_ms": 0.68926399946213
+        },
+        "directed_pair": {
+          "median_ms": 0.61182397603989,
+          "speedup": 1.0903266270831087,
+          "min_ms": 0.55151998996735,
+          "max_ms": 0.639584004879
+        },
+        "half_pair": {
+          "median_ms": 0.40230399370193,
+          "speedup": 1.658168903633605,
+          "min_ms": 0.39020800590515,
+          "max_ms": 0.47956800460815
+        }
+      }
+    },
+    {
+      "atoms": 5324,
+      "centers": 64,
+      "average_neighbors": 140.0,
+      "cutoff": 2.05,
+      "host_half_mapping_ms": 0.316858,
+      "directed_edges": 8960,
+      "half_pairs": 8936,
+      "backward": {
+        "center": {
+          "median_ms": 0.2748586833477,
+          "speedup": 1.0,
+          "min_ms": 0.26327466964722,
+          "max_ms": 0.30896934866905
+        },
+        "directed_pair": {
+          "median_ms": 0.009717233479023,
+          "speedup": 28.28569303609396,
+          "min_ms": 0.0087668038904667,
+          "max_ms": 0.010370691306889
+        },
+        "half_pair": {
+          "median_ms": 0.010032448917627,
+          "speedup": 27.396968138534312,
+          "min_ms": 0.008922915905714,
+          "max_ms": 0.01040209364146
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.42174398899078,
+          "speedup": 1.0,
+          "min_ms": 0.41430199146271,
+          "max_ms": 0.48622399568558
+        },
+        "directed_pair": {
+          "median_ms": 0.17271679639816,
+          "speedup": 2.4418238282890763,
+          "min_ms": 0.16210559010506,
+          "max_ms": 0.18721920251846
+        },
+        "half_pair": {
+          "median_ms": 0.16773760318756,
+          "speedup": 2.514307948702453,
+          "min_ms": 0.15948159992695,
+          "max_ms": 0.18714240193367
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 16384,
+      "average_neighbors": 12.0,
+      "cutoff": 0.82,
+      "host_half_mapping_ms": 7.491171,
+      "directed_edges": 196608,
+      "half_pairs": 98304,
+      "backward": {
+        "center": {
+          "median_ms": 0.05927599966526,
+          "speedup": 1.0,
+          "min_ms": 0.058601249009371,
+          "max_ms": 0.0677639991045
+        },
+        "directed_pair": {
+          "median_ms": 0.092405334115028,
+          "speedup": 0.6414781163116845,
+          "min_ms": 0.089838221669197,
+          "max_ms": 0.10866844654083
+        },
+        "half_pair": {
+          "median_ms": 0.065832428634167,
+          "speedup": 0.9004073052607358,
+          "min_ms": 0.055440001189709,
+          "max_ms": 0.070192001760006
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.090403199195862,
+          "speedup": 1.0,
+          "min_ms": 0.086995102465153,
+          "max_ms": 0.1010400056839
+        },
+        "directed_pair": {
+          "median_ms": 0.12269333004951,
+          "speedup": 0.7368224430731639,
+          "min_ms": 0.11978133767843,
+          "max_ms": 0.14849600195885
+        },
+        "half_pair": {
+          "median_ms": 0.084415376186371,
+          "speedup": 1.0709328475451103,
+          "min_ms": 0.08355999737978,
+          "max_ms": 0.097103998064995
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 64,
+      "average_neighbors": 12.0,
+      "cutoff": 0.82,
+      "host_half_mapping_ms": 0.02827,
+      "directed_edges": 768,
+      "half_pairs": 768,
+      "backward": {
+        "center": {
+          "median_ms": 0.02405066601932,
+          "speedup": 1.0,
+          "min_ms": 0.021119110286236,
+          "max_ms": 0.024740444496274
+        },
+        "directed_pair": {
+          "median_ms": 0.0054550804197788,
+          "speedup": 4.408856362981949,
+          "min_ms": 0.0053837238810956,
+          "max_ms": 0.0062662302516401
+        },
+        "half_pair": {
+          "median_ms": 0.0058822715654969,
+          "speedup": 4.088669785392395,
+          "min_ms": 0.005847061984241,
+          "max_ms": 0.0066482285037637
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.033660687506199,
+          "speedup": 1.0,
+          "min_ms": 0.032804414629936,
+          "max_ms": 0.037487033754587
+        },
+        "directed_pair": {
+          "median_ms": 0.01718514226377,
+          "speedup": 1.9587086908883506,
+          "min_ms": 0.016772339120507,
+          "max_ms": 0.019439285621047
+        },
+        "half_pair": {
+          "median_ms": 0.017488591372967,
+          "speedup": 1.9247226256443974,
+          "min_ms": 0.017237333580852,
+          "max_ms": 0.019928297027946
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 16384,
+      "average_neighbors": 42.0,
+      "cutoff": 1.3,
+      "host_half_mapping_ms": 41.125039,
+      "directed_edges": 688128,
+      "half_pairs": 344064,
+      "backward": {
+        "center": {
+          "median_ms": 0.2403519898653,
+          "speedup": 1.0,
+          "min_ms": 0.23132799565792,
+          "max_ms": 0.28564265370369
+        },
+        "directed_pair": {
+          "median_ms": 0.27925333380699,
+          "speedup": 0.8606951494137676,
+          "min_ms": 0.26697599887848,
+          "max_ms": 0.32235732674599
+        },
+        "half_pair": {
+          "median_ms": 0.17198079824448,
+          "speedup": 1.397551309906276,
+          "min_ms": 0.16286720335484,
+          "max_ms": 0.19866880774498
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.35481598973274,
+          "speedup": 1.0,
+          "min_ms": 0.34729599952698,
+          "max_ms": 0.42246401309967
+        },
+        "directed_pair": {
+          "median_ms": 0.46656000614166,
+          "speedup": 0.7604937951432734,
+          "min_ms": 0.38676249980927,
+          "max_ms": 0.49059200286865
+        },
+        "half_pair": {
+          "median_ms": 0.32540801167488,
+          "speedup": 1.0903726306752457,
+          "min_ms": 0.2831679880619,
+          "max_ms": 0.34867200255394
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 64,
+      "average_neighbors": 42.0,
+      "cutoff": 1.3,
+      "host_half_mapping_ms": 0.096413,
+      "directed_edges": 2688,
+      "half_pairs": 2624,
+      "backward": {
+        "center": {
+          "median_ms": 0.084438398480415,
+          "speedup": 1.0,
+          "min_ms": 0.079820796847343,
+          "max_ms": 0.095334395766258
+        },
+        "directed_pair": {
+          "median_ms": 0.0072432854212821,
+          "speedup": 11.65747220623386,
+          "min_ms": 0.0063799731433392,
+          "max_ms": 0.0075319730676711
+        },
+        "half_pair": {
+          "median_ms": 0.0073483642190695,
+          "speedup": 11.490774812344176,
+          "min_ms": 0.00646534236148,
+          "max_ms": 0.0075573702342808
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.13094857335091,
+          "speedup": 1.0,
+          "min_ms": 0.12349714338779,
+          "max_ms": 0.14909712970257
+        },
+        "directed_pair": {
+          "median_ms": 0.053987555205822,
+          "speedup": 2.4255325667495415,
+          "min_ms": 0.05188399925828,
+          "max_ms": 0.0610631108284
+        },
+        "half_pair": {
+          "median_ms": 0.053279999643564,
+          "speedup": 2.4577435102653578,
+          "min_ms": 0.052003998309374,
+          "max_ms": 0.061500001698732
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 16384,
+      "average_neighbors": 140.0,
+      "cutoff": 2.05,
+      "host_half_mapping_ms": 170.854877,
+      "directed_edges": 2293760,
+      "half_pairs": 1146880,
+      "backward": {
+        "center": {
+          "median_ms": 0.81046402454376,
+          "speedup": 1.0,
+          "min_ms": 0.76428252458572,
+          "max_ms": 0.85809600353241
+        },
+        "directed_pair": {
+          "median_ms": 1.0751999616623,
+          "speedup": 0.7537798116089511,
+          "min_ms": 1.0504800081253,
+          "max_ms": 1.0929119586945
+        },
+        "half_pair": {
+          "median_ms": 0.56132799386978,
+          "speedup": 1.4438332550572488,
+          "min_ms": 0.47857549786568,
+          "max_ms": 0.59249597787857
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 1.2461760044098,
+          "speedup": 1.0,
+          "min_ms": 1.2266399860382,
+          "max_ms": 1.2934240102768
+        },
+        "directed_pair": {
+          "median_ms": 1.4846719503403,
+          "speedup": 0.8393611828688252,
+          "min_ms": 1.4669280052185,
+          "max_ms": 1.5309760570526
+        },
+        "half_pair": {
+          "median_ms": 0.99219197034836,
+          "speedup": 1.2559827550028104,
+          "min_ms": 0.90340799093246,
+          "max_ms": 1.0463039875031
+        }
+      }
+    },
+    {
+      "atoms": 16384,
+      "centers": 64,
+      "average_neighbors": 140.0,
+      "cutoff": 2.05,
+      "host_half_mapping_ms": 0.538613,
+      "directed_edges": 8960,
+      "half_pairs": 8832,
+      "backward": {
+        "center": {
+          "median_ms": 0.26316800713539,
+          "speedup": 1.0,
+          "min_ms": 0.2533013522625,
+          "max_ms": 0.3122453391552
+        },
+        "directed_pair": {
+          "median_ms": 0.010476038791239,
+          "speedup": 25.12094622592221,
+          "min_ms": 0.0094266925007105,
+          "max_ms": 0.010681663639843
+        },
+        "half_pair": {
+          "median_ms": 0.010064165107906,
+          "speedup": 26.149015274864272,
+          "min_ms": 0.0096714431419969,
+          "max_ms": 0.011506473645568
+        }
+      },
+      "forward_backward": {
+        "center": {
+          "median_ms": 0.44444799423218,
+          "speedup": 1.0,
+          "min_ms": 0.40315198898315,
+          "max_ms": 0.49086400866508
+        },
+        "directed_pair": {
+          "median_ms": 0.1625472009182,
+          "speedup": 2.734270364063933,
+          "min_ms": 0.15619839727879,
+          "max_ms": 0.1904384046793
+        },
+        "half_pair": {
+          "median_ms": 0.16694401204586,
+          "speedup": 2.6622577760386448,
+          "min_ms": 0.15746133029461,
+          "max_ms": 0.18168532848358
+        }
+      }
+    }
+  ]
+}

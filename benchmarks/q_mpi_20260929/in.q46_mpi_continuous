@@ -1,0 +1,59 @@
+units metal
+dimension 3
+boundary p p p
+atom_style atomic
+
+lattice fcc 4.05
+region simbox block 0 11 0 11 0 11 units lattice
+create_box 1 simbox
+create_atoms 1 box
+mass 1 26.9815385
+group metad_group type 1
+reset_atoms id sort yes
+
+variable dx0 atom 0.018*sin(0.731*id)
+variable dy0 atom 0.016*cos(0.527*id)
+variable dz0 atom 0.014*sin(0.319*id+0.2)
+displace_atoms all move v_dx0 v_dy0 v_dz0 units box
+
+pair_style zero 4.0
+pair_coeff * *
+neighbor 0.35 bin
+neigh_modify every 1 delay 0 check yes
+
+plugin load /home/zqc/work/Metad-toy/build/fix_crystallize_plugin.so
+reset_timestep 99999
+
+fix m all metad GAUSSIAN 0.01 1.0 10.0 &
+    PACE 100000 &
+    CAL NAME Q4 STEINH Q 4 metad_group cutoff_r 3.30 cutoff_Natoms 12 d_block_size 128 &
+    CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.30 cutoff_Natoms 12 d_block_size 128 &
+    SYMBOL v4 Q4.AVE &
+    SYMBOL v6 Q6.AVE &
+    CV_dim 2 &
+    DIM 1 0.0 1.0 400 "v4" &
+    DIM 2 0.0 1.0 400 "v6" &
+    METAD_RESTART 0 &
+    WT 0
+
+# A single run segment: step 100000 deposits the hill, then deterministic
+# velocities move the configuration before the step-100001 force evaluation.
+variable vx atom 2.0*sin(0.173*id+0.1)
+variable vy atom 1.7*cos(0.219*id+0.3)
+variable vz atom 1.5*sin(0.137*id+0.7)
+velocity all set v_vx v_vy v_vz units box
+fix integrate all nve
+
+compute fsum all reduce sum fx fy fz
+compute pfix all pressure NULL virial
+
+dump state all custom 1 atom_state.dump id type x y z fx fy fz
+dump_modify state sort id format float %.17g
+
+thermo 1
+thermo_style custom step atoms f_m[1] f_m[2] f_m &
+    c_fsum[1] c_fsum[2] c_fsum[3] &
+    c_pfix[1] c_pfix[2] c_pfix[3] c_pfix[4] c_pfix[5] c_pfix[6]
+thermo_modify format float %.17g
+
+run 2

@@ -1,0 +1,18 @@
+++++++++++++++++++++++++++++++im in STEINH settings, narg=59, current arg is STEINH
+[NeighHub] register id=1 key=1_0_1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_1_3300000000 occasional=1 ghost=0 cut=3.3 (add_request deferred to Fix::init / rerequest_all)
+++++++++++++++++++++++++++++++im in STEINH settings, narg=59, current arg is STEINH
+++++++++++++++++++++++++++++++im in STEINH settings, narg=59, current arg is STEINH
+++++++++++++++++++++++++++++++im in STEINH settings, narg=59, current arg is STEINH
+[NeighHub] rerequest_all: 1 id(s)
+Precompute index_radius[0] = 65
+Precompute index_radius[1] = 65
+Precompute index_radius[0] = 65
+Precompute index_radius[1] = 65
+[NeighHub] rerequest_all: 1 id(s)
+--------------------------------------------------------------------------
+prterun detected that one or more processes exited with non-zero status,
+thus causing the job to be terminated. The first process to do so was:
+
+   Process name: [prterun-PC-202110072134-928738@1,1]
+   Exit code:    1
+--------------------------------------------------------------------------

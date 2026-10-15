@@ -1,0 +1,243 @@
+{
+  "ctest": {
+    "passed": 9,
+    "failed": 0,
+    "log": "/home/zqc/work/Metad-toy/build/graph/shared-mean-tests.log"
+  },
+  "legacy_graph_and_mpi": [
+    {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np1_legacy_0",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np1_graph_0",
+      "max_position_error": 3.552713678800501e-15,
+      "max_force_error": 4.3999461192545386e-13,
+      "max_force": 0.0003927385977330949,
+      "cv_energy_errors": [
+        4.440892098500626e-16,
+        0.0,
+        1.249000902703301e-16
+      ]
+    },
+    {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np2_legacy_0",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np2_graph_0",
+      "max_position_error": 3.552713678800501e-15,
+      "max_force_error": 5.284739768192381e-12,
+      "max_force": 0.0003927385977330949,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np1_graph_0",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np2_graph_0",
+      "max_position_error": 0.0,
+      "max_force_error": 1.3552527156068805e-19,
+      "max_force": 0.0003927385977330949,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np4_legacy_0",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np4_graph_0",
+      "max_position_error": 3.552713678800501e-15,
+      "max_force_error": 5.284739768192381e-12,
+      "max_force": 0.0003927385977330949,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np1_graph_0",
+      "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-validation/np4_graph_0",
+      "max_position_error": 0.0,
+      "max_force_error": 1.2874900798265365e-19,
+      "max_force": 0.0003927385977330949,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "distinct_groups": [
+    {
+      "np": 1,
+      "cv_cpu_error": 4.218847493575595e-15,
+      "max_outside_group_force": 0.0060266999615975125,
+      "net_force": [
+        9.248244531301353e-17,
+        2.2888524300705704e-17,
+        -2.2768245622195593e-18
+      ]
+    },
+    {
+      "np": 2,
+      "cv_cpu_error": 4.440892098500626e-15,
+      "max_outside_group_force": 0.006026699961597513,
+      "net_force": [
+        4.716279450311944e-17,
+        -5.422704928322031e-18,
+        -7.26415455565288e-18
+      ],
+      "mpi_comparison": {
+        "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-groups/np1",
+        "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-groups/np2",
+        "max_position_error": 4.336808689942018e-19,
+        "max_force_error": 3.2742905609062234e-17,
+        "max_force": 0.00811602049972865,
+        "cv_energy_errors": [
+          4.440892098500626e-16,
+          2.220446049250313e-16,
+          1.3877787807814457e-17
+        ]
+      }
+    },
+    {
+      "np": 4,
+      "cv_cpu_error": 4.440892098500626e-15,
+      "max_outside_group_force": 0.006026699961597513,
+      "net_force": [
+        4.716279450311944e-17,
+        -5.422704928322031e-18,
+        -6.830473686658678e-18
+      ],
+      "mpi_comparison": {
+        "a": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-groups/np1",
+        "b": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-groups/np4",
+        "max_position_error": 4.336808689942018e-19,
+        "max_force_error": 3.2742905609062234e-17,
+        "max_force": 0.00811602049972865,
+        "cv_energy_errors": [
+          4.440892098500626e-16,
+          2.220446049250313e-16,
+          1.3877787807814457e-17
+        ]
+      }
+    }
+  ],
+  "same_timestep": [
+    {
+      "np": 1,
+      "timestep": 100000,
+      "cv_cpu_error": 4.884981308350689e-15,
+      "max_cv_change": 0.021915835707976505,
+      "values": {
+        "BEFORE": [
+          -2.214909737159692,
+          0.10999344420420831
+        ],
+        "AFTER": [
+          -2.1929939014517155,
+          0.11611610515417858
+        ]
+      }
+    },
+    {
+      "np": 2,
+      "timestep": 100000,
+      "cv_cpu_error": 4.884981308350689e-15,
+      "max_cv_change": 0.021915835707976505,
+      "values": {
+        "BEFORE": [
+          -2.214909737159692,
+          0.10999344420420831
+        ],
+        "AFTER": [
+          -2.1929939014517155,
+          0.1161161051541777
+        ]
+      }
+    },
+    {
+      "np": 4,
+      "timestep": 100000,
+      "cv_cpu_error": 4.884981308350689e-15,
+      "max_cv_change": 0.02191583570797606,
+      "values": {
+        "BEFORE": [
+          -2.214909737159692,
+          0.10999344420420831
+        ],
+        "AFTER": [
+          -2.192993901451716,
+          0.11611610515417814
+        ]
+      }
+    }
+  ],
+  "call_counts": [
+    {
+      "version": "before",
+      "np": 1,
+      "counts": [
+        {
+          "rank": 0,
+          "env": 18,
+          "sum1": 18,
+          "count1": 18,
+          "pair2": 0
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "np": 2,
+      "counts": [
+        {
+          "rank": 1,
+          "env": 18,
+          "sum1": 18,
+          "count1": 18,
+          "pair2": 0
+        },
+        {
+          "rank": 0,
+          "env": 18,
+          "sum1": 18,
+          "count1": 18,
+          "pair2": 0
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "np": 1,
+      "counts": [
+        {
+          "rank": 0,
+          "env": 9,
+          "sum1": 0,
+          "count1": 0,
+          "pair2": 18
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "np": 2,
+      "counts": [
+        {
+          "rank": 1,
+          "env": 9,
+          "sum1": 0,
+          "count1": 0,
+          "pair2": 18
+        },
+        {
+          "rank": 0,
+          "env": 9,
+          "sum1": 0,
+          "count1": 0,
+          "pair2": 18
+        }
+      ]
+    }
+  ]
+}

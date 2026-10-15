@@ -117,12 +117,24 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     if (req.SW_FUNC_cv == nullptr) {
         req.SW_FUNC_cv = MetaD_zqc::SwitchFunction::get_default_step();
     }
-    if (strcmp(req.Q_type_str, "L") == 0 && req.SW_FUNC_r->params.type != MetaD_zqc::STEP) {
-        double auto_cutoff = MetaD_zqc::SwitchFunction::invert_for_eps(req.SW_FUNC_r->params, req.cutoff_eps_r);
-        LOG("Logging: cutoff_r auto-derived from SW_FUNC_r + cutoff_eps_r: %g -> %g (原手动值将被忽略)",
-            req.cutoff_r, auto_cutoff);
-        req.cutoff_r = auto_cutoff;
+    const auto radial_support = MetaD_zqc::SwitchFunction::query_radial_support(
+        req.SW_FUNC_r->params, req.cutoff_eps_r);
+    ERR_COND(radial_support.error != nullptr, "Error: STEINH SW_FUNC_r: %s",
+             radial_support.error);
+    if (radial_support.has_radius()) {
+        LOG("Logging: STEINH radial support=%s cutoff_r=%g -> %g eps=%g (configured cutoff replaced)",
+            radial_support.kind == MetaD_zqc::RadialSupportKind::Finite ? "finite" : "epsilon",
+            req.cutoff_r, radial_support.radius, req.cutoff_eps_r);
+        req.cutoff_r = radial_support.radius;
+    } else {
+        // Constant radial weights have no natural support. Preserve the existing
+        // configured/default cutoff as an explicit hard boundary in the kernels.
+        LOG("Logging: STEINH constant radial weight uses configured cutoff_r=%g", req.cutoff_r);
     }
+    ERR_COND(!std::isfinite(req.cutoff_r) || !(req.cutoff_r > 0.0),
+             "Error: STEINH effective radial cutoff must be finite and positive.");
+    ERR_COND(!std::isfinite(lmp->neighbor->skin) || lmp->neighbor->skin < 0.0,
+             "Error: STEINH neighbor skin must be finite and nonnegative.");
     // LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
     //                     req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
     LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_eps_r=%g d_block_size=%d.",
@@ -132,7 +144,11 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     MetaD_zqc::NeighSpec nspec;
     nspec.full = 1;
     nspec.use_cutoff = 1;
-    nspec.cutoff = req.cutoff_r;
+    const bool local_q = strcmp(req.Q_type_str, "L") == 0;
+    nspec.occasional = local_q ? 0 : 1;
+    // LAMMPS adds skin to perpetual custom lists, but not occasional ones.
+    // Keep the effective radius in req/env; only the candidate request is padded.
+    nspec.cutoff = req.cutoff_r + (local_q ? 0.0 : lmp->neighbor->skin);
     double temp_neigh_cutoff;
     if (strcmp(req.Q_type_str, "Q") == 0){
         temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
@@ -956,7 +972,6 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
     int last_group_count = my_env->last_group_count;
     int group_count = my_env->group_count;
     int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    LAMMPS_NS::tagint all_neigh_pairs = my_env->h_group_numneigh[group_count];
     // TODO: we can change the cuda stream to lammps stream, 
     // but we need to make sure that the stream is synchronized before we copy data back to host. 
     // For now, we will use the default stream.
@@ -967,7 +982,6 @@ void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
     // double *h_stein_qlm = new double [group_count*(L + 1)*2];
     // for the further concentrate we need to calculate qlm*Neigh, with comple
 
-    d_stein_Ylm.grow_to((all_neigh_pairs*(L + 1)*2), __FILE__, __LINE__);
 
     // SAFE_CUDA_FREE(d_stein_ql);
     // SAFE_CUDA_MALLOC(&d_stein_ql, Threads_own_atoms*sizeof(double), f_check);
@@ -1044,10 +1058,7 @@ void MetaD_zqc::STEIN_QL<L>::apply_get_dcvdx(double cv_value, double *dcvdx, int
     DEBUG_LOG("[Rank:%d][Before Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
     DEBUG_LOG("[Rank:%d][Before Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
     cudaDeviceSynchronize(); // waiting memory
-    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
-    comm_mode=true;
-    lmp->comm->forward_comm(Fixmetad);
-    comm_mode=false;
+    Fixmetad->communicate_forward(*this);
     DEBUG_LOG("[Rank:%d][After Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
     DEBUG_LOG("[Rank:%d][After Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
     // for (int i=0; i<((Threads_own_atoms)*(L + 1)*2); i++){
@@ -1089,9 +1100,7 @@ void MetaD_zqc::STEIN_QL<L>::apply_get_dcvdx(double cv_value, double *dcvdx, int
     cudaDeviceSynchronize(); // waiting memory
     DEBUG_LOG("1");
 
-    comm_mode=true;
-    lmp->comm->reverse_comm(Fixmetad);
-    comm_mode=false;
+    Fixmetad->communicate_reverse(*this);
     DEBUG_LOG("[Rank:%d][After Comm] h_dcvdx[0] = %f, ptr = %p\n",lmp->comm->me, h_a_virial[0], (void*)h_a_virial);
 }
 
@@ -1155,7 +1164,7 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_ql_i_kernel(){
         (my_env->d_calculated_numneigh.ptr),
         (my_env->d_x_flat.ptr),
         (my_env->d_neigh_in_switching.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,
+        d_stein_qlm.ptr, nullptr,
         d_stein_ql.ptr) ;
 }
 
@@ -1194,124 +1203,73 @@ void MetaD_zqc::STEIN_QL<L>::call_steinhardt_dcv_kernel(
 
 
 template <int L>
-int MetaD_zqc::STEIN_QL<L>::get_comm_forward_bytes(){ 
-    // need to communicate for each atom in the list
-    // qlm[2*(L+1) ] and ql (double value) and Neigh_Nb (int value) and d_neigh_in_switching (int value)
-    return num_elements +1 +1; // qlm + ql + d_neigh_in_switching
+int MetaD_zqc::STEIN_QL<L>::get_comm_forward_width() const {
+    return num_elements + 2; // qlm 实/虚分量、ql、邻居 switching 权重和。
 }
 
 template <int L>
-int MetaD_zqc::STEIN_QL<L>::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
-    if (comm_mode){
-        int m = slot_offset; 
-        int cycle_offset = comm_forward;
-
-        for (int i = 0; i < n; i++) {
-            int j = list[i]; // 目标本地原子标号
-            
-            // 1. 先塞当前原子的所有 qlm 分量
-            for (int k = 0; k < num_elements; k++) {
-                u_buf[m + cycle_offset*i + k] = h_stein_qlm[j * num_elements + k];
-            }
-            
-            // 2. 紧接着，塞当前原子的 ql 标量数据
-            u_buf[m + cycle_offset*i + num_elements] = stein_q[j]; // 假设这是你的 ql 数组
-
-            u_buf[m + cycle_offset*i + num_elements + 1] = my_env->h_neigh_in_switching[j];
-        }
+int MetaD_zqc::STEIN_QL<L>::pack_comm_forward_ubuf(
+    int n, int *list, double *buf, int offset, int stride) {
+    if (n > 0 && (!h_stein_qlm || !stein_q || !my_env->h_neigh_in_switching))
+        throw std::logic_error("STEIN_QL: forward communication data is not ready");
+    for (int k = 0; k < n; ++k) {
+        const int atom = list[k];
+        const int base = offset + k*stride;
+        for (int c = 0; c < num_elements; ++c)
+            buf[base+c] = h_stein_qlm[atom*num_elements+c];
+        buf[base+num_elements] = stein_q[atom];
+        buf[base+num_elements+1] = my_env->h_neigh_in_switching[atom];
     }
-    return (num_elements +1 +1);
+    return get_comm_forward_width();
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
-    
-    if (comm_mode){
-        int m = slot_offset; 
-        int cycle_offset = comm_forward;
-        
-        // 从 first 开始，连续恢复 n 个 Ghost 原子的复合数据
-        for (int i = first; i < first + n; i++) {
-            
-            // 1. 先剥离 qlm 倒回 qlm 跑道
-            for (int k = 0; k < num_elements; k++) {
-                h_stein_qlm[i * num_elements + k] = u_buf[ m+ cycle_offset*(i-first) + k];
-            }
-            
-            // 2. 紧接着剥离 ql 倒回 ql 跑道
-            stein_q[i] = u_buf[ m+ cycle_offset*(i-first) + num_elements];
-
-            // my_env->neigh_both_in_r_N[i] = (int) ubuf(u_buf[ m+ cycle_offset*(i-first) + num_elements +1]).i;
-
-            my_env->h_neigh_in_switching[i] = u_buf[m + cycle_offset*(i-first) + num_elements + 1];
-        }
+void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(
+    int n, int first, double *buf, int offset, int stride) {
+    if (n > 0 && (!h_stein_qlm || !stein_q || !my_env->h_neigh_in_switching))
+        throw std::logic_error("STEIN_QL: forward communication data is not ready");
+    for (int k = 0; k < n; ++k) {
+        const int atom = first + k;
+        const int base = offset + k*stride;
+        for (int c = 0; c < num_elements; ++c)
+            h_stein_qlm[atom*num_elements+c] = buf[base+c];
+        stein_q[atom] = buf[base+num_elements];
+        my_env->h_neigh_in_switching[atom] = buf[base+num_elements+1];
     }
-}
-
-
-template <int L>
-int MetaD_zqc::STEIN_QL<L>::get_comm_reverse_bytes(){ 
-    int virial_num = 6;
-    int dcvdx_num = 3;
-    return virial_num + dcvdx_num;
 }
 
 template <int L>
-int MetaD_zqc::STEIN_QL<L>::pack_comm_reverse_ubuf(int n, int first, 
-                        double *u_buf, int slot_offset, int comm_reverse) {
-    int virial_num = 6;
-    int dcvdx_num = 3;
-    if (!comm_mode){
-        return virial_num + dcvdx_num;
-    }
-    // reverse_comm 在 get_dcvdx 里调用；若 h_a_virial 未分配则空指针解引用 → (nil) segfault
-    if (h_a_virial == nullptr) {
-        return virial_num + dcvdx_num;
-    }
-    int m = slot_offset; 
-    // 参数名历史原因叫 comm_forward，实际传入的是 Fix::comm_reverse（每原子总槽位数）
-    int cycle_offset = comm_reverse;
-
-    for (int i = 0; i < n; i++) {
-        #pragma unroll
-        for (int ddx=0; ddx< virial_num ;ddx++){
-            u_buf[m + cycle_offset*i + ddx] = h_a_virial[(i+first)*virial_num + ddx];
-        }
-        #pragma unroll
-        for (int ddx=0; ddx< dcvdx_num ;ddx++){
-            u_buf[m + cycle_offset*i + virial_num + ddx] = h_dcvdx[(i+first)*dcvdx_num + ddx];
-        }
-    }
-    
-    return virial_num + dcvdx_num;
+int MetaD_zqc::STEIN_QL<L>::get_comm_reverse_width() const {
+    return 9; // 六分量 virial、三分量坐标导数。
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::unpack_comm_reverse_ubuf(int n, int *list, 
-                        double *u_buf, int slot_offset, int comm_reverse) {
-    int virial_num = 6;
-    int dcvdx_num = 3;
-    if (!comm_mode || h_a_virial == nullptr){
-        return;
+int MetaD_zqc::STEIN_QL<L>::pack_comm_reverse_ubuf(
+    int n, int first, double *buf, int offset, int stride) {
+    if (n > 0 && (!h_a_virial || !h_dcvdx))
+        throw std::logic_error("STEIN_QL: reverse communication data is not ready");
+    for (int k = 0; k < n; ++k) {
+        const int atom = first + k;
+        const int base = offset + k*stride;
+        for (int c = 0; c < 6; ++c) buf[base+c] = h_a_virial[6*atom+c];
+        for (int c = 0; c < 3; ++c) buf[base+6+c] = h_dcvdx[3*atom+c];
     }
-    int loctag;
-    int m = slot_offset; 
-    int cycle_offset = comm_reverse;
-    
-    // 将 ghost 上的 dcvdx 累加回对应的本地 owned 原子
-    for (int i = 0; i < n; i++) {
-        loctag = list[i];
-        #pragma unroll
-        for (int ddx=0; ddx< virial_num ;ddx++){
-            h_a_virial[loctag* virial_num  + ddx] += u_buf[m + cycle_offset*i + ddx];
-        }
-        #pragma unroll
-        for (int ddx=0; ddx<dcvdx_num;ddx++){
-            h_dcvdx[loctag*dcvdx_num + ddx] += u_buf[m + cycle_offset*i + virial_num + ddx];
-        }
-    }
+    return get_comm_reverse_width();
 }
 
+template <int L>
+void MetaD_zqc::STEIN_QL<L>::unpack_comm_reverse_ubuf(
+    int n, int *list, double *buf, int offset, int stride) {
+    if (n > 0 && (!h_a_virial || !h_dcvdx))
+        throw std::logic_error("STEIN_QL: reverse communication data is not ready");
+    // 将各 ghost 镜像的贡献累加到对应 owner，供本轮偏置力使用。
+    for (int k = 0; k < n; ++k) {
+        const int atom = list[k];
+        const int base = offset + k*stride;
+        for (int c = 0; c < 6; ++c) h_a_virial[6*atom+c] += buf[base+c];
+        for (int c = 0; c < 3; ++c) h_dcvdx[3*atom+c] += buf[base+6+c];
+    }
+}
 
 template <int L>
 double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
@@ -1388,6 +1346,8 @@ __global__ void get_environment_Steinhardt_Q(
             delt_z = (neigh_z - c_z);
             r2 = delt_x*delt_x + delt_y*delt_y + delt_z*delt_z;
             r = sqrt(r2);
+            // Candidate skin is never part of the CV's effective neighborhood.
+            if (r >= cutoff_r) continue;
             sigma_r = sw_f(r);
             if ((sigma_r < cut_sigma_eps)) continue;
             // sigma_r >= cut_sigma_eps
@@ -1431,8 +1391,7 @@ __global__ void steinhardt_cv_kernel(
 
     // 【与导数核函数完美镜像】的近邻数读取与基础寻址逻辑
     int neigh_num = d_neigh_in_cutoff_r[c_atom_calctag];
-    LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size; // 为了通讯方便，qlm和Ylm都按照local原子标签来存储和访问
-    LAMMPS_NS::tagint stein_Ylm_base_id;
+    LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size; // qlm 按 local 原子索引存储，便于通信
 
     // 如果没有邻居，直接清零退出
     double NFb_i_check = d_neigh_in_switching[c_atom_loctag];
@@ -1447,14 +1406,11 @@ __global__ void steinhardt_cv_kernel(
     double c_z = d_x_flat[c_atom_loctag*3+2];
 
     LAMMPS_NS::tagint neigh_base = d_group_numneigh[c_atom_calctag];
-    LAMMPS_NS::tagint neigh_pair_base = d_calculated_firstneigh_ptrs[c_atom_calctag];
 
     double qlm_value_weight = 0.0;
 
     for (LAMMPS_NS::tagint neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
         LAMMPS_NS::tagint neigh_loctag = d_calculated_numneigh[neigh_base + neigh_atom];
-        // Ylm 只与原子位置有关，所以可以按照group直接访问不需要扩大数组,所以用c_atom而不是c_atom_tag
-        stein_Ylm_base_id = (neigh_pair_base+neigh_atom)*lm_size;
         double local_Ylm[lm_size] = {0.0};
         
         double neigh_x = d_x_flat[neigh_loctag*3];
@@ -1476,8 +1432,6 @@ __global__ void steinhardt_cv_kernel(
         for (int m = 0; m < lm_size; ++m) {
             local_qlm[m] += r_weight * local_Ylm[m];
         }
-        cuda::std::memcpy(&d_stein_Ylm[stein_Ylm_base_id], &local_Ylm, 
-                            sizeof(double)*lm_size);
     }
 
     // --- 循环外归一化与写回全局显存 ---
@@ -1580,46 +1534,8 @@ __global__ void steinhardt_dcv_kernel(
     double r = sqrt(r2);
     double r_weight = sw_f_r(r);
 
-    double Factor_Y, Factor_Ydx, Factor_Ydy, Factor_Ydz;
-    double tdx_r, tdx_i, tdy_r, tdy_i, tdz_r, tdz_i;
-    
-
-    // 【完全通用】框架：近邻、数组清零、寻址逻辑
-        
-    double theta = acos(dz / r);
-    double phi = atan2(dy, dx);
-
-    double sin_theta, cos_theta, sin_phi, cos_phi;
-    double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
-    double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
-    double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
-    double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
-    double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
-    sincos(theta, &sin_theta, &cos_theta);
-    sincos(phi, &sin_phi, &cos_phi);
-
-        
-    // 【完全通用】的三角函数倍角级联
-    if constexpr (L >= 2) {
-        sincos(2 * theta, &sin_2theta, &cos_2theta);
-        sincos(2 * phi, &sin_2phi, &cos_2phi);
-    }
-    // 如果 L >= 3，才编译 3 倍角
-    if constexpr (L >= 3) {
-        sincos(3 * phi, &sin_3phi, &cos_3phi);
-        sincos(4 * theta, &sin_4theta, &cos_4theta);
-    }
-    // 如果 L >= 4，才编译 4 倍角
-    if constexpr (L >= 4) {
-        sincos(3 * theta, &sin_3theta, &cos_3theta);
-        sincos(4 * phi, &sin_4phi, &cos_4phi);
-        sincos(5 * theta, &sin_5theta, &cos_5theta);
-        sincos(5 * phi, &sin_5phi, &cos_5phi);
-        sincos(6 * theta, &sin_6theta, &cos_6theta);
-    }
-    if constexpr (L >= 6) {
-        sincos(6 * phi, &sin_6phi, &cos_6phi);
-    }
+    const double inv_r = 1.0 / r;
+    const double nx = dx * inv_r, ny = dy * inv_r, nz = dz * inv_r;
 
     double catom_ql_timesN, neigh_ql_timesN;
     if ((d_mask[c_atom_loctag]&groupbit) == 0) {
@@ -1646,11 +1562,13 @@ __global__ void steinhardt_dcv_kernel(
     }
 
     double local_Ylm[lm_size];
-    const double inv_r = 1.0 / r;
-    compute_Ylm_unit<L>(dx * inv_r, dy * inv_r, dz * inv_r, local_Ylm);
-    // LAMMPS_NS::tagint stein_Ylm_base_id = d_half_to_full[pair_tag]*lm_size;
+    double local_Ylmdr[3*2];
     LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size;
     LAMMPS_NS::tagint stein_qlm_neigh_id = neigh_loctag * lm_size;
+    // Share the unit-direction polynomial recurrence between Ylm and dYlm/dR.
+    compute_Ylm_unit_and_gradient<L>(
+        nx, ny, nz, inv_r, catom_ql_timesN * r_weight, neigh_ql_timesN * r_weight,
+        stein_qlm_base_id, stein_qlm_neigh_id, d_stein_qlm, local_Ylm, local_Ylmdr);
 
     double sum_of_sigma = 0;
     double a,b;
@@ -1675,66 +1593,11 @@ __global__ void steinhardt_dcv_kernel(
         sum_of_sigma += 2* a * (Aqlmi * (Aylmrij - Aqlmi)+ Bqlmi * (Bylmrij - Bqlmi));
         sum_of_sigma += 2* b * (Aqlmj * (Aylmrij - pre_ij_ji * Aqlmj)+ Bqlmj * (Bylmrij - pre_ij_ji * Bqlmj));
     }
-    double local_Ylmdr[3*2] = {0.0};
-    catom_ql_timesN = catom_ql_timesN * r_weight;
-    neigh_ql_timesN = neigh_ql_timesN * r_weight;
-
-    // ==========================================================
-    //  利用编译期静态判断条件！
-    // ==========================================================
-    if constexpr (L == 3) {
-        // 当编译指定该模板为 <3> 时，编译器在这一步会直接盲切到 L3 函数。
-        // 此时 L==6 的分支、以及计算 q6 所需的其他高阶 sin_5theta 变量，
-        // 会被编译器判定为“死代码”彻底移除。最终生成的 GPU 二进制指令纯净无污染。
-        compute_Ylm_gradient_L3(
-            r, 
-            cos_theta, sin_theta, cos_phi, sin_phi,
-            cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-            cos_3phi, sin_3phi,
-            cos_4theta, sin_4theta, 
-            catom_ql_timesN, neigh_ql_timesN,
-            stein_qlm_base_id, stein_qlm_neigh_id,
-            d_stein_qlm, local_Ylmdr
-            // &d_dYlm_dr[c_atom_calctag * 3 * 2]
-        );
-    } else if constexpr (L == 4) {
-        // 针对计算 q4，这里在前面额外多算两个高阶级联分量即可
-        compute_Ylm_gradient_L4(
-            r, 
-            cos_theta, sin_theta, cos_phi, sin_phi,
-            cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-            cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-            cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-            cos_5theta, sin_5theta, cos_5phi, sin_5phi,
-            cos_6theta, sin_6theta,
-            catom_ql_timesN, neigh_ql_timesN,
-            stein_qlm_base_id, stein_qlm_neigh_id,
-            d_stein_qlm, local_Ylmdr
-            // &d_dYlm_dr[c_atom_calctag * 3 * 2]
-        );
-    } else if constexpr (L == 6) {
-        // 针对计算 q6，这里在前面额外多算两个高阶级联分量即可
-        compute_Ylm_gradient_L6(
-            r, 
-            cos_theta, sin_theta, cos_phi, sin_phi,
-            cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-            cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-            cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-            cos_5theta, sin_5theta, cos_5phi, sin_5phi,
-            cos_6theta, sin_6theta, cos_6phi, sin_6phi,
-            catom_ql_timesN, neigh_ql_timesN,
-            stein_qlm_base_id, stein_qlm_neigh_id,
-            d_stein_qlm, local_Ylmdr
-            // &d_dYlm_dr[c_atom_calctag * 3 * 2]
-        );
-    }
-    
-
     // f. is dcv/dx
     double f[3] = {0.0};
-    f[0] = (local_Ylmdr[ 0*2 + 0] + local_Ylmdr[ 0*2 + 1] + sum_of_sigma*dx/r);
-    f[1] = (local_Ylmdr[ 1*2 + 0] + local_Ylmdr[ 1*2 + 1] + sum_of_sigma*dy/r);
-    f[2] = (local_Ylmdr[ 2*2 + 0] + local_Ylmdr[ 2*2 + 1] + sum_of_sigma*dz/r);
+    f[0] = (local_Ylmdr[ 0*2 + 0] + local_Ylmdr[ 0*2 + 1] + sum_of_sigma*nx);
+    f[1] = (local_Ylmdr[ 1*2 + 0] + local_Ylmdr[ 1*2 + 1] + sum_of_sigma*ny);
+    f[2] = (local_Ylmdr[ 2*2 + 0] + local_Ylmdr[ 2*2 + 1] + sum_of_sigma*nz);
     // if (isnan(fx) || isnan(fy) || isnan(fz)) {
     //     // 只有崩成 NaN 的线程才会触发打印，不影响整体速度
     //     printf("[NaN Detected] c_atom_calctag = %d, neigh_tag = %d, Neigh_Nb=%d, d_stein_ql[neigh_tag]=%g, d_stein_qlm[stein_qlm_neigh_id + 0]=%g r = %f, dx = %f, dy = %f, dz = %f, sin_theta = %f\n", 

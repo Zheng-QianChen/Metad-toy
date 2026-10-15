@@ -1,0 +1,14 @@
+[MetaD Graph] NVRTC begin: version=12.6 --gpu-architecture=sm_89 source_bytes=6959 inputs=2 reductions=2
+[MetaD Graph] NVRTC compiler log:
+zqc_graph.cu(179): warning #177-D: variable "v0" was declared but never referenced
+  double v0 = v0_ptr[i];
+         ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+zqc_graph.cu(180): warning #177-D: variable "v1" was declared but never referenced
+  double v1 = v1_ptr[i];
+         ^
+
+
+[MetaD Graph] NVRTC ready: compile_ms=36.417895 load_ms=0.478060 cubin_bytes=4584 kernels=cv_forward,cv_backward (reused across timesteps)

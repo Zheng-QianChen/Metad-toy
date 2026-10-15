@@ -20,8 +20,7 @@ using namespace LAMMPS_NS;
    语法：compute ID group-ID metad/atom <MetaD_id> <cv_name> <cv_prop>
 ------------------------------------------------------------------------- */
 ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg, FILE* f_check) :
-  Compute(lmp, narg, arg), id_fix(nullptr), f_check(f_check)
-{
+  Compute(lmp, narg, arg), id_fix(nullptr), f_check(f_check){
   // 基础参数校验：至少需要 5 个参数
   ERR_COND((narg < 5),"compute metad/atom need args more than 5.");
 
@@ -54,8 +53,7 @@ ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg, FILE* f_chec
 /* ----------------------------------------------------------------------
    析构函数：安全释放动态分配的内存
 ------------------------------------------------------------------------- */
-ComputeMetaDToy::~ComputeMetaDToy()
-{
+ComputeMetaDToy::~ComputeMetaDToy(){
   delete[] id_fix;
   memory->destroy(vector_atom);
   memory->destroy(array_atom);
@@ -64,8 +62,7 @@ ComputeMetaDToy::~ComputeMetaDToy()
 /* ----------------------------------------------------------------------
    模拟开始前的初始化验证
 ------------------------------------------------------------------------- */
-void ComputeMetaDToy::init()
-{
+void ComputeMetaDToy::init(){
   // 1. 运行时动态查找脚本中指定的那个 Fix 实例
   Fix *ifix = modify->get_fix_by_id(id_fix);
   ERR_COND((!ifix),"Fix ID %s specified in compute metad/atom does not exist",id_fix);
@@ -76,8 +73,7 @@ void ComputeMetaDToy::init()
 /* ----------------------------------------------------------------------
    核心数据总线：当 dump 写入触发时，此函数被调用
 ------------------------------------------------------------------------- */
-void ComputeMetaDToy::compute_peratom()
-{
+void ComputeMetaDToy::compute_peratom(){
   // 记录当前步数，防止在同一个时间步内被重复触发计算
   invoked_peratom = update->ntimestep;
 
@@ -146,8 +142,7 @@ void ComputeMetaDToy::compute_peratom()
 /* ----------------------------------------------------------------------
    内存使用统计
 ------------------------------------------------------------------------- */
-double ComputeMetaDToy::memory_usage()
-{
+double ComputeMetaDToy::memory_usage(){
   double bytes = (double)nmax * requests.size() * sizeof(double);
   bytes += requests.size() * sizeof(CVRequest);
   return bytes;

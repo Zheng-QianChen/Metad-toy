@@ -282,16 +282,14 @@ namespace MetaD_zqc {
                 const MetaD_zqc::SwitchFunctionRequest& sw_params_q, double q_weight_scale);
             void environment();
             // communication for Ghost atoms
-            virtual bool need_reverse_comm() override {return true;}; // 是否需要跨进程同步 Ghost 属性
-            virtual int get_comm_reverse_bytes() override; // 每个原子需要同步多少个 bytes
+            virtual int get_comm_reverse_width() const override; // 每原子 double 数
             virtual int pack_comm_reverse_ubuf(int n, int first, double *u_buf, 
-                                int slot_offset, int comm_forward)  override; // 具体 CV 自己的打包逻辑
+                                int offset, int stride)  override; // 具体 CV 自己的打包逻辑
             virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, 
-                                int slot_offset, int comm_forward)  override; // 具体 CV 自己的解包逻辑
-            virtual bool need_forward_comm() override { return true; }
-            virtual int get_comm_forward_bytes() override;
-            virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override;
-            virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override;
+                                int offset, int stride)  override; // 具体 CV 自己的解包逻辑
+            virtual int get_comm_forward_width() const override;
+            virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int offset, int stride) override;
+            virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int offset, int stride) override;
             // compute
             virtual double* get_peratom_ptr(const std::string &prop_name) override;
     };
@@ -386,7 +384,6 @@ namespace MetaD_zqc {
         using STEIN_QL<L>::d_block_size;
         using STEIN_QL<L>::N;
         using STEIN_QL<L>::stein_l;
-        using STEIN_QL<L>::comm_mode;
 
         using STEIN_QL<L>::all_count;
 
@@ -464,19 +461,8 @@ namespace MetaD_zqc {
         CV_Calculation set_CV_calculate(std::string func_name) override;
         CV_BiasForce set_CV_bias_force(std::string func_name) override;
 
-        // communication for Ghost atoms
-        virtual bool need_reverse_comm() override {return true;}; // 是否需要跨进程同步 Ghost 属性
-        virtual int get_comm_reverse_bytes() override; // 每个原子需要同步多少个 bytes
-        virtual int pack_comm_reverse_ubuf(int n, int first, double *u_buf, 
-                            int slot_offset, int comm_forward)  override; // 具体 CV 自己的打包逻辑
-        virtual void unpack_comm_reverse_ubuf(int n, int *list, double *u_buf, 
-                            int slot_offset, int comm_forward)  override; // 具体 CV 自己的解包逻辑
-        // LocalQL 不走 forward_comm；必须覆盖，否则会继承 STEIN_QL 的非零字节数，
-        // 把 Fix::comm_forward 撑大，进而把 reverse buffer 步长搞错。
-        virtual bool need_forward_comm() override { return false; }
-        virtual int get_comm_forward_bytes() override {return 0;};
-        virtual int pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) override {};
-        virtual void unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) override {};
+        // LocalQL 复用基类的 reverse 打包，forward 宽度为零。
+        int get_comm_forward_width() const override { return 0; }
         // // compute
         // double* get_peratom_ptr(const std::string &prop_name) override;
     };
@@ -618,7 +604,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     double *d_stein_qlm, 
     double *d_stein_LQlm,
     double *d_stein_ql,
-    double *d_dcvdx);
+    double *d_dcvdx, double *d_a_virial);
 
 template <int L>
 __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
@@ -634,7 +620,7 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     int *d_neigh_in_cutoff_r, 
     double *d_dcvdx_rjk_prefix,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr, double *d_dcvdx);
+    double *d_dYlm_dr, double *d_dcvdx, double *d_a_virial);
 
 
 // =========================================================================

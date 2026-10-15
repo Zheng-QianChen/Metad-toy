@@ -1,0 +1,181 @@
+[
+  {
+    "case": "chem_mix",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 0.00523395481644641,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "chem_mix",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 8.673617379884035e-19,
+      "max_force": 0.0052339548164464095,
+      "cv_energy_errors": [
+        2.7755575615628914e-17,
+        5.551115123125783e-17,
+        0.0
+      ],
+      "pressure_errors": [
+        5.684341886080802e-14,
+        5.684341886080802e-14,
+        1.1368683772161603e-13,
+        6.661338147750939e-16,
+        7.993605777301127e-15,
+        4.440892098500626e-16
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 30564
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 30348
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "chem_mix",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/weighted-chem-comm-validation-v2/after/chem_mix_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 8.673617379884035e-19,
+      "max_force": 0.0052339548164464095,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        1.7053025658242404e-13,
+        1.7053025658242404e-13,
+        3.3306690738754696e-16,
+        5.329070518200751e-15,
+        8.881784197001252e-16
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 26640
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 27000
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 27108
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 26676
+          }
+        ]
+      }
+    ]
+  }
+]

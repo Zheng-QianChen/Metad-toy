@@ -1,9 +1,12 @@
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
+#include <limits>
 
 #include <cuda_runtime.h>
 
 #include "lammpsplugin.h"
+#include "version.h"
 #include "atom.h"
 #include "comm.h"
 #include "update.h"
@@ -21,6 +24,7 @@
 #include "compute_MetaDToy.h"
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
+#include "zqc_cv_graph.cuh"
 #include "zqc_gaussian.h"
 #include "zqc_mlcvs.h"
 #include "zqc_switch_function.h"
@@ -72,6 +76,10 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     current_temp = 300.0;
     int continue_from_file=false;
     int WellT_bool=false;
+    bool use_graph = false;
+    std::vector<MetaD_zqc::CVGraphSymbol> symbol_configs;
+    std::vector<std::string> dim_expressions;
+
     // Gaussian_Hill_type={
     // 0: 均匀网格
     // 1: 稀疏网格
@@ -96,6 +104,12 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             LOG("Logging: set GAUSSIAN sigma, height, biasf: %g %g %g.", sigma, height0, biasf);
             LOG("Logging: attention, we use Joules/moles as the height's units, so if the lammps settings is not real, there will be a units transform.\n\
              If you set CV's bounds in physicals, this units will follows your lammps units settings.");
+        } else if (strcmp(arg[i], "EXECUTOR") == 0) {
+            ERR_COND(i + 1 >= narg, "EXECUTOR requires LEGACY or GRAPH");
+            ERR_COND(strcmp(arg[i+1], "GRAPH") != 0 && strcmp(arg[i+1], "LEGACY") != 0,
+                     "EXECUTOR requires LEGACY or GRAPH");
+            use_graph = strcmp(arg[i+1], "GRAPH") == 0;
+            i += 2;
         } else if (strcmp(arg[i], "PACE") == 0) {
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             pace = utils::inumeric(FLERR, arg[i+1], false, lmp);
@@ -129,7 +143,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             memory->create(nbin, cv_dim, "metad:nbin_size");
             memory->create(cv_bound, cv_dim*2, "metad:GaussianHill:cv_bound");
 
-            std::vector<bool> has_dim_configured(cv_dim, false);
+            dim_expressions.resize(cv_dim);
 
             i += 2;
         } else if (strcmp(arg[i], "TEMP") == 0) {
@@ -184,14 +198,16 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             }
             DEBUG_LOG("VAL=%s, METHODS=%s",target_name.c_str(),target_func.c_str());
             // add_symbol(const std::string& name, CV* ptr, const std::string& func_name);
-            cv_configs->add_symbol(arg[i+1], cal_registry[target_name], target_func.c_str());
+            auto found = cal_registry.find(target_name);
+            ERR_COND(found == cal_registry.end(), "SYMBOL refers to unknown CV '%s'", target_name.c_str());
+            symbol_configs.push_back({arg[i+1], found->second, target_func});
             DEBUG_LOG("1");
             i += 3;
       } else if (strcmp(arg[i], "DIM") == 0) {
             // DIM 1 0 40 1600 (v1+v2)/2 -> DIM index, lower_bound, upper_bound, bins, cv_expr
             ERR_COND(i + 5 >= narg, "Error: DIM command requires 5 arguments: index, lower, upper, bins, cv_expr.");
             int dim_idx = utils::inumeric(FLERR, arg[i+1], false, lmp) - 1; // 0-based
-            ERR_COND(dim_idx > cv_dim, "Error: DIM index out of range or unsupported dimension.");
+            ERR_COND(dim_idx < 0 || dim_idx >= cv_dim || !cv_bound || !nbin, "DIM requires CV_dim first and a valid 1-based index");
             cv_bound[dim_idx * 2] = utils::numeric(FLERR, arg[i+2], false, lmp); // lower
             cv_bound[dim_idx * 2 + 1] = utils::numeric(FLERR, arg[i+3], false, lmp); // upper
             int nbin_num = utils::inumeric(FLERR, arg[i+4], false, lmp); // 将 bins 数量赋给 nbin_num (仅用于单维度)
@@ -199,7 +215,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             LOG("Logging: cv_compute=%d bound set at [%g,%g], total grid is %d.",dim_idx+1, cv_bound[dim_idx * 2], cv_bound[dim_idx * 2 +1], nbin_num);
             LOG("Logging: cv_compute=%d bound set expr as %s", dim_idx+1, arg[i+5]);
             // reg_expression(int dim_idx, const std::string& expr_str);
-            cv_configs->reg_expression(dim_idx, arg[i+5]);
+            dim_expressions[dim_idx] = arg[i+5];
             // 【标记该维度已配置，后续检查是否所有维度都配置了表达式
             // has_dim_configured[dim_idx] = true;
             i += 6;
@@ -217,6 +233,26 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
         } else {
             ERR_COND(1, "Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
             break;
+        }
+    }
+    // 完整读入后才构图，EXECUTOR 的位置不影响 SYMBOL/DIM 的含义。
+    ERR_COND(dim_expressions.size() != static_cast<size_t>(cv_dim), "Missing CV_dim/DIM configuration");
+    for (const auto& expr : dim_expressions) ERR_COND(expr.empty(), "Every DIM requires an expression");
+    try {
+        if (use_graph) {
+            graph_execution = std::make_unique<MetaD_zqc::CVGraphExecution>(lmp, symbol_configs, dim_expressions);
+        } else {
+            for (const auto& symbol : symbol_configs)
+                cv_configs->add_symbol(symbol.name.c_str(), symbol.cv, symbol.method.c_str());
+            for (int k = 0; k < cv_dim; ++k) cv_configs->reg_expression(k, dim_expressions[k]);
+        }
+    } catch (const std::exception& e) {
+        error->one(FLERR, "MetaD executor configuration: {}", e.what());
+    }
+    if (comm->me == 0) {
+        for (FILE* file : {screen, logfile}) if (file) {
+            fprintf(file, "[MetaD] executor=%s dimensions=%d\n", use_graph ? "GRAPH" : "LEGACY", cv_dim);
+            fflush(file);
         }
     }
     LOG("init calc set end, start to define Gaussian.");
@@ -307,6 +343,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
 }
 
 FixMetadynamics::~FixMetadynamics() {
+  graph_execution.reset(); // 先释放借用 CV 数据的图。
   memory->destroy(cv_values);
   memory->destroy(cv_history);
   memory->destroy(dVdcvs);
@@ -377,10 +414,9 @@ void FixMetadynamics::init() {
       first_run = false;}
     // 续算
 
-    // 确认通讯
-    comm_forward=get_comm_forward_bytes();
-    comm_reverse=get_comm_reverse_bytes();
   }
+  // LAMMPS 随后在 Comm::init 中读取这些上限，准备通信缓冲。
+  init_cv_communication();
 }
 
 void FixMetadynamics::init_list(int id, NeighList *ptr)
@@ -389,8 +425,18 @@ void FixMetadynamics::init_list(int id, NeighList *ptr)
 }
 
 // 3. 真正偏置力（解析梯度，比数值差分快）
+void FixMetadynamics::setup(int vflag) {
+  // Apply the restored bias before the first integration step, without
+  // advancing sampling history or depositing a hill during run setup.
+  evaluate_bias(vflag, false);
+}
+
 void FixMetadynamics::post_force(int vflag) {
-  DEBUG_LOG("post_force start");
+  evaluate_bias(vflag, true);
+}
+
+void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
+  DEBUG_LOG("evaluate_bias start");
 
   // Occasional/perpetual Fix lists: ensure before any CV touches numneigh.
   neigh_hub.ensure_all();
@@ -415,6 +461,8 @@ void FixMetadynamics::post_force(int vflag) {
   // }
 
   // -----calculate cv_compute and add cv_history-----
+  try {
+  if (graph_execution) graph_execution->prepare();
   for (auto const& pair : cal_registry) {
     const std::string& name = pair.first;
     MetaD_zqc::CV* obj = pair.second;
@@ -422,14 +470,23 @@ void FixMetadynamics::post_force(int vflag) {
     obj->base_calc(); 
     DEBUG_LOG("base_calc of %s is end", pair.first.c_str());
   }
-  cv_configs->compute_total_cv();
+  if (graph_execution) {
+    const auto values = graph_execution->forward();
+    std::copy(values.begin(), values.end(), cv_values);
+  } else {
+    cv_configs->compute_total_cv();
+    for (int ii = 0; ii < cv_dim; ++ii) cv_values[ii] = cv_configs->compute_dim_cv(ii);
+  }
+  } catch (const std::exception& e) {
+    // 单 rank 的 CUDA/NVRTC 失败也要终止整个 communicator，避免其它 rank 卡在规约。
+    error->one(FLERR, "MetaD forward: {}", e.what());
+  }
   for (int ii=0; ii<cv_dim; ii++){
-    cv_values[ii] = cv_configs->compute_dim_cv(ii);
-    cv_history[ii] += cv_values[ii];
+    if (advance_history) cv_history[ii] += cv_values[ii];
     DEBUG_LOG("cv_compute[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
   }
   // -----if pace, then add_hill-----
-  if ((pace!=0)&&(update->ntimestep % pace == 0)) {
+  if (advance_history && (pace!=0) && (update->ntimestep % pace == 0)) {
     for(int ii=0; ii<cv_dim; ii++){
       // cv_history[ii] = cv_history[ii]/pace;
       cv_history[ii] = cv_values[ii];
@@ -451,10 +508,14 @@ void FixMetadynamics::post_force(int vflag) {
 
   // DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   // printf("cv_compute = %g, dVdcv = %.g\n",cv_values[0], dVdcvs[0]);
-  for(int ii=0; ii<cv_dim; ii++){
-    DEBUG_LOG("dVdcv[%d] = %.g", ii, dVdcvs[ii]);
-    // (base_cv[ii]->*cv_biasforce[ii])(dVdcvs[ii]);
-    cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
+  try {
+    if (graph_execution) {
+      graph_execution->backward(std::vector<double>(dVdcvs, dVdcvs + cv_dim));
+    } else {
+      for (int ii = 0; ii < cv_dim; ++ii) cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
+    }
+  } catch (const std::exception& e) {
+    error->one(FLERR, "MetaD backward: {}", e.what());
   }
 
   // 各个cv内部已经进行了累计，所以在这里只需要直接加上就可以了。
@@ -464,7 +525,7 @@ void FixMetadynamics::post_force(int vflag) {
     }
   }
 
-  DEBUG_LOG("post_force_end");
+  DEBUG_LOG("evaluate_bias_end");
 }
 
 void FixMetadynamics::add_hill(double* cv_values){
@@ -489,100 +550,81 @@ double FixMetadynamics::compute_vector(int n) {
     return cv_values[n];
 }
 
-int FixMetadynamics::get_comm_forward_bytes() {
-    int total_size = 0;
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        // LocalQL 等 CV 可能继承了非零的 get_comm_forward_bytes，
-        // 但 need_forward_comm()==false，不能计入 Fix::comm_forward。
-        if (obj->need_forward_comm() && obj->get_comm_forward_bytes()) {
-            total_size += obj->get_comm_forward_bytes();
-        }
+void FixMetadynamics::init_cv_communication() {
+    comm_forward = comm_reverse = 0;
+    for (const auto& entry : cal_registry) {
+        const auto& cv = *entry.second;
+        const int forward = cv.get_comm_forward_width();
+        const int reverse = cv.get_comm_reverse_width();
+        if (forward < 0 || reverse < 0)
+            error->all(FLERR, "MetaD CV communication width must be nonnegative");
+        comm_forward = std::max(comm_forward, forward);
+        comm_reverse = std::max(comm_reverse, reverse);
     }
-    LOG("communicate: total_size=%d",total_size);
-    return total_size;
 }
 
-int FixMetadynamics::get_comm_reverse_bytes() {
-    int total_size = 0;
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        if (obj->need_reverse_comm() && obj->get_comm_reverse_bytes()) {
-            total_size += obj->get_comm_reverse_bytes();
-        }
-    }
-    return total_size;
+void FixMetadynamics::communicate_forward(MetaD_zqc::CV& cv) {
+    communicate(cv, CommDirection::Forward);
 }
 
-int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) {
-    int slot_offset = 0; // 偏移量计数器，单位是“槽位(Slot)”，1个Slot = 1个double
-    int cycle_offset = comm_forward;
-    DEBUG_LOG("Pack forward comm start");
+void FixMetadynamics::communicate_reverse(MetaD_zqc::CV& cv) {
+    communicate(cv, CommDirection::Reverse);
+}
 
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        if (obj->need_forward_comm()) {
-            // 每个 obj 传入 ubuf 总线，并在它专属的 slot_offset 位置开始平铺写入
-            // 子 obj 内部写入了多少个 slot，就返回多少，累加给 slot_offset
-            slot_offset += obj->pack_comm_forward_ubuf(n, list, buf, slot_offset, comm_forward);
-        }
+void FixMetadynamics::communicate(MetaD_zqc::CV& cv, CommDirection direction) {
+    if (active_comm.cv)
+        throw std::logic_error("MetaD: nested CV communication");
+    const bool forward = direction == CommDirection::Forward;
+    const int width = forward ? cv.get_comm_forward_width() : cv.get_comm_reverse_width();
+    const int capacity = forward ? comm_forward : comm_reverse;
+    if (width < 0 || width > capacity)
+        throw std::logic_error("MetaD: CV communication width exceeds initialized capacity");
+    if (width == 0) return;
+
+    active_comm = {&cv, width, direction};
+    try {
+        // size 指定本轮包宽；Fix::comm_* 保持初始化时的最大容量。
+        if (forward) comm->forward_comm(this, width);
+        else comm->reverse_comm(this, width);
+    } catch (...) {
+        active_comm = {};
+        throw;
     }
-    
-    int expected_total = n * this->comm_forward; // 官方大管家认为你应该打包的总 double 数
-    DEBUG_LOG("Rank:%d,Pack forward comm: n=%d, comm_forward=%d, total packed=%d", lmp->comm->me,n, this->comm_forward, n*slot_offset);
+    active_comm = {};
+}
 
-    return slot_offset*n;
+int FixMetadynamics::comm_buffer_size(int n, CommDirection direction) const {
+    if (!active_comm.cv || active_comm.direction != direction || active_comm.width <= 0)
+        throw std::logic_error("MetaD: communication callback has no matching active CV");
+    if (n < 0 || n > std::numeric_limits<int>::max()/active_comm.width)
+        throw std::overflow_error("MetaD: CV communication count exceeds MPI int range");
+    return n*active_comm.width;
+}
+
+int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int, int*) {
+    const int count = comm_buffer_size(n, CommDirection::Forward);
+    const int width = active_comm.cv->pack_comm_forward_ubuf(n, list, buf, 0, active_comm.width);
+    if (width != active_comm.width)
+        throw std::logic_error("MetaD: CV forward pack width mismatch");
+    return count;
 }
 
 void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
-    int slot_offset = 0;
-    int cycle_offset = comm_forward;
-    DEBUG_LOG("UNPack forward comm start");
-
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        if (obj->need_forward_comm()) {
-            // 一模一样地把 ubuf 总线和起始槽位偏移量交还给子 CV 解包
-            obj->unpack_comm_forward_ubuf(n, first, buf, slot_offset, comm_forward);
-            
-            // 每一个 CV 占用的总槽位数 = 原子数 n * 单个原子需要的槽位数
-            slot_offset +=  obj->get_comm_forward_bytes();
-        }
-    }
-    int expected_total = n * this->comm_forward; // 基类预期解包的总 double 数
-    DEBUG_LOG("Rank:%d,Unpack forward comm: n=%d, comm_forward=%d, total unpacked=%d", lmp->comm->me, n, this->comm_forward, slot_offset*n);
+    comm_buffer_size(n, CommDirection::Forward);
+    active_comm.cv->unpack_comm_forward_ubuf(n, first, buf, 0, active_comm.width);
 }
 
 int FixMetadynamics::pack_reverse_comm(int n, int first, double *buf) {
-    // 这里的 n 是本次通信的 ghost 原子总数
-    // 注意：LAMMPS reverse buffer 步长是 Fix::comm_reverse，不是 comm_forward。
-    // 之前误传 comm_forward 会导致 LocalQL(comm_forward 继承非零、comm_reverse=3)
-    // 在 np>=2 时按过大步长写越界，最终表现为 lost atoms。
-    int slot_offset = 0;
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        if (obj->need_reverse_comm()) {
-            // 将 ghost 原子计算的梯度 pack 进 buf
-            // pack_comm_reverse_ubuf 返回的是每个原子写入的 double 个数
-            int n_doubles = obj->pack_comm_reverse_ubuf(n, first, buf, slot_offset, comm_reverse);
-            slot_offset += n_doubles;
-        }
-    }
-    return slot_offset * n;
+    const int count = comm_buffer_size(n, CommDirection::Reverse);
+    const int width = active_comm.cv->pack_comm_reverse_ubuf(n, first, buf, 0, active_comm.width);
+    if (width != active_comm.width)
+        throw std::logic_error("MetaD: CV reverse pack width mismatch");
+    return count;
 }
 
 void FixMetadynamics::unpack_reverse_comm(int n, int *list, double *buf) {
-    // 这里的 n 是本次通信接收的 ghost 原子数
-    // list 是 ghost 到本地原子的映射索引
-    int slot_offset = 0;
-    for (auto const& pair : cal_registry) {
-        MetaD_zqc::CV* obj = pair.second;
-        if (obj->need_reverse_comm()) {
-            // 将 buf 中的梯度累加到对应本地原子的 dcvdx 上
-            obj->unpack_comm_reverse_ubuf(n, list, buf, slot_offset, comm_reverse);
-            slot_offset += obj->get_comm_reverse_bytes();
-        }
-    }
+    comm_buffer_size(n, CommDirection::Reverse);
+    active_comm.cv->unpack_comm_reverse_ubuf(n, list, buf, 0, active_comm.width);
 }
 
 void * FixMetadynamics::extract(const char *key, int &dim){
@@ -626,11 +668,11 @@ static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg, FILE* f_che
 
 // 插件注册函数（必须命名为 lammpsplugin_init）
 extern "C" void lammpsplugin_init(void *lmp, void *handle, void *regfunc) {
-    lammpsplugin_t plugin;
+    lammpsplugin_t plugin{};
     lammpsplugin_regfunc register_plugin = (lammpsplugin_regfunc)regfunc;
 
     // 注册Fix类型插件
-    // plugin.version = LAMMPS_VERSION;
+    plugin.version = LAMMPS_VERSION; // 避免加载日志读取未初始化的版本字符串。
     plugin.style = "fix";                 // 插件类型为fix
     plugin.name = "metad";            // 插件名称
     plugin.info = "Metad plugin v1.0";

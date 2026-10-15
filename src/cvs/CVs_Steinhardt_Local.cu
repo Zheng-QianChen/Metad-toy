@@ -44,7 +44,7 @@ MetaD_zqc::STEIN_LocalQL<L>::STEIN_LocalQL(LAMMPS_NS::LAMMPS *lmp,
     this->my_cv_SWfunc = req.SW_FUNC_cv;
     register_buffer(d_stein_LQlm,"d_stein_LQlm");
     register_buffer(d_dcvdx_rjk_prefix,"d_dcvdx_rjk_prefix");
-    // register_buffer(sum_of_qlm_value_weights,"sum_of_qlm_value_weights");
+    register_buffer(sum_of_qlm_value_weights,"sum_of_qlm_value_weights");
 }
 
 template <int L>
@@ -345,7 +345,8 @@ void MetaD_zqc::STEIN_LocalQL_env::get_env(){
         d_firstneigh_ptrs.grow_to(grow_pairs, __FILE__, __LINE__);
         DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[atom_all]=%d", (int)all_neigh_pairs);
         for (int gr_i = 0; gr_i < atom_all; gr_i++) {
-            i = h_group_indices[gr_i]; // 获取原子索引
+            // CSR offsets and neighbor rows are both indexed by local atom tag.
+            i = gr_i;
             ba_i = h_group_numneigh[gr_i];
             nnumber = h_group_numneigh[gr_i+1]-h_group_numneigh[gr_i];
             DEBUG_LOG("h_group_numneigh=%d, num=%d" ,ba_i,nnumber);
@@ -774,6 +775,11 @@ void MetaD_zqc::STEIN_LocalQL<L>::apply_bias_force(double dVdcv, int mode) {
         f[c_tag][0] -= dVdcv*h_dcvdx[c_tag*3 + 0];
         f[c_tag][1] -= dVdcv*h_dcvdx[c_tag*3 + 1];
         f[c_tag][2] -= dVdcv*h_dcvdx[c_tag*3 + 2];
+        // virial
+        for (int component = 0; component < 6; ++component) {
+            Fixmetad->a_virial[c_tag*6 + component] +=
+                dVdcv * h_a_virial[c_tag*6 + component];
+        }
         ERR_COND((isnan(f[c_tag][0])||isnan(f[c_tag][1])||isnan(f[c_tag][2])),
                  "STEIN_LocalQL FRAC: force is NaN after bias.");
     }
@@ -793,6 +799,11 @@ void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx(double cv_value, double *dcvdx){
     SAFE_CUDA_MEMCPY(h_stein_qlm, d_stein_qlm.ptr, datalen*sizeof(double), cudaMemcpyDeviceToHost,f_check);
 
 
+    datalen = (Threads_own_atoms*6);
+    lmp->memory->grow(h_a_virial, datalen, "STEIN_LocalQL:h_a_virial");
+    d_a_virial.grow_to(datalen, __FILE__, __LINE__);
+    d_a_virial.clear_async();
+
     datalen = (Threads_own_atoms*3);
     lmp->memory->grow(h_dcvdx, datalen, "STEIN_LocalQL:h_dcvdx");
     d_dcvdx.grow_to(datalen, __FILE__, __LINE__);
@@ -809,29 +820,12 @@ void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx(double cv_value, double *dcvdx){
     d_dcvdx_rjk_prefix.grow_to(datalen, __FILE__, __LINE__);
     d_dcvdx_rjk_prefix.clear_async();
 
-    // // sync Stein_qlm and stein_q with communication
-    // // then we can directly use the data in device to calculate dcvdx, 
-    // // without worrying about the data consistency between MPI processes.
-    // DEBUG_LOG("[Rank:%d][Before Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
-    // DEBUG_LOG("[Rank:%d][Before Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
-    // cudaDeviceSynchronize(); // waiting memory
-    // MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
-    // comm_mode=true;
-    // lmp->comm->forward_comm(Fixmetad);
-    // comm_mode=false;
-    // DEBUG_LOG("[Rank:%d][After Comm] h_stein_qlm[0] = %f, ptr = %p\n",lmp->comm->me, h_stein_qlm[0], (void*)h_stein_qlm);
-    // DEBUG_LOG("[Rank:%d][After Comm] stein_q[0] = %f, ptr = %p\n",lmp->comm->me, stein_q[0], (void*)h_stein_qlm);
-
-    // SAFE_CUDA_MEMCPY(d_stein_qlm.ptr, h_stein_qlm, ((Threads_own_atoms)*(L + 1)*2)*sizeof(double), cudaMemcpyHostToDevice,f_check);
-    // SAFE_CUDA_MEMCPY(d_stein_ql.ptr, stein_q, Threads_own_atoms*sizeof(double), cudaMemcpyHostToDevice,f_check);
-    // SAFE_CUDA_MEMCPY(my_loc_env->d_neigh_both_in_r_N.ptr, my_loc_env->neigh_both_in_r_N, Threads_own_atoms*sizeof(int), cudaMemcpyHostToDevice,f_check);
-
-
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
     CUDA_SYNC_CHECK(f_check,error);
     call_steinhardt_Local_dcv_AVE_kernel();
     d_dcvdx.download_to(h_dcvdx, (Threads_own_atoms*3), 0, __FILE__, __LINE__);
+    d_a_virial.download_to(h_a_virial, (Threads_own_atoms*6), 0, __FILE__, __LINE__);
     // cudaMemcpy(h_dcvdx, d_dcvdx.ptr, (Threads_own_atoms*3)*sizeof(double), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize(); // waiting memory
     DEBUG_LOG("i am out");
@@ -839,10 +833,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::get_dcvdx(double cv_value, double *dcvdx){
     
     // sync dcvdx in others threads' ghost
     DEBUG_LOG("[Rank:%d][Before Comm] h_dcvdx[0] = %f, ptr = %p\n",lmp->comm->me, h_dcvdx[0], (void*)h_dcvdx);
-    MPI_Barrier(lmp->world); // ensure all processes reach this point before communication
-    comm_mode=true;
-    lmp->comm->reverse_comm(Fixmetad);
-    comm_mode=false;
+    Fixmetad->communicate_reverse(*this);
     DEBUG_LOG("[Rank:%d][After Comm] h_dcvdx[0] = %f, ptr = %p\n",lmp->comm->me, h_dcvdx[0], (void*)h_dcvdx);
 }
 
@@ -898,8 +889,8 @@ void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
     d_stein_LQlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
     d_stein_LQlm.clear_async();
 
-    // sum_of_qlm_value_weights.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
-    // sum_of_qlm_value_weights.clear_async();
+    sum_of_qlm_value_weights.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
+    sum_of_qlm_value_weights.clear_async();
 
     DEBUG_LOG("i will start a kernel of ql");
     cudaDeviceSynchronize(); // waiting memory
@@ -1017,7 +1008,7 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_dcv_AVE_kernel(){
         d_stein_qlm.ptr,
         d_stein_LQlm.ptr,
         d_stein_ql.ptr,
-        d_dcvdx.ptr);
+        d_dcvdx.ptr, d_a_virial.ptr);
     // 遍历所有的jk原子对
     CUDA_SYNC_CHECK(f_check,error);
     int temp_block_num = ((my_loc_env->num_of_all_IJ_atoms)+d_block_size-1)/d_block_size;
@@ -1039,116 +1030,8 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_dcv_AVE_kernel(){
         
         d_dcvdx_rjk_prefix.ptr,
         d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
-        d_dYlm_dr.ptr, d_dcvdx.ptr);
+        d_dYlm_dr.ptr, d_dcvdx.ptr, d_a_virial.ptr);
     CUDA_SYNC_CHECK(f_check,error);
-}
-
-
-// template <int L>
-// int MetaD_zqc::STEIN_QL<L>::get_comm_forward_bytes(){ 
-//     // need to communicate for each atom in the list
-//     // qlm[2*(L+1) ] and ql (double value) and Neigh_Nb (int value)
-//     return num_elements +1 +1; // qlm + ql + Neigh_Nb
-// }
-
-// template <int L>
-// int MetaD_zqc::STEIN_QL<L>::pack_comm_forward_ubuf(int n, int *list, double *u_buf, int slot_offset, int comm_forward) {
-//     if (!comm_mode){
-//         return (num_elements + 1 +1);
-//     }
-//     int m = slot_offset; 
-//     int cycle_offset = comm_forward;
-
-//     for (int i = 0; i < n; i++) {
-//         int j = list[i]; // 目标本地原子标号
-        
-//         // 1. 先塞当前原子的所有 qlm 分量
-//         for (int k = 0; k < num_elements; k++) {
-//             u_buf[m + cycle_offset*i + k] = h_stein_qlm[j * num_elements + k];
-//         }
-        
-//         // 2. 紧接着，塞当前原子的 ql 标量数据
-//         u_buf[m + cycle_offset*i + num_elements] = stein_q[j]; // 假设这是你的 ql 数组
-
-//         u_buf[m + cycle_offset*i + num_elements +1] = ubuf(my_loc_env->neigh_both_in_r_N[j]).d;
-//     }
-    
-//     return (num_elements + 1 +1);
-// }
-
-// template <int L>
-// void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(int n, int first, double *u_buf, int slot_offset, int comm_forward) {
-//     if (!comm_mode){
-//         return;
-//     }
-
-//     int m = slot_offset; 
-//     int cycle_offset = comm_forward;
-    
-//     // 从 first 开始，连续恢复 n 个 Ghost 原子的复合数据
-//     for (int i = first; i < first + n; i++) {
-        
-//         // 1. 先剥离 qlm 倒回 qlm 跑道
-//         for (int k = 0; k < num_elements; k++) {
-//             h_stein_qlm[i * num_elements + k] = u_buf[ m+ cycle_offset*(i-first) + k];
-//         }
-        
-//         // 2. 紧接着剥离 ql 倒回 ql 跑道
-//         stein_q[i] = u_buf[ m+ cycle_offset*(i-first) + num_elements];
-
-//         my_loc_env->neigh_both_in_r_N[i] = (int) ubuf(u_buf[ m+ cycle_offset*(i-first) + num_elements +1]).i;
-//     }
-// }
-
-
-template <int L>
-int MetaD_zqc::STEIN_LocalQL<L>::get_comm_reverse_bytes(){ 
-    // need to communicate for each atom in the list
-    return 3; // dcv/dxyz per atoms
-}
-
-template <int L>
-int MetaD_zqc::STEIN_LocalQL<L>::pack_comm_reverse_ubuf(int n, int first, 
-                        double *u_buf, int slot_offset, int comm_reverse) {
-    if (!comm_mode){
-        return (3);
-    }
-    // reverse_comm 在 get_dcvdx 里调用；若 h_dcvdx 未分配则空指针解引用 → (nil) segfault
-    if (h_dcvdx == nullptr) {
-        return (3);
-    }
-    int m = slot_offset; 
-    // 参数名历史原因叫 comm_forward，实际传入的是 Fix::comm_reverse（每原子总槽位数）
-    int cycle_offset = comm_reverse;
-
-    for (int i = 0; i < n; i++) {
-        #pragma unroll
-        for (int direct=0; direct<3;direct++){
-            u_buf[m + cycle_offset*i + direct] = h_dcvdx[(i+first)*3 + direct];
-        }
-    }
-    
-    return (3);
-}
-
-template <int L>
-void MetaD_zqc::STEIN_LocalQL<L>::unpack_comm_reverse_ubuf(int n, int *list, 
-                        double *u_buf, int slot_offset, int comm_reverse) {
-    if (!comm_mode || h_dcvdx == nullptr){
-        return;
-    }
-    int loctag;
-    int m = slot_offset; 
-    int cycle_offset = comm_reverse;
-    
-    // 将 ghost 上的 dcvdx 累加回对应的本地 owned 原子
-    for (int i = 0; i < n; i++) {
-        loctag = list[i];
-        #pragma unroll
-        for (int direct=0; direct<3;direct++){
-            h_dcvdx[loctag*3 + direct] += u_buf[m + cycle_offset*i + direct];
-        }
-    }
 }
 
 
@@ -1257,6 +1140,8 @@ __global__ void get_environment_Steinhardt_LocalQ(
             delt_z = (neigh_z - c_z);
             r2 = delt_x*delt_x + delt_y*delt_y + delt_z*delt_z;
             r = sqrt(r2);
+            // The perpetual candidate list includes skin; exclude it from the CV.
+            if (r >= cutoff_r) continue;
             sigma_r = sw_f(r);
             // if (!isfinite(r) || !isfinite(sigma_r)) {
             //     printf("[诊断-环境-r] c_atom_calctag=%lld n_local_tag=%d r=%e sigma_r=%e c_x=%e c_y=%e c_z=%e neigh_x=%e neigh_y=%e neigh_z=%e\n",
@@ -1364,70 +1249,13 @@ __global__ void steinhardt_Local_cv_get_qlm(
         double r = sqrt(r2);
         double r_weight = sw_f(r);
 
-        double theta = acos(fmax(-1.0, fmin(1.0, delt_z / r)));
-        double phi = atan2(delt_y, delt_x);
-
-        double sin_theta, cos_theta, sin_phi, cos_phi;
-        double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
-        double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
-        double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
-        double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
-        double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
-        sincos(theta, &sin_theta, &cos_theta);
-        sincos(phi, &sin_phi, &cos_phi);
-
-        // 【完全通用】的三角函数倍角级联（编译期静态分支分发）
-        if constexpr (L >= 2) {
-            sincos(2 * theta, &sin_2theta, &cos_2theta);
-            sincos(2 * phi, &sin_2phi, &cos_2phi);
-        }
-        if constexpr (L >= 3) {
-            sincos(3 * phi, &sin_3phi, &cos_3phi);
-            sincos(3 * theta, &sin_3theta, &cos_3theta);
-            sincos(4 * theta, &sin_4theta, &cos_4theta);
-        }
-        if constexpr (L >= 4) {
-            sincos(4 * phi, &sin_4phi, &cos_4phi);
-            sincos(5 * theta, &sin_5theta, &cos_5theta);
-            sincos(5 * phi, &sin_5phi, &cos_5phi);
-            sincos(6 * theta, &sin_6theta, &cos_6theta);
-        }
-        if constexpr (L >= 6) {
-            sincos(6 * phi, &sin_6phi, &cos_6phi);
-        }
-        
-
-        // ==========================================================
-        //  💥 核心艺术：利用编译期静态判断条件，杜绝任何浪费！
-        // ==========================================================
-        if constexpr (L == 3) {
-            compute_qlm_forward_L3(
-                r_weight,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-                local_qlm, local_Ylm
-            );
-        } else if constexpr (L == 4) {
-            compute_qlm_forward_L4(
-                r_weight,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2phi, sin_2phi,
-                cos_3phi, sin_3phi,
-                cos_4phi, sin_4phi,
-                local_qlm, local_Ylm
-            );
-        } else if constexpr (L == 6) {
-            compute_qlm_forward_L6(
-                r_weight,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3phi, sin_3phi,
-                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-                cos_5phi, sin_5phi,
-                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
-                local_qlm, local_Ylm
-            );
+        // Evaluate the same unit-direction polynomials used by the Q path.
+        const double inv_r = 1.0 / r;
+        compute_Ylm_unit<L>(
+            delt_x * inv_r, delt_y * inv_r, delt_z * inv_r, local_Ylm);
+        #pragma unroll
+        for (int m = 0; m < lm_size; ++m) {
+            local_qlm[m] += r_weight * local_Ylm[m];
         }
         cuda::std::memcpy(&d_stein_Ylm[stein_Ylm_base_id], &local_Ylm, 
                             sizeof(double)*lm_size);
@@ -1614,6 +1442,23 @@ template __global__ void steinhardt_Local_cv_get_LQl<6>(
     double *d_stein_LQlm, double *d_stein_ql);
 
 
+// The derivative with respect to R = x_neighbor - x_center contributes
+// -R tensor dCV/dR to the CV virial. Split it equally between the endpoints.
+// Keep the center half in registers until its neighbor loop has finished.
+__device__ __forceinline__ void localq_tally_bond_virial(
+    double dx, double dy, double dz, const double *gradient,
+    LAMMPS_NS::tagint neighbor, double *center_virial, double *atom_virial) {
+    const double half_virial[6] = {
+        -0.5*dx*gradient[0], -0.5*dy*gradient[1], -0.5*dz*gradient[2],
+        -0.5*dx*gradient[1], -0.5*dx*gradient[2], -0.5*dy*gradient[2]
+    };
+    #pragma unroll
+    for (int component = 0; component < 6; ++component) {
+        center_virial[component] += half_virial[component];
+        atomicAdd(&atom_virial[6*neighbor + component], half_virial[component]);
+    }
+}
+
 template <int L>
 __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
@@ -1634,7 +1479,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     double *d_stein_qlm, 
     double *d_stein_LQlm,
     double *d_stein_ql,
-    double *d_dcvdx) {
+    double *d_dcvdx, double *d_a_virial) {
     // 仅遍历i原子
     // c_atom 是 calctag
     int c_atom_calctag = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1657,6 +1502,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     if (neigh_num == 0 || NFb_i_tilt < 1e-12) return;
     NFb_i_tilt = NFb_i_tilt + 1;
     double dcvdrij_fori[3] = {0.0, 0.0, 0.0};
+    double center_virial[6] = {0.0};
     
     double c_x = d_x_flat[c_atom_loctag*3+0];
     double c_y = d_x_flat[c_atom_loctag*3+1];
@@ -1737,6 +1583,9 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
             atomicAdd(&d_dcvdx_rjk_prefix[j_calc_tag*lm_size +2*m + 0], rjk_prefix_in_i*r_weight*d_stein_LQlm[i_LQlm_base + 2*m + 0]);
             atomicAdd(&d_dcvdx_rjk_prefix[j_calc_tag*lm_size +2*m + 1], rjk_prefix_in_i*r_weight*d_stein_LQlm[i_LQlm_base + 2*m + 1]);
         }
+        localq_tally_bond_virial(
+            delt_x, delt_y, delt_z, dcvdrij_forj,
+            n_local_tag, center_virial, d_a_virial);
         // 对ij原子的贡献
         dcvdrij_fori[0] -= dcvdrij_forj[0];
         dcvdrij_fori[1] -= dcvdrij_forj[1];
@@ -1788,6 +1637,10 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     atomicAdd(&d_dcvdx[c_atom_loctag * 3 + 0], dcvdrij_fori[0]);
     atomicAdd(&d_dcvdx[c_atom_loctag * 3 + 1], dcvdrij_fori[1]);
     atomicAdd(&d_dcvdx[c_atom_loctag * 3 + 2], dcvdrij_fori[2]);
+    #pragma unroll
+    for (int component = 0; component < 6; ++component) {
+        atomicAdd(&d_a_virial[6*c_atom_loctag + component], center_virial[component]);
+    }
 
     #undef sw_f_r
     #undef sw_f_LQ
@@ -1813,7 +1666,7 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<3>(
     double *d_stein_qlm, 
     double *d_stein_LQlm,
     double *d_stein_ql,
-    double *d_dcvdx);
+    double *d_dcvdx, double *d_a_virial);
 template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<4>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
@@ -1833,7 +1686,7 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<4>(
     double *d_stein_qlm, 
     double *d_stein_LQlm,
     double *d_stein_ql,
-    double *d_dcvdx);
+    double *d_dcvdx, double *d_a_virial);
 template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<6>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
@@ -1853,7 +1706,7 @@ template __global__ void steinhardt_Local_dcv_AVE_ij_kernel<6>(
     double *d_stein_qlm, 
     double *d_stein_LQlm,
     double *d_stein_ql,
-    double *d_dcvdx);
+    double *d_dcvdx, double *d_a_virial);
 
 
 
@@ -1871,7 +1724,7 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     int *d_neigh_in_cutoff_r, 
     double *d_dcvdx_rjk_prefix,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr, double *d_dcvdx) {
+    double *d_dYlm_dr, double *d_dcvdx, double *d_a_virial) {
 
     int c_atom_calctag = blockIdx.x * blockDim.x + threadIdx.x;
     #define sw_f_r(r) (MetaD_zqc::SwitchFunction::f(sw_params_rij, (r)))
@@ -1891,8 +1744,8 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     if (neigh_num == 0 || NFb_j_check < 1e-12) return;
     
     // constexpr int lmdr_size = lm_size *3;
-    MetaD_zqc::D_Ylm_Layout<L> local_dYlmdx;
     double dcvdrjk_forj[3] = {0.0, 0.0, 0.0}; // 栈上数组初始化
+    double center_virial[6] = {0.0};
     double prefix_j[lm_size] = {0.0};
     #pragma unroll
     for(int m=0; m<lm_size; m++){
@@ -1935,158 +1788,36 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
         double sum_of_sw_weight;
         sum_of_sw_weight = d_neigh_in_switching[c_atom_calctag];
         
-        double theta = acos(fmax(-1.0, fmin(1.0, delt_z / r)));
-        double phi = atan2(delt_y, delt_x);
-
-        double sin_theta, cos_theta, sin_phi, cos_phi;
-        double sin_2theta, cos_2theta, sin_2phi, cos_2phi;
-        double sin_3theta, cos_3theta, sin_3phi, cos_3phi;
-        double sin_4theta, cos_4theta, sin_4phi, cos_4phi;
-        double sin_5theta, cos_5theta, sin_5phi, cos_5phi;
-        double sin_6theta, cos_6theta, sin_6phi, cos_6phi;
-        sincos(theta, &sin_theta, &cos_theta);
-        sincos(phi, &sin_phi, &cos_phi);
-        
-        // 【完全通用】的三角函数倍角级联
-        if constexpr (L >= 2) {
-            cos_2theta = 2.0*cos_theta*cos_theta - 1.0;
-            sin_2theta = 2.0*sin_theta*cos_theta;
-            cos_2phi   = 2.0*cos_phi*cos_phi - 1.0;
-            sin_2phi   = 2.0*sin_phi*cos_phi;
-        }
-        // 如果 L >= 3，才编译 3 倍角
-        if constexpr (L >= 3) {
-            // theta方向递推到4theta需要经过3theta(即使3theta本身在L=3时不直接使用)
-            cos_3theta = 2.0*cos_theta*cos_2theta - cos_theta;
-            sin_3theta = 2.0*cos_theta*sin_2theta - sin_theta;
-            cos_4theta = 2.0*cos_theta*cos_3theta - cos_2theta;
-            sin_4theta = 2.0*cos_theta*sin_3theta - sin_2theta;
-
-            cos_3phi = 2.0*cos_phi*cos_2phi - cos_phi;
-            sin_3phi = 2.0*cos_phi*sin_2phi - sin_phi;
-            cos_4phi = 2.0*cos_phi*cos_3phi - cos_2phi;
-            sin_4phi = 2.0*cos_phi*sin_3phi - sin_2phi;
-        }
-        // 如果 L >= 4，才编译 4 倍角
-        if constexpr (L >= 4) {
-            // theta方向继续递推到6theta (3theta,4theta已在L>=3分支算过)
-            cos_5theta = 2.0*cos_theta*cos_4theta - cos_3theta;
-            sin_5theta = 2.0*cos_theta*sin_4theta - sin_3theta;
-            cos_6theta = 2.0*cos_theta*cos_5theta - cos_4theta;
-            sin_6theta = 2.0*cos_theta*sin_5theta - sin_4theta;
-
-            cos_5phi = 2.0*cos_phi*cos_4phi - cos_3phi;
-            sin_5phi = 2.0*cos_phi*sin_4phi - sin_3phi;
-        }
-        if constexpr (L >= 6) {
-            cos_6phi = 2.0*cos_phi*cos_5phi - cos_4phi;
-            sin_6phi = 2.0*cos_phi*sin_5phi - sin_4phi;
-        }
-
-        
-        if constexpr (L == 3) {
-            // 当编译指定该模板为 <3> 时，编译器在这一步会直接盲切到 L3 函数。
-            // 此时 L==6 的分支、以及计算 q6 所需的其他高阶 sin_5theta 变量，
-            // 会被编译器判定为“死代码”彻底移除。最终生成的 GPU 二进制指令纯净无污染。
-            compute_dYlmdx_gradient_L3(
-                r,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3phi, sin_3phi, sin_4phi,
-                cos_4theta, sin_4theta, 
-                &local_dYlmdx
-            );
-        } else if constexpr (L == 4) {
-            // 针对计算 q4，这里在前面额外多算两个高阶级联分量即可
-            compute_dYlmdx_gradient_L4(
-                r,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
-                cos_6theta, sin_6theta,
-                &local_dYlmdx
-            );
-        } else if constexpr (L == 6) {
-            // 针对计算 q6，这里在前面额外多算两个高阶级联分量即可
-            compute_dYlmdx_gradient_L6(
-                r,
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-                cos_5theta, sin_5theta, cos_5phi, sin_5phi,
-                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
-                &local_dYlmdx
-            );
-        }
-
-        // // d_dYlm_dr[c_atom_calctag*lm_size*3 + neigh_atom*lm_size*3] = local_dYlmdx;
-        // int target_offset = c_atom_calctag*lm_size*3 + neigh_atom*lm_size*3;
-        // // 由于并不确定是否基地址对齐，我们决定最终还是采用memcpy
-        // // *reinterpret_cast<D_Ylm_Layout<L>*>(&d_dYlm_dr[target_offset])[0] = local_dYlmdx;
-        // cuda::std::memcpy(&d_dYlm_dr[target_offset], &local_dYlmdx, sizeof(MetaD_zqc::D_Ylm_Layout<L>));
-
-        
-        // 第一项要求获得d_Ylm
-        double dcvdrjk_fork[3] = {0.0, 0.0, 0.0}; // 栈上数组初始化
-        double Ylm[lm_size] = {0.0};
-        if constexpr (L == 3) {
-            // 当编译指定该模板为 <3> 时，编译器在这一步会直接盲切到 L3 函数。
-            // 此时 L==6 的分支、以及计算 q6 所需的其他高阶 sin_5theta 变量，
-            // 会被编译器判定为“死代码”彻底移除。最终生成的 GPU 二进制指令纯净无污染。
-            compute_Ylm_forward_L3(
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3theta, sin_3theta, cos_3phi, sin_3phi,
-                Ylm
-            );
-        } else if constexpr (L == 4) {
-            // 针对计算 q4，这里在前面额外多算两个高阶级联分量即可
-            compute_Ylm_forward_L4(
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2phi, sin_2phi,
-                cos_3phi, sin_3phi,
-                cos_4phi, sin_4phi,
-                Ylm
-            );
-        } else if constexpr (L == 6) {
-            // 针对计算 q6，这里在前面额外多算两个高阶级联分量即可
-            compute_Ylm_forward_L6(
-                cos_theta, sin_theta, cos_phi, sin_phi,
-                cos_2theta, sin_2theta, cos_2phi, sin_2phi,
-                cos_3phi, sin_3phi,
-                cos_4theta, sin_4theta, cos_4phi, sin_4phi,
-                cos_5phi, sin_5phi,
-                cos_6theta, sin_6theta, cos_6phi, sin_6phi,
-                Ylm
-            );
-        }
-        double* dYlmdx_flat = reinterpret_cast<double*>(&local_dYlmdx);
+        // Contract the analytic Cartesian Ylm gradient directly with prefix_j.
+        // prefix_j already includes the source weights and qlm normalization.
+        const double inv_r = 1.0 / r;
+        double Ylm[lm_size];
+        double angular_gradient[6];
+        compute_Ylm_unit_and_gradient<L>(
+            delt_x * inv_r, delt_y * inv_r, delt_z * inv_r, inv_r,
+            r_weight, 0.0, 0, 0, prefix_j, Ylm, angular_gradient);
+        double dcvdrjk_fork[3] = {0.0, 0.0, 0.0};
         double prefix1 = sw_df_r(r)/r;
         double sum_sigprefix =prefix1*(prefix_j[0]*(Ylm[0]-qlm[0])+ prefix_j[1]*(Ylm[1]-qlm[1]));
-        // double prefix2 = prefix_j*r_weight;
-        double sum_dY_prefix[3] = {0.0};
+        double sum_dY_prefix[3];
         #pragma unroll
-        for(int direct=0; direct<3; direct++){
-            sum_dY_prefix[direct] = r_weight*(prefix_j[0]*dYlmdx_flat[direct*2 + 0]
-                                                 + prefix_j[1]*dYlmdx_flat[direct*2 + 1]);
+        for (int direct = 0; direct < 3; ++direct) {
+            sum_dY_prefix[direct] = angular_gradient[2*direct] +
+                                   angular_gradient[2*direct + 1];
         }
         #pragma unroll
         for(int m=1;m<=L;m++){
             sum_sigprefix += prefix1*2.0*(prefix_j[2*m + 0]*(Ylm[2*m + 0]-qlm[2*m + 0])
                                         + prefix_j[2*m + 1]*(Ylm[2*m + 1]-qlm[2*m + 1]));
-            #pragma unroll
-            for(int direct=0; direct<3; direct++){
-                sum_dY_prefix[direct] += r_weight*2.0*(prefix_j[2*m + 0]*dYlmdx_flat[m*3*2 + direct*2 + 0]
-                                                     + prefix_j[2*m + 1]*dYlmdx_flat[m*3*2 + direct*2 + 1]);
-            }
+
         }
         
         dcvdrjk_fork[0] = delt_x*sum_sigprefix + sum_dY_prefix[0];
         dcvdrjk_fork[1] = delt_y*sum_sigprefix + sum_dY_prefix[1];
         dcvdrjk_fork[2] = delt_z*sum_sigprefix + sum_dY_prefix[2];
+        localq_tally_bond_virial(
+            delt_x, delt_y, delt_z, dcvdrjk_fork,
+            n_local_tag, center_virial, d_a_virial);
         #pragma unroll
         for(int direct=0; direct<3; direct++){
             dcvdrjk_forj[direct] -= dcvdrjk_fork[direct];
@@ -2116,6 +1847,10 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     #pragma unroll
     for(int direct=0; direct<3; direct++){
     atomicAdd(&d_dcvdx[c_atom_loctag * 3 + direct], dcvdrjk_forj[direct]);
+    }
+    #pragma unroll
+    for (int component = 0; component < 6; ++component) {
+        atomicAdd(&d_a_virial[6*c_atom_loctag + component], center_virial[component]);
     }
 
     #undef sw_f_r

@@ -1,0 +1,75 @@
+units metal
+dimension 3
+boundary p p p
+atom_style atomic
+
+lattice fcc 4.05
+region simbox block 0 11 0 11 0 11 units lattice
+create_box 1 simbox
+create_atoms 1 box
+mass 1 26.9815385
+group metad_group type 1
+
+# A deterministic perturbation keyed only by global atom ID.  This gives the
+# same coordinates for every MPI decomposition.
+variable dx0 atom 0.018*sin(0.731*id)
+variable dy0 atom 0.016*cos(0.527*id)
+variable dz0 atom 0.014*sin(0.319*id+0.2)
+displace_atoms all move v_dx0 v_dy0 v_dz0 units box
+
+pair_style zero 4.0
+pair_coeff * *
+neighbor 0.35 bin
+neigh_modify every 1 delay 0 check yes
+
+plugin load /home/zqc/work/Metad-toy/build/fix_crystallize_plugin.so
+
+fix m all metad GAUSSIAN 0.04 0.10 10.0 &
+    PACE 100000 &
+    CAL NAME Q4 STEINH Q 4 metad_group cutoff_r 3.30 cutoff_Natoms 12 d_block_size 128 &
+    CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.30 cutoff_Natoms 12 d_block_size 128 &
+    SYMBOL v4 Q4.AVE &
+    SYMBOL v6 Q6.AVE &
+    CV_dim 2 &
+    DIM 1 0.0 1.0 400 "v4" &
+    DIM 2 0.0 1.0 400 "v6" &
+    METAD_RESTART 0 &
+    WT 0
+
+# Step 0 deposits the only hill at the first perturbed configuration.  The
+# later-created setforce fix runs after metad's POST_FORCE and keeps this first
+# integration step stationary.
+velocity all set 0.0 0.0 0.0
+fix integrate all nve
+fix hold all setforce 0.0 0.0 0.0
+thermo 1
+thermo_style custom step atoms f_m[1] f_m[2] f_m
+run 1
+unfix hold
+
+# Move away from the hill center.  PACE is large enough that no second hill is
+# deposited at timestep 1, so both dU/dQ4 and dU/dQ6 can be nonzero.
+variable dx1 atom 0.007*sin(0.413*id+0.1)
+variable dy1 atom 0.006*cos(0.293*id+0.4)
+variable dz1 atom 0.005*sin(0.619*id+0.7)
+displace_atoms all move v_dx1 v_dy1 v_dz1 units box
+
+compute pa all metad/atom m Q4.stein_q Q6.stein_q &
+    Q4.dcvdx_x Q4.dcvdx_y Q4.dcvdx_z &
+    Q6.dcvdx_x Q6.dcvdx_y Q6.dcvdx_z
+compute fsum all reduce sum fx fy fz
+compute fabs all reduce sumabs fx fy fz
+compute pfix all pressure NULL virial
+
+dump state all custom 1 atom_state.dump id type x y z fx fy fz &
+    c_pa[1] c_pa[2] c_pa[3] c_pa[4] c_pa[5] c_pa[6] c_pa[7] c_pa[8]
+dump_modify state sort id format float %.17g
+
+thermo_style custom step atoms f_m[1] f_m[2] f_m &
+    c_fsum[1] c_fsum[2] c_fsum[3] &
+    c_fabs[1] c_fabs[2] c_fabs[3] &
+    c_pfix[1] c_pfix[2] c_pfix[3] c_pfix[4] c_pfix[5] c_pfix[6]
+thermo_modify format float %.17g
+
+run 1
+

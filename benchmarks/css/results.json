@@ -1,0 +1,243 @@
+{
+  "ctest": {
+    "passed": 10,
+    "total": 10,
+    "log": "build/graph/css-build.log"
+  },
+  "kernel_finite_difference": {
+    "max_force_error": 8.54725e-11,
+    "max_virial_error": 8.52105e-11
+  },
+  "lammps": [
+    {
+      "case": "original",
+      "np": 1,
+      "cv_cpu_error": 0.0,
+      "diagnostic_error": 1.1102230246251565e-16,
+      "max_force": 5.179080329534927e-05,
+      "outside_group_force": 0.0,
+      "net_force": 1.4505439221729893e-20,
+      "mpi_state_error": 0.0,
+      "mpi_pressure_error": 0.0
+    },
+    {
+      "case": "original",
+      "np": 2,
+      "cv_cpu_error": 0.0,
+      "diagnostic_error": 1.1102230246251565e-16,
+      "max_force": 5.179080329534927e-05,
+      "outside_group_force": 0.0,
+      "net_force": 1.5775988642611344e-20,
+      "mpi_state_error": 6.776263578034403e-21,
+      "mpi_pressure_error": 4.440892098500626e-16
+    },
+    {
+      "case": "original",
+      "np": 4,
+      "cv_cpu_error": 0.0,
+      "diagnostic_error": 1.1102230246251565e-16,
+      "max_force": 5.179080329534927e-05,
+      "outside_group_force": 0.0,
+      "net_force": 2.541098841762901e-20,
+      "mpi_state_error": 1.3552527156068805e-20,
+      "mpi_pressure_error": 4.440892098500626e-16
+    },
+    {
+      "case": "ternary",
+      "np": 1,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 5.329070518200751e-15,
+      "max_force": 0.00017493337545837647,
+      "outside_group_force": 0.00012664005590950372,
+      "net_force": 2.3444738742559836e-19,
+      "mpi_state_error": 0.0,
+      "mpi_pressure_error": 0.0
+    },
+    {
+      "case": "ternary",
+      "np": 2,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 5.329070518200751e-15,
+      "max_force": 0.0001749333754583765,
+      "outside_group_force": 0.00012664005590950372,
+      "net_force": 2.7954816955413336e-19,
+      "mpi_state_error": 2.710505431213761e-19,
+      "mpi_pressure_error": 1.0658141036401503e-14
+    },
+    {
+      "case": "ternary",
+      "np": 4,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 5.329070518200751e-15,
+      "max_force": 0.00017493337545837403,
+      "outside_group_force": 0.00012664005590950198,
+      "net_force": 3.0625534999163297e-19,
+      "mpi_state_error": 2.439454888092385e-18,
+      "mpi_pressure_error": 2.5224267119483557e-13
+    },
+    {
+      "case": "multi_radius",
+      "np": 1,
+      "cv_cpu_error": 5.551115123125783e-17,
+      "diagnostic_error": 5.329070518200751e-15,
+      "max_force": 0.00020576271383202226,
+      "outside_group_force": 0.00012706826953063597,
+      "net_force": 2.0226882082636675e-19,
+      "mpi_state_error": 0.0,
+      "mpi_pressure_error": 0.0
+    },
+    {
+      "case": "multi_radius",
+      "np": 2,
+      "cv_cpu_error": 0.0,
+      "diagnostic_error": 5.329070518200751e-15,
+      "max_force": 0.00020576271383202237,
+      "outside_group_force": 0.000127068269530636,
+      "net_force": 2.1228763240560902e-19,
+      "mpi_state_error": 1.6263032587282567e-19,
+      "mpi_pressure_error": 1.7763568394002505e-14
+    },
+    {
+      "case": "multi_radius",
+      "np": 4,
+      "cv_cpu_error": 0.0,
+      "diagnostic_error": 3.552713678800501e-15,
+      "max_force": 0.00020576271383202237,
+      "outside_group_force": 0.00012706826953063602,
+      "net_force": 2.0942889620862576e-19,
+      "mpi_state_error": 1.8507669897506462e-19,
+      "mpi_pressure_error": 1.4210854715202004e-14
+    },
+    {
+      "case": "small_group",
+      "np": 1,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 1.7763568394002505e-15,
+      "max_force": 0.006505888548260954,
+      "outside_group_force": 0.0061515837048730804,
+      "net_force": 4.120644546681513e-18,
+      "mpi_state_error": 0.0,
+      "mpi_pressure_error": 0.0
+    },
+    {
+      "case": "small_group",
+      "np": 2,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 1.7763568394002505e-15,
+      "max_force": 0.006505888548260955,
+      "outside_group_force": 0.0061515837048730804,
+      "net_force": 2.3859210707047057e-18,
+      "mpi_state_error": 1.734723475976807e-18,
+      "mpi_pressure_error": 7.105427357601002e-15
+    },
+    {
+      "case": "small_group",
+      "np": 4,
+      "cv_cpu_error": 8.326672684688674e-17,
+      "diagnostic_error": 1.7763568394002505e-15,
+      "max_force": 0.006505888548260955,
+      "outside_group_force": 0.0061515837048730804,
+      "net_force": 2.3859210707047057e-18,
+      "mpi_state_error": 1.734723475976807e-18,
+      "mpi_pressure_error": 1.0658141036401503e-14
+    }
+  ],
+  "static_calibration": [
+    {
+      "case": "l12",
+      "original_css": 0.9999999999916821,
+      "extended_css": 0.9999994025660751,
+      "Al_inner": 11.998049377329558,
+      "Sc_inner": 1.8354133615537316e-06,
+      "Sc_outer": 5.999259632805111
+    },
+    {
+      "case": "isolated_sc",
+      "original_css": 1.0,
+      "extended_css": 0.00033546246865123747,
+      "Al_inner": 11.998051212742919,
+      "Sc_inner": 0.0,
+      "Sc_outer": 0.0
+    }
+  ],
+  "invalid_inputs": [
+    {
+      "case": "missing_channel",
+      "returncode": 1,
+      "message": "CSS requires at least one CHANNEL"
+    },
+    {
+      "case": "invalid_type",
+      "returncode": 1,
+      "message": "CSS: neighbor type is outside"
+    },
+    {
+      "case": "zero_sigma",
+      "returncode": 1,
+      "message": "CSS: target must be finite"
+    },
+    {
+      "case": "negative_target",
+      "returncode": 1,
+      "message": "CSS: target must be finite"
+    },
+    {
+      "case": "unknown_switch",
+      "returncode": 1,
+      "message": "CSS: unknown radial switch"
+    },
+    {
+      "case": "growing_radial",
+      "returncode": 1,
+      "message": "CSS: radial switch has invalid finite support"
+    }
+  ],
+  "plugin_sha256": "3ff550c416a4a268806be2eba79f93701a1bc155d3a075e4333ae86b56e12260",
+  "note": "Full MPI matrix preceded a diagnostic channel-index parsing guard; final plugin also passed static calibration and input validation.",
+  "type_labels": {
+    "build_log": "build/graph-lammps/css-labels-build.log",
+    "plugin_sha256": "159f41b16b5371d60f820a0fe180e68bf08259b9c7a98fab97ae62ca5e664932",
+    "cases": [
+      {
+        "case": "numeric",
+        "np": 2,
+        "maximum_error": 0.0
+      },
+      {
+        "case": "labels_quoted",
+        "np": 2,
+        "maximum_error": 0.0
+      },
+      {
+        "case": "labels_unquoted",
+        "np": 2,
+        "maximum_error": 0.0
+      },
+      {
+        "case": "mixed",
+        "np": 2,
+        "maximum_error": 0.0
+      },
+      {
+        "case": "data_labels",
+        "np": 2,
+        "maximum_error": 0.0
+      },
+      {
+        "case": "unknown_label",
+        "np": 2,
+        "rejected": true
+      },
+      {
+        "case": "missing_labelmap",
+        "np": 2,
+        "rejected": true
+      },
+      {
+        "case": "type_out_of_range",
+        "np": 2,
+        "rejected": true
+      }
+    ]
+  }
+}

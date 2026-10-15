@@ -1,0 +1,419 @@
+{
+  "description": "Both versions use GRAPH. 4000 atoms; 200 warmup + 3000 timed steps; 3 interleaved repeats; same nonzero-bias prescribed translation. NVRTC/setup excluded from loop time. Before is after the shared-environment and packed-mean fix. This measures the combined cleanup, not an isolated filter-kernel comparison.",
+  "plugins": {
+    "before": {
+      "path": "/home/zqc/work/Metad-toy/build/graph-lammps/before-strufactor-cleanup.so",
+      "sha256": "b6db27730c80b48d0c917220548ab671bb122b365219a38c88ced0e9ac587822"
+    },
+    "after": {
+      "path": "/home/zqc/work/Metad-toy/build/graph-lammps/after-strufactor-cleanup-timed.so",
+      "sha256": "9a982baa994d012a243b9a8d6274f0634d3016f66207cc5aac7cd6fe14a86940"
+    }
+  },
+  "summary": [
+    {
+      "np": 1,
+      "before": {
+        "median_us_per_step": 1795.88,
+        "min_us_per_step": 1743.9166666666667,
+        "max_us_per_step": 1811.36
+      },
+      "after": {
+        "median_us_per_step": 1237.24,
+        "min_us_per_step": 1234.71,
+        "max_us_per_step": 1249.6366666666668
+      },
+      "time_reduction_percent": 31.106755462503067
+    },
+    {
+      "np": 2,
+      "before": {
+        "median_us_per_step": 2855.5133333333333,
+        "min_us_per_step": 2854.7,
+        "max_us_per_step": 2921.7633333333333
+      },
+      "after": {
+        "median_us_per_step": 2182.4733333333334,
+        "min_us_per_step": 2060.6033333333335,
+        "max_us_per_step": 2257.0066666666667
+      },
+      "time_reduction_percent": 23.56984266693437
+    },
+    {
+      "np": 4,
+      "before": {
+        "median_us_per_step": 4611.7,
+        "min_us_per_step": 4610.3,
+        "max_us_per_step": 4790.033333333334
+      },
+      "after": {
+        "median_us_per_step": 3450.5333333333333,
+        "min_us_per_step": 3442.1,
+        "max_us_per_step": 3462.8333333333335
+      },
+      "time_reduction_percent": 25.17871211628394
+    }
+  ],
+  "samples": [
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.43408,
+      "us_per_step": 1811.36,
+      "wall_s": 7.334792524983641,
+      "nvrtc_ms": 29.842894,
+      "load_ms": 0.270978,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np1_graph_0",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 3.71172,
+      "us_per_step": 1237.24,
+      "wall_s": 5.428457394998986,
+      "nvrtc_ms": 22.585795,
+      "load_ms": 0.321559,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np1_graph_0",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 3.70413,
+      "us_per_step": 1234.71,
+      "wall_s": 5.3787760350096505,
+      "nvrtc_ms": 21.595598,
+      "load_ms": 0.264723,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np1_graph_1",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.38764,
+      "us_per_step": 1795.88,
+      "wall_s": 7.184034616017016,
+      "nvrtc_ms": 21.004173,
+      "load_ms": 0.301414,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np1_graph_1",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.23175,
+      "us_per_step": 1743.9166666666667,
+      "wall_s": 7.033524594007758,
+      "nvrtc_ms": 22.150159,
+      "load_ms": 0.254297,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np1_graph_2",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 3.74891,
+      "us_per_step": 1249.6366666666668,
+      "wall_s": 5.530641385004856,
+      "nvrtc_ms": 22.739542,
+      "load_ms": 0.351162,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np1_graph_2",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.5641,
+      "us_per_step": 2854.7,
+      "wall_s": 10.642942175007192,
+      "nvrtc_ms": 23.23142,
+      "load_ms": 0.587312,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np2_graph_0",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.18181,
+      "us_per_step": 2060.6033333333335,
+      "wall_s": 8.136148709018016,
+      "nvrtc_ms": 26.00127,
+      "load_ms": 0.317145,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np2_graph_0",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.54742,
+      "us_per_step": 2182.4733333333334,
+      "wall_s": 8.488739997002995,
+      "nvrtc_ms": 26.023815,
+      "load_ms": 0.27385,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np2_graph_1",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.76529,
+      "us_per_step": 2921.7633333333333,
+      "wall_s": 10.843881985987537,
+      "nvrtc_ms": 21.981602,
+      "load_ms": 0.296822,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np2_graph_1",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.56654,
+      "us_per_step": 2855.5133333333333,
+      "wall_s": 10.64286141001503,
+      "nvrtc_ms": 24.35015,
+      "load_ms": 0.283795,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np2_graph_2",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 6.77102,
+      "us_per_step": 2257.0066666666667,
+      "wall_s": 8.690040779998526,
+      "nvrtc_ms": 25.337683,
+      "load_ms": 0.307217,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np2_graph_2",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 14.3701,
+      "us_per_step": 4790.033333333334,
+      "wall_s": 16.99791899698903,
+      "nvrtc_ms": 26.501768,
+      "load_ms": 0.459877,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np4_graph_0",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.3516,
+      "us_per_step": 3450.5333333333333,
+      "wall_s": 12.706427703000372,
+      "nvrtc_ms": 24.5148,
+      "load_ms": 0.321779,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np4_graph_0",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.3263,
+      "us_per_step": 3442.1,
+      "wall_s": 12.660122984001646,
+      "nvrtc_ms": 23.284352,
+      "load_ms": 0.290915,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np4_graph_1",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 13.8309,
+      "us_per_step": 4610.3,
+      "wall_s": 16.36632989399368,
+      "nvrtc_ms": 24.322954,
+      "load_ms": 0.462422,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np4_graph_1",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 13.8351,
+      "us_per_step": 4611.7,
+      "wall_s": 16.411766833014553,
+      "nvrtc_ms": 26.091669,
+      "load_ms": 0.259728,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/before/np4_graph_2",
+      "version": "before",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 10.3885,
+      "us_per_step": 3462.8333333333335,
+      "wall_s": 12.705338538013166,
+      "nvrtc_ms": 23.235074,
+      "load_ms": 0.724135,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/strufactor-cleanup-timing/after/np4_graph_2",
+      "version": "after",
+      "final_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    }
+  ]
+}

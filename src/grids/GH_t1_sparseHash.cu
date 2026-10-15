@@ -247,7 +247,6 @@ void MetaD_zqc::GH_t1_sparseHash<D>::recursive_add2grid(int dim, CoordKey& key,
         bias_hash[key] += w * gauss_calc(cv_dim, delta_x, sigma);
         return;
     }
-    int lower[cv_dim], upper[cv_dim];
     // 递归分支：遍历当前维度的 [lower, upper] 范围
     for (int i = lower[dim]; i <= upper[dim]; ++i) {
         key.c[dim] = i; // 设置当前维度的网格坐标

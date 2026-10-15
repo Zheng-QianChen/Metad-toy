@@ -1,0 +1,442 @@
+{
+  "manifest": {
+    "atoms": 4000,
+    "steps": 3000,
+    "warmup": 200,
+    "repeats": 3,
+    "motion": "translate",
+    "np": [
+      1,
+      2,
+      4
+    ],
+    "cuda_visible_devices": "0",
+    "omp_num_threads": 1,
+    "bind_to": "none",
+    "probe_enabled": false,
+    "plugin_sha256": {
+      "before": "a73198aac62b7b5b9f8670132706c96f7a7cd95408fe752c6d5001c6c8ed5902",
+      "after": "b6db27730c80b48d0c917220548ab671bb122b365219a38c88ced0e9ac587822"
+    },
+    "baseline": "Graph immediately before shared-environment and packed-mean fixes"
+  },
+  "summary": [
+    {
+      "np": 1,
+      "before_ms": 2.5076799999999997,
+      "after_ms": 1.8101933333333333,
+      "reduction_pct": 27.81402199110997,
+      "samples_ms": {
+        "before": [
+          2.51123,
+          2.5076799999999997,
+          2.47896
+        ],
+        "after": [
+          1.83758,
+          1.8101933333333333,
+          1.7534966666666667
+        ]
+      }
+    },
+    {
+      "np": 2,
+      "before_ms": 3.7426,
+      "after_ms": 2.87056,
+      "reduction_pct": 23.30037941537969,
+      "samples_ms": {
+        "before": [
+          3.7426,
+          3.7984666666666667,
+          3.6984333333333335
+        ],
+        "after": [
+          2.8964266666666667,
+          2.8493666666666666,
+          2.87056
+        ]
+      }
+    },
+    {
+      "np": 4,
+      "before_ms": 5.8419,
+      "after_ms": 4.610766666666667,
+      "reduction_pct": 21.07419389810392,
+      "samples_ms": {
+        "before": [
+          5.8547666666666665,
+          5.8419,
+          5.839033333333334
+        ],
+        "after": [
+          4.610766666666667,
+          4.626533333333334,
+          4.5843
+        ]
+      }
+    }
+  ],
+  "runs": [
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.53369,
+      "us_per_step": 2511.23,
+      "wall_s": 9.540892268007156,
+      "nvrtc_ms": 26.809705,
+      "load_ms": 0.286394,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np1_graph_0",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.51274,
+      "us_per_step": 1837.58,
+      "wall_s": 7.333275312004844,
+      "nvrtc_ms": 21.214945,
+      "load_ms": 0.298885,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np1_graph_0",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.43058,
+      "us_per_step": 1810.1933333333334,
+      "wall_s": 7.282717733993195,
+      "nvrtc_ms": 22.468711,
+      "load_ms": 0.301902,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np1_graph_1",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.52304,
+      "us_per_step": 2507.68,
+      "wall_s": 9.539371721009957,
+      "nvrtc_ms": 22.546854,
+      "load_ms": 0.309996,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np1_graph_1",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 7.43688,
+      "us_per_step": 2478.96,
+      "wall_s": 9.44008816499263,
+      "nvrtc_ms": 21.865658,
+      "load_ms": 0.297506,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np1_graph_2",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 1,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 5.26049,
+      "us_per_step": 1753.4966666666667,
+      "wall_s": 7.083002255996689,
+      "nvrtc_ms": 21.286965,
+      "load_ms": 0.299381,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np1_graph_2",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.2278,
+      "us_per_step": 3742.6,
+      "wall_s": 13.450792088988237,
+      "nvrtc_ms": 21.948429,
+      "load_ms": 0.249776,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np2_graph_0",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.68928,
+      "us_per_step": 2896.4266666666667,
+      "wall_s": 10.79364963300759,
+      "nvrtc_ms": 21.71993,
+      "load_ms": 0.268346,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np2_graph_0",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.5481,
+      "us_per_step": 2849.366666666667,
+      "wall_s": 10.594311836000998,
+      "nvrtc_ms": 22.575126,
+      "load_ms": 0.240016,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np2_graph_1",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.3954,
+      "us_per_step": 3798.4666666666667,
+      "wall_s": 13.65166233497439,
+      "nvrtc_ms": 21.130794,
+      "load_ms": 0.230253,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np2_graph_1",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 11.0953,
+      "us_per_step": 3698.4333333333334,
+      "wall_s": 13.348072385997511,
+      "nvrtc_ms": 21.170365,
+      "load_ms": 0.449361,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np2_graph_2",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 2,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 8.61168,
+      "us_per_step": 2870.56,
+      "wall_s": 10.69205186702311,
+      "nvrtc_ms": 22.370328,
+      "load_ms": 0.308719,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np2_graph_2",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.5643,
+      "us_per_step": 5854.766666666666,
+      "wall_s": 20.380019730015192,
+      "nvrtc_ms": 27.054565,
+      "load_ms": 0.22997,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np4_graph_0",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 0,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 13.8323,
+      "us_per_step": 4610.766666666666,
+      "wall_s": 16.36198022699682,
+      "nvrtc_ms": 25.194791,
+      "load_ms": 0.323055,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np4_graph_0",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 13.8796,
+      "us_per_step": 4626.533333333334,
+      "wall_s": 16.41189832400414,
+      "nvrtc_ms": 24.290598,
+      "load_ms": 0.294876,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np4_graph_1",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 1,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.5257,
+      "us_per_step": 5841.9,
+      "wall_s": 20.324349378002807,
+      "nvrtc_ms": 23.545372,
+      "load_ms": 0.223281,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np4_graph_1",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 17.5171,
+      "us_per_step": 5839.033333333334,
+      "wall_s": 20.32455165599822,
+      "nvrtc_ms": 25.509284,
+      "load_ms": 0.298853,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/before/np4_graph_2",
+      "version": "before",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    },
+    {
+      "motion": "translate",
+      "executor": "GRAPH",
+      "np": 4,
+      "repeat": 2,
+      "atoms": 4000,
+      "steps": 3000,
+      "loop_s": 13.7529,
+      "us_per_step": 4584.3,
+      "wall_s": 16.309303591988282,
+      "nvrtc_ms": 24.593457,
+      "load_ms": 0.327305,
+      "directory": "/home/zqc/work/Metad-toy/build/graph-lammps/shared-mean-timing/after/np4_graph_2",
+      "version": "after",
+      "end_cv_energy": [
+        -2.1923602025130244,
+        0.11664205755501289,
+        0.09732588695403332
+      ]
+    }
+  ],
+  "max_paired_end_cv_energy_error": 0.0
+}

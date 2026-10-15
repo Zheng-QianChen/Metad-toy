@@ -1,0 +1,222 @@
+[
+  {
+    "us_per_step": 709.185,
+    "loop_seconds": 14.1837,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 20.605839,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np1_r0",
+    "variant": "fused",
+    "ranks": 1,
+    "repeat": 0
+  },
+  {
+    "us_per_step": 728.805,
+    "loop_seconds": 14.5761,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 36.131701,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np1_r0",
+    "variant": "separate",
+    "ranks": 1,
+    "repeat": 0
+  },
+  {
+    "us_per_step": 771.695,
+    "loop_seconds": 15.4339,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 30.742128,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np1_r1",
+    "variant": "fused",
+    "ranks": 1,
+    "repeat": 1
+  },
+  {
+    "us_per_step": 801.67,
+    "loop_seconds": 16.0334,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 49.093516,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np1_r1",
+    "variant": "separate",
+    "ranks": 1,
+    "repeat": 1
+  },
+  {
+    "us_per_step": 763.555,
+    "loop_seconds": 15.2711,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 37.904728,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np1_r2",
+    "variant": "separate",
+    "ranks": 1,
+    "repeat": 2
+  },
+  {
+    "us_per_step": 748.39,
+    "loop_seconds": 14.9678,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 22.176256,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np1_r2",
+    "variant": "fused",
+    "ranks": 1,
+    "repeat": 2
+  },
+  {
+    "us_per_step": 746.075,
+    "loop_seconds": 14.9215,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 39.693257,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np1_r3",
+    "variant": "separate",
+    "ranks": 1,
+    "repeat": 3
+  },
+  {
+    "us_per_step": 765.775,
+    "loop_seconds": 15.3155,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 22.698351,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np1_r3",
+    "variant": "fused",
+    "ranks": 1,
+    "repeat": 3
+  },
+  {
+    "us_per_step": 767.7,
+    "loop_seconds": 15.354,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 22.274288,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np1_r4",
+    "variant": "fused",
+    "ranks": 1,
+    "repeat": 4
+  },
+  {
+    "us_per_step": 763.965,
+    "loop_seconds": 15.2793,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 38.272818,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np1_r4",
+    "variant": "separate",
+    "ranks": 1,
+    "repeat": 4
+  },
+  {
+    "us_per_step": 1440.525,
+    "loop_seconds": 28.8105,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 24.108828,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np2_r0",
+    "variant": "fused",
+    "ranks": 2,
+    "repeat": 0
+  },
+  {
+    "us_per_step": 1420.83,
+    "loop_seconds": 28.4166,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 42.843923,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np2_r0",
+    "variant": "separate",
+    "ranks": 2,
+    "repeat": 0
+  },
+  {
+    "us_per_step": 1418.765,
+    "loop_seconds": 28.3753,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 21.949044,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np2_r1",
+    "variant": "fused",
+    "ranks": 2,
+    "repeat": 1
+  },
+  {
+    "us_per_step": 1421.97,
+    "loop_seconds": 28.4394,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 38.884128,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np2_r1",
+    "variant": "separate",
+    "ranks": 2,
+    "repeat": 1
+  },
+  {
+    "us_per_step": 1429.37,
+    "loop_seconds": 28.5874,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 23.164371,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np2_r2",
+    "variant": "fused",
+    "ranks": 2,
+    "repeat": 2
+  },
+  {
+    "us_per_step": 1423.01,
+    "loop_seconds": 28.4602,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 36.315063,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np2_r2",
+    "variant": "separate",
+    "ranks": 2,
+    "repeat": 2
+  },
+  {
+    "us_per_step": 1421.01,
+    "loop_seconds": 28.4202,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 41.844173,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np2_r3",
+    "variant": "separate",
+    "ranks": 2,
+    "repeat": 3
+  },
+  {
+    "us_per_step": 1413.64,
+    "loop_seconds": 28.2728,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 25.290608,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np2_r3",
+    "variant": "fused",
+    "ranks": 2,
+    "repeat": 3
+  },
+  {
+    "us_per_step": 1431.59,
+    "loop_seconds": 28.6318,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 36.085042,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/separate_np2_r4",
+    "variant": "separate",
+    "ranks": 2,
+    "repeat": 4
+  },
+  {
+    "us_per_step": 1415.69,
+    "loop_seconds": 28.3138,
+    "steps": 20000,
+    "atoms": 4000,
+    "nvrtc_ms": 23.045442,
+    "directory": "/home/zqc/work/Metad-toy/build/weighted-chem-switch-lammps-long/fused_np2_r4",
+    "variant": "fused",
+    "ranks": 2,
+    "repeat": 4
+  }
+]
