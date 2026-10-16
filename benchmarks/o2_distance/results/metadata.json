@@ -1,0 +1,33 @@
+{
+  "plugin_sha256": "2392cf3855a95ce6f66ac0c9f01ec1ebde8772dd73bfb46e0a01f45686034806",
+  "sampling": {
+    "temperature_K": 300.0,
+    "bias_factor": 20.0,
+    "sigma_A": 0.015,
+    "height_eV": 0.02,
+    "pace": 100,
+    "timestep_ps": 0.0002,
+    "steps": 10000000,
+    "grid_min": 0.85,
+    "grid_max": 3.0,
+    "bins": 4300,
+    "radial_measure": "3D unconstrained relative coordinate; p(r) proportional to r^2 exp(-beta U(r))"
+  },
+  "runs": [
+    {
+      "seed": 492845,
+      "exit_code": 0,
+      "elapsed_seconds": 8.253472749958746
+    },
+    {
+      "seed": 782531,
+      "exit_code": 0,
+      "elapsed_seconds": 8.341732654022053
+    },
+    {
+      "seed": 196837,
+      "exit_code": 0,
+      "elapsed_seconds": 8.907798625994474
+    }
+  ]
+}

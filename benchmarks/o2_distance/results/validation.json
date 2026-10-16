@@ -1,0 +1,108 @@
+{
+  "interval_A": [
+    1.05,
+    1.6
+  ],
+  "reference_minimum_A": 1.21,
+  "ensemble": {
+    "rmse_eV": 0.0013589272097861342,
+    "max_abs_error_eV": 0.00412928138396329,
+    "inferred_minimum_A": 1.211
+  },
+  "runs": [
+    {
+      "seed": "seed_196837",
+      "checkpoints": [
+        {
+          "fraction": 0.25,
+          "rmse_eV": 0.0053354470810621215,
+          "max_abs_error_eV": 0.019989955617746524,
+          "inferred_minimum_A": 1.211
+        },
+        {
+          "fraction": 0.5,
+          "rmse_eV": 0.005386034476618065,
+          "max_abs_error_eV": 0.019763743832663216,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 0.75,
+          "rmse_eV": 0.002989785550256759,
+          "max_abs_error_eV": 0.010690467763572409,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 1.0,
+          "rmse_eV": 0.003449123125506498,
+          "max_abs_error_eV": 0.009943550456666062,
+          "inferred_minimum_A": 1.211
+        }
+      ]
+    },
+    {
+      "seed": "seed_492845",
+      "checkpoints": [
+        {
+          "fraction": 0.25,
+          "rmse_eV": 0.004571811995947236,
+          "max_abs_error_eV": 0.018401228817942483,
+          "inferred_minimum_A": 1.208
+        },
+        {
+          "fraction": 0.5,
+          "rmse_eV": 0.003283795946183887,
+          "max_abs_error_eV": 0.016019942339443816,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 0.75,
+          "rmse_eV": 0.003889508830307526,
+          "max_abs_error_eV": 0.009029878182272855,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 1.0,
+          "rmse_eV": 0.0018044731381052154,
+          "max_abs_error_eV": 0.00607711609563899,
+          "inferred_minimum_A": 1.21
+        }
+      ]
+    },
+    {
+      "seed": "seed_782531",
+      "checkpoints": [
+        {
+          "fraction": 0.25,
+          "rmse_eV": 0.0064027663725722385,
+          "max_abs_error_eV": 0.0209981354920441,
+          "inferred_minimum_A": 1.208
+        },
+        {
+          "fraction": 0.5,
+          "rmse_eV": 0.003506869504876398,
+          "max_abs_error_eV": 0.01625407205535012,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 0.75,
+          "rmse_eV": 0.0031535557999532843,
+          "max_abs_error_eV": 0.006273596775359991,
+          "inferred_minimum_A": 1.21
+        },
+        {
+          "fraction": 1.0,
+          "rmse_eV": 0.003218694461337437,
+          "max_abs_error_eV": 0.012468030842547329,
+          "inferred_minimum_A": 1.211
+        }
+      ]
+    }
+  ],
+  "note": "Finite-time WT-MetaD estimate; seed standard deviation is not a confidence interval. Morse parameters are an illustrative validation model.",
+  "criteria": {
+    "each_seed_rmse_eV": 0.025,
+    "each_seed_max_error_eV": 0.075,
+    "minimum_error_A": 0.01
+  },
+  "passed": true
+}

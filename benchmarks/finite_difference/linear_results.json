@@ -1,0 +1,74 @@
+[
+  {
+    "case": "ql_linear",
+    "ranks": 1,
+    "values_error": 0.0,
+    "cv_gradient_error": 1.0408340855860843e-17,
+    "cv_strain_error": 9.71445146547012e-17,
+    "passed": true
+  },
+  {
+    "case": "ql_linear",
+    "ranks": 2,
+    "values_error": 0.0,
+    "cv_gradient_error": 1.3877787807814457e-17,
+    "cv_strain_error": 4.163336342344337e-17,
+    "passed": true
+  },
+  {
+    "case": "ql_linear",
+    "ranks": 4,
+    "values_error": 0.0,
+    "cv_gradient_error": 1.3877787807814457e-17,
+    "cv_strain_error": 2.7755575615628914e-17,
+    "passed": true
+  },
+  {
+    "case": "chemical_linear",
+    "ranks": 1,
+    "values_error": 0.0,
+    "cv_gradient_error": 4.163336342344337e-17,
+    "cv_strain_error": 8.881784197001252e-16,
+    "passed": true
+  },
+  {
+    "case": "chemical_linear",
+    "ranks": 2,
+    "values_error": 0.0,
+    "cv_gradient_error": 4.163336342344337e-17,
+    "cv_strain_error": 8.881784197001252e-16,
+    "passed": true
+  },
+  {
+    "case": "chemical_linear",
+    "ranks": 4,
+    "values_error": 0.0,
+    "cv_gradient_error": 5.551115123125783e-17,
+    "cv_strain_error": 5.551115123125783e-17,
+    "passed": true
+  },
+  {
+    "case": "all_linear",
+    "ranks": 1,
+    "values_error": 0.0,
+    "cv_gradient_error": 2.7755575615628914e-17,
+    "cv_strain_error": 4.440892098500626e-16,
+    "passed": true
+  },
+  {
+    "case": "all_linear",
+    "ranks": 2,
+    "values_error": 1.1102230246251565e-16,
+    "cv_gradient_error": 2.7755575615628914e-17,
+    "cv_strain_error": 1.249000902703301e-16,
+    "passed": true
+  },
+  {
+    "case": "all_linear",
+    "ranks": 4,
+    "values_error": 0.0,
+    "cv_gradient_error": 2.7755575615628914e-17,
+    "cv_strain_error": 4.440892098500626e-16,
+    "passed": true
+  }
+]

@@ -16,10 +16,14 @@ from compare import compare
 CASES = {
     'strufactor': ('GRAPH', 'STRU_FACTOR all cutoff_r 3.30 q_factor 1.7 d_block_size 128',
                   'STRU_FACTOR all cutoff_r 3.30 q_factor 2.3 d_block_size 128', [], [9]),
-    'q_pair': ('LEGACY', 'STEINH Q 4 all cutoff_r 3.30 d_block_size 128',
-               'STEINH Q 6 all cutoff_r 3.30 d_block_size 128', [12, 16], [9]),
-    'local_mix': ('LEGACY', 'STEINH Q 4 all cutoff_r 3.30 d_block_size 128',
-                 'STEINH L 6 all cutoff_r 3.30 d_block_size 128', [12], [9]),
+    'q_graph': ('GRAPH', 'STEINH Q 4 all cutoff_r 3.30 d_block_size 128',
+                'STEINH Q 6 all cutoff_r 3.30 d_block_size 128', [13, 17], [9]),
+    'q_graph_odd': ('GRAPH', 'STEINH Q 3 all cutoff_r 3.30 d_block_size 128',
+                    'STEINH Q 6 all cutoff_r 3.30 d_block_size 128', [11, 17], [9]),
+    'local_graph': ('GRAPH', 'STEINH L 4 all cutoff_r 3.30 d_block_size 64',
+                    'STEINH L 6 all cutoff_r 3.30 d_block_size 128', [], [9]),
+    'q_local_graph': ('GRAPH', 'STEINH Q 4 all cutoff_r 3.30 d_block_size 128',
+                      'STEINH L 6 all cutoff_r 3.30 d_block_size 128', [13], [9]),
     'chem_mix': ('GRAPH', 'STRU_FACTOR all cutoff_r 3.05 q_factor 1.7 d_block_size 128 Chemical Chem_ctarget 1 Chem_sigma 1',
                 'WEIGHT_CHEM all cutoff_r 3.05 d_block_size 128 Chem_ctarget 1 Chem_sigma 1', [], [9]),
 }
@@ -83,9 +87,7 @@ def main():
     ap.add_argument('--lammps-src',type=Path,default=Path('/home/zqc/apps/lammps/lammps-stable_29Aug2024/src'))
     args=ap.parse_args()
     if args.cases is None:
-        args.cases=list(CASES) if args.after_only else [case for case in CASES if case!='chem_mix']
-    if 'chem_mix' in args.cases and not args.after_only:
-        ap.error('chem_mix now uses WEIGHT_CHEM Graph; use --after-only for its MPI comparison')
+        args.cases=list(CASES)
     if not args.after_only and args.baseline_plugin is None: ap.error('--baseline-plugin is required for a before/after comparison')
     if args.after_only and args.np[0]!=1: ap.error('--after-only requires --np to start with 1')
     args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=False)

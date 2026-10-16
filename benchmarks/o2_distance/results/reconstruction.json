@@ -1,0 +1,23 @@
+[
+  {
+    "seed": "seed_196837",
+    "hills": 100000,
+    "distance_min": 0.994903,
+    "distance_max": 1.83057,
+    "inferred_minimum_A": 1.211
+  },
+  {
+    "seed": "seed_492845",
+    "hills": 100000,
+    "distance_min": 0.996364,
+    "distance_max": 1.86063,
+    "inferred_minimum_A": 1.21
+  },
+  {
+    "seed": "seed_782531",
+    "hills": 100000,
+    "distance_min": 0.994206,
+    "distance_max": 1.83623,
+    "inferred_minimum_A": 1.211
+  }
+]

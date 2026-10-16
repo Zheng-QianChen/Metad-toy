@@ -12,16 +12,21 @@ namespace {
 struct CVInput {
     CV* cv;
     GpuBuffer<double> values, gradients;
-    Leaf leaf;
+    bool global;
+    std::unique_ptr<Leaf> leaf;
     std::shared_ptr<const CVAssembly> assembly;
-    explicit CVInput(CV* cv_) : cv(cv_), leaf(values, gradients, 0) {}
+    explicit CVInput(CV* cv_) : cv(cv_), global(cv_->supports_global_graph()) {
+        // Global 值驻留 Host；PerAtom Leaf 借用装配用的 GPU 缓冲区。
+        if (global) leaf = std::make_unique<Leaf>(std::vector<double>{0.0}, ValueDesc{Domain::Global, 1});
+        else leaf = std::make_unique<Leaf>(values, gradients, 0);
+    }
 };
 
 // CV.AVE 只对该 CV 的 owned 组成员求均值，不能把公共 Leaf 的组外零值计入分母。
 // 此节点只接原始 Leaf，因此反向给 padding 的种子最终会被 gather_adjoint 丢弃。
 struct CVGroupAverage : AVE {
     CVInput& input;
-    CVGroupAverage(CVInput& input_, MPI_Comm comm_) : AVE(&input_.leaf, comm_), input(input_) {}
+    CVGroupAverage(CVInput& input_, MPI_Comm comm_) : AVE(input_.leaf.get(), comm_), input(input_) {}
     void reduce_host(const double* values, int count) override {
         if (!input.assembly || count != input.assembly->leaf_count())
             throw std::logic_error("CV.AVE: stale assembly");
@@ -54,10 +59,12 @@ struct CVGraphExecution::Impl {
     Impl(LAMMPS_NS::LAMMPS* lmp_, std::vector<CVGraphSymbol> symbols_, std::vector<std::string> expressions_)
         : lmp(lmp_), symbols(std::move(symbols_)), expressions(std::move(expressions_)) {
         for (const auto& symbol : symbols) {
-            if (!symbol.cv || symbol.cv->graph_groupbit() <= 0)
+            if (!symbol.cv || (!symbol.cv->supports_global_graph() && symbol.cv->graph_groupbit() <= 0))
                 throw std::runtime_error("Graph: CV for symbol '" + symbol.name + "' has no raw graph interface");
             if (symbol.method != "AVE" && symbol.method != "MEAN" && symbol.method != "RAW" && symbol.method != "value")
                 throw std::runtime_error("Graph: supported CV methods are AVE/MEAN/RAW/value; got " + symbol.method);
+            if (symbol.cv->supports_global_graph() && symbol.method != "RAW" && symbol.method != "value")
+                throw std::runtime_error("Graph: Global CV methods are RAW/value; got " + symbol.method);
             auto found = std::find_if(inputs.begin(), inputs.end(), [&](const auto& x) { return x->cv == symbol.cv; });
             if (found == inputs.end()) {
                 auto input = std::make_unique<CVInput>(symbol.cv);
@@ -69,15 +76,17 @@ struct CVGraphExecution::Impl {
     }
     void prepare() {
         auto* atom = lmp->atom;
+        const bool has_per_atom = std::any_of(inputs.begin(), inputs.end(), [](const auto& x) { return !x->global; });
         const int total = atom->nlocal + atom->nghost;
         // 映射只依赖本地下标及 mask；同组内部排序不改变映射，无需检查全局 tag。
         const bool changed = nlocal != atom->nlocal || nghost != atom->nghost ||
             masks.size() != static_cast<size_t>(total) || !std::equal(masks.begin(), masks.end(), atom->mask);
-        if (changed) {
+        if (has_per_atom && changed) {
             std::vector<int> groups;
-            for (const auto& x : inputs) groups.push_back(x->cv->graph_groupbit());
+            for (const auto& x : inputs) if (!x->global) groups.push_back(x->cv->graph_groupbit());
             layout.rebuild(atom->nlocal, atom->nghost, atom->mask, groups);
             for (auto& x : inputs) {
+                if (x->global) continue;
                 x->assembly = layout.group(x->cv->graph_groupbit());
                 x->cv->bind_assembly(x->assembly);
                 // GpuBuffer 对象地址保持稳定；Leaf 借用的是对象，不是旧 ptr。
@@ -85,8 +94,8 @@ struct CVGraphExecution::Impl {
                     x->values.grow_to(layout.leaf_count(), __FILE__, __LINE__);
                     x->gradients.grow_to(layout.leaf_count(), __FILE__, __LINE__);
                 }
-                x->leaf.n = layout.leaf_count();
-                x->leaf.refresh_buffers();
+                x->leaf->n = layout.leaf_count();
+                x->leaf->refresh_buffers();
             }
             nlocal = atom->nlocal;
             nghost = atom->nghost;
@@ -101,7 +110,7 @@ struct CVGraphExecution::Impl {
         graph = std::make_unique<Graph>(Graph::Symbols{}, Graph::Switches{}, lmp->world);
         for (const auto& symbol : symbols) {
             auto found = std::find_if(inputs.begin(), inputs.end(), [&](const auto& x) { return x->cv == symbol.cv; });
-            Node* node = &(*found)->leaf;
+            Node* node = (*found)->leaf.get();
             if (symbol.method == "AVE" || symbol.method == "MEAN")
                 node = graph->make_node<CVGroupAverage>(**found, lmp->world);
             if (!graph->symbols.emplace(symbol.name, node).second)
@@ -115,7 +124,10 @@ struct CVGraphExecution::Impl {
     }
     std::vector<double> forward() {
         if (!execution) build();
-        for (auto& x : inputs) x->cv->assemble_values(x->values);
+        for (auto& x : inputs) {
+            if (x->global) x->leaf->val[0] = x->cv->graph_global_value();
+            else x->cv->assemble_values(x->values);
+        }
         // 当前 CV 与装配 kernel 均使用默认流，流内顺序保证全部依赖先于融合 kernel。
         return execution->forward();
     }
@@ -123,8 +135,9 @@ struct CVGraphExecution::Impl {
         if (!execution) throw std::logic_error("CV Graph: forward is required");
         execution->backward(seeds);
         for (auto& x : inputs) {
-            if (std::find(graph->topo.begin(), graph->topo.end(), &x->leaf) != graph->topo.end())
-                x->cv->apply_adjoint(x->gradients); // 内部负责 ghost 力的 reverse_comm。
+            if (std::find(graph->topo.begin(), graph->topo.end(), x->leaf.get()) == graph->topo.end()) continue;
+            if (x->global) x->cv->apply_global_adjoint(x->leaf->adj[0]);
+            else x->cv->apply_adjoint(x->gradients); // 内部负责 ghost 力的 reverse_comm。
         }
     }
 };

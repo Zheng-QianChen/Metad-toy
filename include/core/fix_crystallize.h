@@ -107,6 +107,16 @@ namespace MetaD_zqc {
           throw std::logic_error("CV: raw adjoint is not implemented");
       }
 
+      // 全局标量 CV 在 base_calc 中完成跨 rank 汇总；Graph 的 Host Leaf 保存同一数值。
+      virtual bool supports_global_graph() const { return false; }
+      virtual double graph_global_value() const {
+          throw std::logic_error("CV: global graph value is not implemented");
+      }
+      // seed 为每个 rank 上相同的 dV/dcv；CV 将力和 virial 写入各自 owned 原子。
+      virtual void apply_global_adjoint(double seed) {
+          throw std::logic_error("CV: global graph adjoint is not implemented");
+      }
+
       // 通信宽度为每原子的 double 数；0 表示该方向无需通信，各 rank 使用同一宽度。
       virtual int get_comm_forward_width() const { return 0; }
       virtual int get_comm_reverse_width() const { return 0; }

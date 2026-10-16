@@ -96,3 +96,14 @@ foreach(np 1 2 4)
                 $<TARGET_FILE:zqc_weighted_chem_test> ${MPIEXEC_POSTFLAGS})
     set_tests_properties(zqc_weighted_chem_mpi_${np} PROPERTIES TIMEOUT 60 PROCESSORS ${np})
 endforeach()
+
+# Graph 的逐 Leaf Jacobian、多输出 VJP 和 Host/NVRTC/MPI 双边有限差分。
+add_executable(zqc_graph_fd_test ../finite_difference/graph.cu)
+set_target_properties(zqc_graph_fd_test PROPERTIES CXX_STANDARD 17 CUDA_STANDARD 17)
+target_link_libraries(zqc_graph_fd_test PRIVATE zqc_graph_runtime)
+foreach(np 1 2 4)
+    add_test(NAME zqc_graph_fd_mpi_${np}
+        COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+                $<TARGET_FILE:zqc_graph_fd_test> ${MPIEXEC_POSTFLAGS})
+    set_tests_properties(zqc_graph_fd_mpi_${np} PROPERTIES TIMEOUT 120 PROCESSORS ${np})
+endforeach()

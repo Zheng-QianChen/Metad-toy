@@ -1,5 +1,47 @@
 # 更新日志
 
+## 2026-10-16 — Graph CV 与安装验证更新（experimental preview）
+
+本次整合下方 Q、Local Q、DISTANCE 的 Graph 接入及数值验证，继续作为实验性功能验证版发布。
+
+- 新增 `benchmarks/run.py` 的 smoke/regression/graph/o2 四个入口；smoke 使用 Python 标准库和 LAMMPS 可执行文件，自动生成小体系并检查插件、各 CV、NVRTC、力及 MPI 一致性。
+- 当前数值验证与 O₂ 脚本移除作者机器的硬编码依赖路径，支持命令行、环境变量、CMake 缓存及 PATH 查找；MPI 附加参数可配置。
+- 测试保存独立输出目录、日志、实际执行命令与插件摘要，失败返回非零退出码；O₂ 增加曲线误差、势阱位置和覆盖范围的验收标准。
+- 新增 [安装测试指南](benchmarks/README.md)与 [发布验证记录](benchmarks/INSTALLATION_RESULTS.md)。
+
+## 未发布 — DISTANCE 修复、Graph 接入与 O₂ 重建验证
+
+- DISTANCE 改用全局 tagint ID 查找 owner，一次规约两端坐标和 owner 数；支持迁移、排序、倾斜盒最小镜像，补齐偏置力和六分量 virial，并校验缺失/重复 ID 与零距离。
+- CV Graph 增加 Global 标量输入和 adjoint 回传接口；DISTANCE 可独立执行，或参与逐原子 CV 规约后的表达式。LEGACY 距离入口继续可用。
+- 修复后 69 组有限差分、9 组线性叠加、46 组 MPI 状态对照、12 组距离边界/迁移检查、6 组异常输入检查及 19 项 CTest 通过；混合图增补更小差分步长验证二阶收敛。详见 [DISTANCE 验证](benchmarks/finite_difference/DISTANCE_RESULTS.md)。
+- 新增 [O₂ Morse 示例](benchmarks/o2_distance/README.md)：3 条独立 2 ns 轨迹，以 DISTANCE 做 well-tempered MetaD，再从 HILLS 重建并补径向熵修正。1.05–1.60 Å 内平均曲线 RMSE 为 1.36 meV；附复跑脚本、曲线及参数记录。
+
+## 未发布 — CV 与 Graph 有限差分验证
+
+- 新增 `benchmarks/finite_difference`，在固定偏置历史下扫描三个差分步长，分别检查 CV 坐标导数、六分量应变导数、偏置力及 virial。
+- 覆盖 Q3/4/6、Local Q3/4/6、普通/化学结构因子、WEIGHT_CHEM、CSS、不同中心组及线性/非线性组合；Graph 路径 54/54 组通过，9 组线性梯度叠加与 36 组 MPI 状态对照通过。
+- 新增 Graph 独立 Jacobian/VJP 测试，覆盖 Host、NVRTC、MPI 空 rank、共享节点和重复反向；CTest 扩为 19 项并全部通过。
+- 旧 DISTANCE 的 6 组检查失败：单 rank 缺少 virial，MPI 下误用本地下标导致距离/力错误；两距离线性组合在 2 rank 还出现非有限力。保留失败记录用于后续修复。
+- 测试方法、阈值和逐 CV 数值见 [有限差分报告](benchmarks/finite_difference/RESULTS.md)。
+
+## 未发布 — Local Q 的 Graph 接入
+
+- `STEINH L 3/4/6` 接入 Graph，支持 `.RAW` / `.value`、图侧 `.AVE` / `.MEAN`，以及与普通 Q 等 CV 共享图表达式。
+- Graph 的逐中心梯度沿 I→J→K 传播，复用原有几何导数与 virial 算法；Local Q forward 宽度为 0，reverse 每原子 9 个 double。
+- 中心排列使用 CVAssembly 的 owned 前缀；修复同一步重算、共享环境不同 block size、空中心和 Local Q Host 值数组扩容／清零问题。
+- 修复本机 LAMMPS 自定义 cutoff 未覆盖 ghost 邻居行导致的第二层漏邻居；按现有 halo 坐标补齐必要的 ghost 候选行，并保留邻居排除规则。
+- Local Q 统一要求 `EXECUTOR GRAPH`。删除 CV 内部的 AVE／MEAN_SOLID、SW_FUNC／NSOLID、FRAC 回调、CPU 规约与 seed kernel；移除 `SW_FUNC_cv` 状态和解析入口，旧输入给出迁移提示。图侧 `.AVE` / `.MEAN`、`AVE(expr)` 和值开关继续可用，`SW_FUNC_r` 保留径向权重。
+- 接入阶段完成独立 CPU 参考、有限差分、MPI 与两 rank CUDA memcheck。接口清理后重新构建插件：21 组 Local Graph、12 组混合 Graph、6 组普通 Q 回归、6 组清理前后 Graph 通信对照及 Local Q 的 6 项旧接口拒绝检查通过；既有 16 项 CTest 通过。详见 [输入及验证记录](benchmarks/localql_graph/README.md)。
+
+## 未发布 — 非 Local Q 的 Graph 接入
+
+- `STEINH Q 3/4/6` 增加 RAW/value、AVE/MEAN Graph 输入及逐中心 adjoint，径向开关保留在邻居计算中。
+- 原子对反向接收两端 `dV/dq_i`，Q3/Q4/Q6 forward 包宽为 11/13/17；力和六分量 virial 继续使用宽度 9 的 reverse。
+- 使用 CVAssembly 统一中心排列，刷新共享环境与新 run 的邻居缓存。修复 Q 数组扩容指针、不同线程块共享环境的尾部漏算和空 rank 的零网格启动问题。
+- 接口清理后 18 组完整 LAMMPS 检查通过，覆盖 1/2/4 rank、独立 CPU 前向、坐标/应变有限差分、迁移及组成员变化；3 项旧接口报错检查、9 组清理前后对照和既有 16 项 CTest 通过。
+- Q 统一要求 `EXECUTOR GRAPH`，删除内部 AVE／SW_FUNC 标量回调、规约与对应反向分支。`.AVE` / `.MEAN` 仍由 Graph 构建；值开关通过 `.RAW` 和图表达式定义，`SW_FUNC_r` 保留径向权重。旧 `SW_FUNC_cv` 输入会提示迁移。
+- 该阶段曾将 Local Q 的规约状态移入 Local 类；随上方 Local Q Graph 接入及接口清理，相关旧规约已移除。详见 [Q 接入说明与验证记录](benchmarks/steinhardt_graph/README.md)。
+
 ## 2026-10-16 — 实验性功能验证版
 
 本次将运行时编译的 Graph 接入完整 LAMMPS 偏置计算流程，并增加 CSS、化学结构因子与 WEIGHT_CHEM 的 Graph 接口、力和 virial 验证。版本定位为 experimental preview，供功能验证和接口迭代使用。

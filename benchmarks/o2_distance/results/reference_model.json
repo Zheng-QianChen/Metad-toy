@@ -1,0 +1,7 @@
+{
+  "depth_eV": 5.2,
+  "alpha_inverse_A": 2.65,
+  "equilibrium_A": 1.21,
+  "mass_amu": 15.999,
+  "description": "Illustrative classical O2 Morse model, not a fitted electronic PES"
+}

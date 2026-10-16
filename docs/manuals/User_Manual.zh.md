@@ -85,7 +85,7 @@ fix <fix-ID> <group-ID> metad <KEYWORD> <Args> ...
 * **示例**：`SYMBOL v1 Q6.AVE` ； `SYMBOL v2 CP.AVE`
 * **含义**：将上步 `CAL` 定义的具体物理变量矩阵映射为数学公式解析引擎可调用的符号变量。`.AVE` 表示计算该组原子的系统空间平均值。
 
-如果CAL是原子特征，那么需要使用SYMBOL指定CAL中的原子特征映射为集体特征的方式。
+`STEINH Q/L` 统一使用 `EXECUTOR GRAPH`。`.AVE` / `.MEAN` 在图中按该 CV 的中心组求全局均值；`.RAW` / `.value` 提供逐原子值，可在 DIM 中写 `AVE(fermi(v1,0.45,12))` 等表达式。Q 和 Local Q 内部原有的 AVE／SW_FUNC 回调已移除，`SW_FUNC_r` 仍负责径向权重。
 
 #### ⑦ DIM（空间边界离散）
 
@@ -149,7 +149,7 @@ compute <compute-ID> <group-ID> metad/atom <fix-ID> <cv_name_1> <cv_name_2> ...
 plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
 
 # 2. 配置多维元动力学系统
-fix m all metad GAUSSIAN 0.003 0.05 10.0 &
+fix m all metad EXECUTOR GRAPH GAUSSIAN 0.003 0.05 10.0 &
                     PACE 1 &
                     RECORD FILE_NAME rec.log REC_PACE 1 &
                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.2 cutoff_Natoms 12 &
@@ -182,7 +182,7 @@ dump 2 all custom 1000 multi_traj.lammpstrj id type x y z c_CvPaM[1] c_CvPaM[2]
 plugin load ${METAD_PLUGIN_PATH}/fix_crystallize_plugin.so
 
 # 2. 配置多维元动力学系统（采用 & 续行符连结）
-fix m all metad GAUSSIAN 0.003 0.05 10.0 &
+fix m all metad EXECUTOR GRAPH GAUSSIAN 0.003 0.05 10.0 &
                     PACE 1 &
                     RECORD FILE_NAME rec.log REC_PACE 1 &
                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.2 cutoff_Natoms 12 &

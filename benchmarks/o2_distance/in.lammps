@@ -1,0 +1,31 @@
+# O-mass diatomic; units are Angstrom, ps, eV, K.
+units metal
+atom_style atomic
+boundary p p p
+region cell block -10 10 -10 10 -10 10
+create_box 1 cell
+create_atoms 1 single -0.605 0 0
+create_atoms 1 single 0.605 0 0
+mass 1 15.999
+pair_style morse 8.0
+pair_coeff * * 5.2 2.65 1.21
+neighbor 0.3 bin
+neigh_modify every 1 delay 0 check yes
+velocity all create 300.0 492845 mom yes rot no dist gaussian
+fix integrate all nve
+fix bath all langevin 300.0 300.0 0.02 492862 zero yes
+timestep 0.0002
+thermo 10000
+thermo_style custom step temp pe
+run 20000
+reset_timestep 0
+plugin load ${plugin}
+fix m all metad EXECUTOR GRAPH GAUSSIAN 0.015 0.02 20.0 &
+  PACE 100 TEMP 300.0 &
+  CAL NAME OO DISTANCE 1 2 SYMBOL r OO.value &
+  CV_dim 1 DIM 1 0.85 3.0 4300 r METAD_RESTART 0 WT 1
+# 每十步记录距离与偏势；HILLS 保存每次沉积的位置、实际高度和宽度。
+fix sample all ave/time 10 1 10 f_m[1] f_m file trajectory.dat
+thermo_style custom step temp f_m[1] f_m pe
+thermo_modify format float %.16g
+run 10000000

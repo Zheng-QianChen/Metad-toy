@@ -12,7 +12,8 @@ struct CVGraphSymbol {
     std::string method;
 };
 
-// LAMMPS 与通用 Graph 的边界：持有装配表/Leaf，管理动态本地长度和 CV 梯度回传。
+// LAMMPS 与 Graph 的边界：PerAtom Leaf 借用 GPU 装配数组，Global Leaf 保存 Host 标量。
+// 持有装配表、Leaf 和执行器，管理动态本地长度及两类 CV 的梯度回传。
 // CV 和 LAMMPS 由外部持有；本对象必须先于 CV 析构。
 class CVGraphExecution {
 public:

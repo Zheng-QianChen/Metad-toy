@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16",
+  "base_commit": "ee2452462b40ed1c7a773d4137dc61aba2ee36d0",
+  "build": "Release, ENABLE_DEBUG=OFF, USE_ML_CVS=OFF",
+  "validation_directory": "/home/zqc/work/Metad-toy/build/q-interface-cleanup/validation",
+  "plugin_sha256": "6fc3b78db197659db234d07569b453e46f5c9dd80d5e0a257b547d14e07ec831",
+  "cleanup_baseline_sha256": "39b411443cccd7d7425d167811fe8ded1404720bcaa55eb7f6e048d209158404",
+  "source_sha256": {
+    "include/CVsets/CV_Steinhardt.h": "4292391d3ac2efb84b6721d09b8e0c5939562499f565939b5f72e192a1f4a777",
+    "include/CVsets/CV_Steinhardt_math.h": "645d424676eba340e82f163b106d16338e2a6444e9da2ac1d76d5b6833ee48e5",
+    "include/utils/zqc_CVs_tools.h": "c069857976f4f90a789dd52acaac450ff7ac73d5012b13c1d1402a99de107f38",
+    "src/cvs/CVs_Steinhardt.cu": "f2eac0f4edf235ab1e885579dec18482ebe1b0233a0e06e5080df8f09be1082a",
+    "src/cvs/CVs_Steinhardt_Local.cu": "8b06b437e81d86ddbc3ff29c3391bb47c994a161b3e47602ec617dfdeb5fe7cc",
+    "include/core/neigh_hub.h": "a0d2aa729fba0d9023924f129f9f50cb78ceb77bc301b144956161f3b9a77384",
+    "src/core/neigh_hub.cu": "2971ce922174616b9659063fd73bdf1506bcb609ada9323c326db437ef1fa3bb",
+    "benchmarks/steinhardt_graph/run.py": "70941cd2bcabdff814ab43bf77835e1db975f2fd5a36af950246ce5409a91115",
+    "benchmarks/cv_communication/run.py": "4bc613df0da56cae38b316d054bd3bda64870548fb0a5bfb8fd69d7c486b015a"
+  },
+  "ctest": "16/16 passed; build/q-interface-cleanup/ctest.log",
+  "full_lammps_cases": 18,
+  "obsolete_interface_cases": 3,
+  "cleanup_before_after_cases": 9,
+  "max_errors": {
+    "raw_error": 3.3740371607748898e-15,
+    "force_fd_error": 1.2450101713468165e-12,
+    "virial_fd_error": 6.25060491039886e-09,
+    "reference_error": 6.938893903907228e-18,
+    "cleanup_force_error": 1.6940658945086007e-20,
+    "cleanup_cv_energy_error": 0.0
+  }
+}

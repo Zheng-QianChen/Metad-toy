@@ -1,140 +1,95 @@
-#include <cstdio>
-
-#include "lammpsplugin.h"
-#include "atom.h"
-#include "comm.h"
-#include "update.h"
-#include "domain.h"
-#include "memory.h"
-#include "error.h"
-#include "force.h"
-#include "group.h"
-
-#include "fix_crystallize.h"
 #include "CV_Distance.h"
 #include "zqc_debug.h"
+#include "atom.h"
+#include "domain.h"
+#include "error.h"
+#include "utils.h"
+#include <cmath>
+#include <mpi.h>
+#include <stdexcept>
 
-
-MetaD_zqc::CV* MetaD_zqc::Distance::create(LAMMPS_NS::LAMMPS *lmp, 
-                                          LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                                          int narg, char **arg, int &i){
-  LAMMPS_NS::Error *error = lmp->error;
-  DEBUG_LOG("In DISTANCE settings");
-  // DISTANCE 1 2 -> cv_values: 1-2 距离
-  ERR_COND(i + 2 >= narg, "Error: DISTANCE command requires 2 atom IDs.");
-  int id1   = LAMMPS_NS::utils::inumeric(FLERR, arg[i+1], false, lmp);
-  int id2   = LAMMPS_NS::utils::inumeric(FLERR, arg[i+2], false, lmp);
-  // DEBUG_LOG("debug: %d %d", id1, id2);
-  i += 3;
-  return new MetaD_zqc::Distance(lmp, Fixmetad, f_check, id1-1, id2-1);
+namespace MetaD_zqc {
+CV* Distance::create(LAMMPS_NS::LAMMPS* lmp, LAMMPS_NS::FixMetadynamics* fix,
+                     FILE* output, int narg, char** arg, int& index) {
+    if (index + 2 >= narg)
+        lmp->error->all(FLERR, "DISTANCE requires two global atom IDs");
+    const auto first = LAMMPS_NS::utils::tnumeric(FLERR, arg[index+1], false, lmp);
+    const auto second = LAMMPS_NS::utils::tnumeric(FLERR, arg[index+2], false, lmp);
+    index += 3;
+    return new Distance(lmp, fix, output, first, second);
 }
 
-MetaD_zqc::Distance::~Distance(){
-  // delete[] dcvdx;
-  // delete[] dVdcv;
+Distance::Distance(LAMMPS_NS::LAMMPS* lmp, LAMMPS_NS::FixMetadynamics* fix,
+                   FILE* output, LAMMPS_NS::tagint first, LAMMPS_NS::tagint second)
+    : CV(lmp, fix, output), atom_ids_{first, second} {
+    if (first <= 0 || second <= 0 || first == second)
+        error->all(FLERR, "DISTANCE requires two distinct positive atom IDs");
+    if (!lmp->atom->tag_enable)
+        error->all(FLERR, "DISTANCE requires atom IDs");
 }
 
-MetaD_zqc::Distance::Distance(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, 
-                              FILE* f_check, LAMMPS_NS::bigint id1, LAMMPS_NS::bigint id2)
-                        : CV(lmp, Fixmetad, f_check),
-                         atom_id1(id1), atom_id2(id2) {
-    // DEBUG_COND_LOG(lmp->domain == nullptr, "Domain not initialized when creating Distance CV.");
-    LAMMPS_NS::Domain *domain = lmp->domain;
-    // double **x = lmp->atom->x;
-    // DEBUG_LOG("Debug: Distance for lmp-> x[0][0]: %f",x[0][0]);
-    pbc_x = (domain->xperiodic == 1);
-    pbc_y = (domain->yperiodic == 1);
-    pbc_z = (domain->zperiodic == 1);
-    DEBUG_LOG("Debug:The pbc settings in 3 axis is (0 for non-p, 1 for periodic): x-%d y-%d z-%d",pbc_x, pbc_y, pbc_z);
-    dcvdx = new double[3];
+void Distance::summary(FILE* output) {
+    fprintf(output, "DISTANCE: global atom IDs " TAGINT_FORMAT " " TAGINT_FORMAT
+                    "; minimum-image distance, Global scalar\n", atom_ids_[0], atom_ids_[1]);
+    fflush(output);
 }
 
-void MetaD_zqc::Distance::summary(FILE *f){
-  fprintf(f, "CV summary: " BIGINT_FORMAT ", " BIGINT_FORMAT "\n", this->atom_id1, this->atom_id2);
-  fflush(f);
-}
-
-void MetaD_zqc::Distance::delta_x(){
-  double **x = lmp->atom->x;
-  double xbox,ybox,zbox;
-  dx = x[atom_id2][0] - x[atom_id1][0];
-  dy = x[atom_id2][1] - x[atom_id1][1];
-  dz = x[atom_id2][2] - x[atom_id1][2];
-  if(pbc_x){
-    xbox = lmp->domain->xprd;
-    if (dx > xbox/2) {
-        dx -= xbox;
-    } else if (dx < -xbox/2) {
-        dx += xbox;
+void Distance::base_calc() {
+    // 两组 (x,y,z,owner_count) 一次规约。每步重新定位以跟随迁移与排序。
+    double coordinates[8] = {};
+    owned_indices_[0] = owned_indices_[1] = -1;
+    for (int local = 0; local < lmp->atom->nlocal; ++local) {
+        for (int endpoint = 0; endpoint < 2; ++endpoint) {
+            if (lmp->atom->tag[local] != atom_ids_[endpoint]) continue;
+            owned_indices_[endpoint] = local;
+            for (int axis = 0; axis < 3; ++axis)
+                coordinates[4*endpoint+axis] += lmp->atom->x[local][axis];
+            coordinates[4*endpoint+3] += 1.0;
+        }
     }
-  }
-  if(pbc_y){
-    ybox = lmp->domain->yprd;
-    if (dy > ybox/2) {
-        dy -= ybox;
-    } else if (dy < -ybox/2) {
-        dy += ybox;
+    MPI_Allreduce(MPI_IN_PLACE, coordinates, 8, MPI_DOUBLE, MPI_SUM, lmp->world);
+    if (coordinates[3] != 1.0 || coordinates[7] != 1.0)
+        error->all(FLERR, "DISTANCE: each atom ID must have exactly one owner");
+    for (int axis = 0; axis < 3; ++axis)
+        displacement_[axis] = coordinates[4+axis] - coordinates[axis];
+    // LAMMPS 同时处理正交盒、倾斜盒及各方向周期性。
+    lmp->domain->minimum_image(displacement_);
+    cv_value = std::sqrt(displacement_[0]*displacement_[0] +
+                         displacement_[1]*displacement_[1] +
+                         displacement_[2]*displacement_[2]);
+    if (!(cv_value > 0.0) || !std::isfinite(cv_value))
+        error->all(FLERR, "DISTANCE: zero or non-finite separation has no defined gradient");
+}
+
+double Distance::compute_cv() { return cv_value; }
+
+void Distance::bias_force(double seed) {
+    const double scale = seed / cv_value;
+    const double* delta = displacement_;
+    // W = -dV/d(epsilon)，顺序为 xx, yy, zz, xy, xz, yz；两端各保存一半。
+    const double pair_virial[6] = {
+        -scale*delta[0]*delta[0], -scale*delta[1]*delta[1], -scale*delta[2]*delta[2],
+        -scale*delta[0]*delta[1], -scale*delta[0]*delta[2], -scale*delta[1]*delta[2]};
+    for (int endpoint = 0; endpoint < 2; ++endpoint) {
+        const int local = owned_indices_[endpoint];
+        if (local < 0) continue;
+        const double sign = endpoint == 0 ? 1.0 : -1.0;
+        for (int axis = 0; axis < 3; ++axis)
+            lmp->atom->f[local][axis] += sign * scale * delta[axis];
+        if (Fixmetad->a_virial)
+            for (int component = 0; component < 6; ++component)
+                Fixmetad->a_virial[6*local+component] += 0.5 * pair_virial[component];
     }
-  }
-  if(pbc_z){
-    zbox = lmp->domain->zprd;
-    if (dz > zbox/2) {
-        dz -= zbox;
-    } else if (dz < -zbox/2) {
-        dz += zbox;
-    }
-  }
-  // DEBUG_LOG("xbox: %g, %g, %g",xbox,ybox,zbox);
-  DEBUG_LOG("atom[0]: %g, %g, %g",x[atom_id1][0],x[atom_id1][1],x[atom_id1][2]);
-  DEBUG_LOG("atom[1]: %g, %g, %g",x[atom_id2][0],x[atom_id2][1],x[atom_id2][2]);
-  DEBUG_LOG("PBC dx, dy, dz  = %.6f, %.6f, %.6f", dx, dy, dz);
 }
 
-
-// 归约 cv_values 到所有节点
-double MetaD_zqc::Distance::compute_cv() {
-    this->delta_x();
-    cv_value = sqrt(dx*dx + dy*dy + dz*dz);
-    return cv_value;
+CV::CV_Calculation Distance::set_CV_calculate(std::string method) {
+    if (method != "DISTANCE" && method != "RAW" && method != "value")
+        throw std::runtime_error("DISTANCE: supported methods are DISTANCE/RAW/value");
+    return static_cast<CV_Calculation>(&Distance::compute_cv);
 }
-
-void MetaD_zqc::Distance::bias_force(double dVdcv) {
-    DEBUG_LOG("MetaD_zqc::Distance::bias_force");
-    double **f = lmp->atom->f;
-    double **x = lmp->atom->x;
-    this->get_dcvdx(cv_value, dcvdx);
-    DEBUG_LOG("cv_value = %g, dVdcv = %g, dcvdx = %g, %g, %g",cv_value, dVdcv, dcvdx[0], dcvdx[1], dcvdx[2]);
-    DEBUG_LOG("dx, dy, dz  = %.6f, %.6f, %.6f", x[atom_id2][0]-x[atom_id1][0], x[atom_id2][1]-x[atom_id1][1], x[atom_id2][2]-x[atom_id1][2]);
-    DEBUG_LOG("fx0,fy0,fz0  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
-    f[atom_id1][0] -= dVdcv*dcvdx[0];
-    f[atom_id1][1] -= dVdcv*dcvdx[1];
-    f[atom_id1][2] -= dVdcv*dcvdx[2];
-    f[atom_id2][0] += dVdcv*dcvdx[0];
-    f[atom_id2][1] += dVdcv*dcvdx[1];
-    f[atom_id2][2] += dVdcv*dcvdx[2];
-    DEBUG_LOG("fx,fy,fz  = %.6f, %.6f, %.6f", f[atom_id1][0], f[atom_id1][1], f[atom_id1][2]);
-    DEBUG_LOG("post_force_r_end");
+CV::CV_BiasForce Distance::set_CV_bias_force(std::string method) {
+    set_CV_calculate(method);
+    return static_cast<CV_BiasForce>(&Distance::bias_force);
 }
-
-void MetaD_zqc::Distance::get_dcvdx(double value, double *dcvdx){
-  DEBUG_LOG("get_dcvdx");
-  // double **x = lmp->atom->x;
-  dcvdx[0] = -dx/value;
-  dcvdx[1] = -dy/value;
-  dcvdx[2] = -dz/value;
-  DEBUG_LOG("get_dcvdx_end");
 }
-
-void MetaD_zqc::Distance::base_calc(){}; // 计算 CV 值
-
-MetaD_zqc::CV::CV_Calculation MetaD_zqc::Distance::set_CV_calculate(std::string func_name){
-  return static_cast<MetaD_zqc::CV::CV_Calculation>(&MetaD_zqc::Distance::compute_cv);
-}
-
-
-MetaD_zqc::CV::CV_BiasForce MetaD_zqc::Distance::set_CV_bias_force(std::string func_name){
-  return static_cast<MetaD_zqc::CV::CV_BiasForce>(&MetaD_zqc::Distance::bias_force);
-}
-
-
 REGISTER_CV("DISTANCE", MetaD_zqc::Distance::create);

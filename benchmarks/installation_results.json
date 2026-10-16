@@ -1,0 +1,210 @@
+{
+  "date": "2026-10-16",
+  "plugin_sha256": "2392cf3855a95ce6f66ac0c9f01ec1ebde8772dd73bfb46e0a01f45686034806",
+  "smoke": [
+    {
+      "case": "distance",
+      "ranks": 1,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 0.23890397873567767
+    },
+    {
+      "case": "distance",
+      "ranks": 2,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 0.23890397873567767
+    },
+    {
+      "case": "distance",
+      "ranks": 4,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 0.23890397873567767
+    },
+    {
+      "case": "q",
+      "ranks": 1,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 0.0003548000236911878
+    },
+    {
+      "case": "q",
+      "ranks": 2,
+      "passed": true,
+      "mpi_max_error": 2.38524477946811e-16,
+      "force_peak": 0.0003548000236911616
+    },
+    {
+      "case": "q",
+      "ranks": 4,
+      "passed": true,
+      "mpi_max_error": 2.389581588158052e-16,
+      "force_peak": 0.0003548000236911616
+    },
+    {
+      "case": "local_q",
+      "ranks": 1,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 1.8776058083729617e-05
+    },
+    {
+      "case": "local_q",
+      "ranks": 2,
+      "passed": true,
+      "mpi_max_error": 2.4015078120553923e-17,
+      "force_peak": 1.877605808372782e-05
+    },
+    {
+      "case": "local_q",
+      "ranks": 4,
+      "passed": true,
+      "mpi_max_error": 2.3960868011929648e-17,
+      "force_peak": 1.8776058083727814e-05
+    },
+    {
+      "case": "chemical",
+      "ranks": 1,
+      "passed": true,
+      "mpi_max_error": 0.0,
+      "force_peak": 0.007079733297597134
+    },
+    {
+      "case": "chemical",
+      "ranks": 2,
+      "passed": true,
+      "mpi_max_error": 1.3322676295501878e-15,
+      "force_peak": 0.007079733297597204
+    },
+    {
+      "case": "chemical",
+      "ranks": 4,
+      "passed": true,
+      "mpi_max_error": 3.497202527569243e-15,
+      "force_peak": 0.007079733297597323
+    }
+  ],
+  "portable_smoke": {
+    "passed": true,
+    "scope": "Copied plugin without CMake cache; paths containing spaces; started from /tmp; system Python without lammps module"
+  },
+  "regression": {
+    "plugin_sha256": "2392cf3855a95ce6f66ac0c9f01ec1ebde8772dd73bfb46e0a01f45686034806",
+    "steps": [
+      0.0001,
+      3e-05,
+      1e-05,
+      3e-06
+    ],
+    "cases": 69,
+    "passed": 69,
+    "linear_checks": [
+      {
+        "case": "ql_linear",
+        "ranks": 1,
+        "values_error": 0.0,
+        "cv_gradient_error": 1.0408340855860843e-17,
+        "cv_strain_error": 8.326672684688674e-17,
+        "passed": true
+      },
+      {
+        "case": "ql_linear",
+        "ranks": 2,
+        "values_error": 0.0,
+        "cv_gradient_error": 1.3877787807814457e-17,
+        "cv_strain_error": 1.3877787807814457e-17,
+        "passed": true
+      },
+      {
+        "case": "ql_linear",
+        "ranks": 4,
+        "values_error": 0.0,
+        "cv_gradient_error": 1.3877787807814457e-17,
+        "cv_strain_error": 4.163336342344337e-17,
+        "passed": true
+      },
+      {
+        "case": "chemical_linear",
+        "ranks": 1,
+        "values_error": 0.0,
+        "cv_gradient_error": 4.163336342344337e-17,
+        "cv_strain_error": 8.881784197001252e-16,
+        "passed": true
+      },
+      {
+        "case": "chemical_linear",
+        "ranks": 2,
+        "values_error": 0.0,
+        "cv_gradient_error": 4.163336342344337e-17,
+        "cv_strain_error": 8.881784197001252e-16,
+        "passed": true
+      },
+      {
+        "case": "chemical_linear",
+        "ranks": 4,
+        "values_error": 0.0,
+        "cv_gradient_error": 5.551115123125783e-17,
+        "cv_strain_error": 5.551115123125783e-17,
+        "passed": true
+      },
+      {
+        "case": "all_linear",
+        "ranks": 1,
+        "values_error": 0.0,
+        "cv_gradient_error": 2.7755575615628914e-17,
+        "cv_strain_error": 4.440892098500626e-16,
+        "passed": true
+      },
+      {
+        "case": "all_linear",
+        "ranks": 2,
+        "values_error": 1.1102230246251565e-16,
+        "cv_gradient_error": 2.7755575615628914e-17,
+        "cv_strain_error": 1.249000902703301e-16,
+        "passed": true
+      },
+      {
+        "case": "all_linear",
+        "ranks": 4,
+        "values_error": 0.0,
+        "cv_gradient_error": 2.7755575615628914e-17,
+        "cv_strain_error": 4.440892098500626e-16,
+        "passed": true
+      }
+    ],
+    "scope": "Compiled non-ML CVs; DISTANCE covers LEGACY, Global Graph and mixed Global/PerAtom Graph"
+  },
+  "graph": {
+    "fresh_build": true,
+    "ctest_total": 19,
+    "ctest_passed": 19
+  },
+  "o2": {
+    "passed": true,
+    "ensemble": {
+      "rmse_eV": 0.0013589272097861342,
+      "max_abs_error_eV": 0.00412928138396329,
+      "inferred_minimum_A": 1.211
+    },
+    "criteria": {
+      "each_seed_rmse_eV": 0.025,
+      "each_seed_max_error_eV": 0.075,
+      "minimum_error_A": 0.01
+    }
+  },
+  "expected_failure": {
+    "executable": "/bin/false",
+    "exit_code": 1,
+    "failed_cases": 4
+  },
+  "source_sha256": {
+    "benchmarks/run.py": "24ba56c317b07d1bf9a1150b2a259b71629b192bb2df586ed392cf83ee4f7008",
+    "benchmarks/benchmark_common.py": "1a12b5fcbeb4e47e9844d433d31a53a0cf40bce84968162a7e4143f8312d081b",
+    "benchmarks/finite_difference/run.py": "316799cbbcdaa31cafbfc06591a07e2913fd169ff26760203186b44419fc7ea4",
+    "benchmarks/o2_distance/run.py": "5ebb9f2c1c67aa85bf514562c6cf2adc0339e9d01898f02146575e184db58077",
+    "benchmarks/o2_distance/validate.py": "6683f674457f0dc439ba495d34ae32e002f46494fc7a17bafa3bdfa8c7cd9e33"
+  }
+}

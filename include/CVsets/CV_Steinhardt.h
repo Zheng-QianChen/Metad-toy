@@ -8,6 +8,7 @@
 #include "fix_crystallize.h"
 #include "zqc_CVs_tools.h"
 #include "zqc_switch_function.h"
+#include "zqc_cv_assembly.cuh"
 
 #define PI 3.1415926535897932385
 namespace MetaD_zqc {
@@ -54,7 +55,6 @@ namespace MetaD_zqc {
         double cutoff_eps_r;
 
         SwitchFunction* SW_FUNC_r=nullptr;
-        SwitchFunction* SW_FUNC_cv=nullptr;
     };
 
     // Steinhardt environment
@@ -69,7 +69,13 @@ namespace MetaD_zqc {
             bool LOC_flag = false;
             LAMMPS_NS::bigint last_update_step = -1; // 避免同一步内重复计算 GPU Kernel
             // Neighbor::lastcall when we last flattened firstneigh into GPU buffers
-            long long last_neigh_lastcall_ = -1;
+            long long neigh_lastcall_ = -1;
+            // Q 的候选邻居缓存随 run、localid 布局和组表一起失效。
+            unsigned long long cached_neigh_generation = 0;
+            int cached_nlocal = -1, cached_nghost = -1;
+            std::shared_ptr<const CVAssembly> atom_assembly; // owned 中心在前，组内 ghost 在后。
+            bool graph_geometry_dirty = true; // 每轮 Graph 准备后，由首个共享 CV 更新几何。
+
             
             MetaD_zqc::SwitchFunction* my_r_SWfunc;
 
@@ -80,7 +86,7 @@ namespace MetaD_zqc {
             // LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
             double                                      cutoff_r=0.0;   // environment_cutoff radius
             double                                      cutoff_eps_r = 1e-12;
-            int last_group_count, group_count, group_id, groupbit;
+            int last_group_count = 0, group_count = 0, group_id, groupbit;
             int init_flag=false;
             bool pbc_x, pbc_y, pbc_z;
             LAMMPS_NS::bigint                           *atoms;
@@ -200,34 +206,25 @@ namespace MetaD_zqc {
             std::string env_setNum;
             MetaD_zqc::Steinhardt_env* my_env;
             
-            MetaD_zqc::Averager* my_averager;
-            MetaD_zqc::SwitchFunction* my_cv_SWfunc;
-
-            // 0=MEAN_SOLID(Σqf/Σf), 1=NSOLID(Σf)
-            int                                         local_reduce_mode = 0;
 
             int d_block_size;         // use it to change the GPU set
             int GPU_number;
             int block_num;
             int neighbor_type = 0;
-            LAMMPS_NS::tagint all_count;
             size_t N;
             using CV::cv_value;
-            // stein_ql in host is stored in steinq[i]
+            // q_l 按 localid 存储，长度 nlocal+nghost；前向计算 owned，通信补齐 ghost。
             double                                      *stein_q = nullptr;
             GpuBuffer<double>                           d_stein_ql;
             // [h_stein_Ylm] : Ylm for each c_atoms
             double                                      *h_stein_Ylm = nullptr;
             GpuBuffer<double>                           d_stein_Ylm;
             // double *Q_per_atoms_value = nullptr;
-            // [dYlm_dr] = dcv/dx (complex add local)
-            // [dcvdx] = dcv/dx
-            double                                      *h_dYlm_dr = nullptr;
-            GpuBuffer<double>                           d_dYlm_dr;
+            // 坐标梯度按 [localid*3+component] 存储。
             double                                      *h_dcvdx = nullptr;
             GpuBuffer<double>                           d_dcvdx;
             // device local
-            // stein_qlm stored in 
+            // q_lm 按 [localid * 2*(L+1) + 2*m + real/imag] 存储，m=0..L。
             double                                      *h_stein_qlm = nullptr;
             GpuBuffer<double>                           d_stein_qlm;
             double                                     *h_stein_LQlm = nullptr;
@@ -240,6 +237,17 @@ namespace MetaD_zqc {
             double                                     *h_dcvdx_y = nullptr;
             double                                     *h_dcvdx_z = nullptr;
             int                                         dcvdx_flag = -1;
+
+            // Graph 输入梯度先按 owned 中心排列提取，再按 localid 装入通信数组。
+            GpuBuffer<double> d_center_adjoint; // [center]，group_count 个 owned dV/dq_i。
+            GpuBuffer<double> d_atom_adjoint;   // [localid]，nlocal+nghost 项；通信后补齐 ghost。
+            std::vector<double> h_center_adjoint; // [center]，长度 group_count。
+            std::vector<double> h_atom_adjoint;   // [localid]，长度 nlocal+nghost，保存 dV/dq_i。
+            bool graph_values_ready = false;
+            bool graph_evaluation_prepared = false;
+            LAMMPS_NS::bigint graph_value_step = -1;
+            void check_graph_values() const;
+
             
         public:
             using CV_Calculation = typename CV::CV_Calculation;
@@ -254,32 +262,20 @@ namespace MetaD_zqc {
             virtual CV_BiasForce set_CV_bias_force(std::string func_name) override;
             // void cv_method();
             void base_calc() override;
+            // Q 与 Local Q 共用逐中心值装配；坐标反向由各自实现。
+            int graph_groupbit() const override { return my_env->groupbit; }
+            void bind_assembly(std::shared_ptr<const CVAssembly>) override;
+            void prepare_graph_evaluation() override;
+            void assemble_values(GpuBuffer<double>&) override;
+            void apply_adjoint(const GpuBuffer<double>&) override;
+
             virtual void compute_Q_peratoms();
             // void bias_force_LOC_AVE(double dVdcv);
             void summary(FILE* f) override;
 
 
-            virtual void apply_get_dcvdx(double cv_value, double *dcvdx, int mode);
-            virtual void apply_bias_force(double cv_value, int mode);
-
-            // AVE method
-            virtual double compute_cv_AVE();
-            virtual void bias_force_AVE(double dVdcv);
-            void get_dcvdx_AVE(double cv_value, double *dcvdx);
-
-            // SW_FUNC method
-            double compute_cv_SW_FUNC();
-            void bias_force_SW_FUNC(double dVdcv);
-            void get_dcvdx_SW_FUNC(double cv_value, double *dcvdx);
-            
-            // void get_dcvdx_LOC_AVE(double cv_value, double *dcvdx);
             virtual void steinhardt_param_calc(double *);
             void call_steinhardt_cv_ql_i_kernel();
-            void call_steinhardt_dcv_AVE_kernel();
-            // void call_steinhardt_cv_SW_FUNC_kernel();
-            void call_steinhardt_dcv_SW_FUNC_kernel();
-            void call_steinhardt_dcv_kernel(
-                const MetaD_zqc::SwitchFunctionRequest& sw_params_q, double q_weight_scale);
             void environment();
             // communication for Ghost atoms
             virtual int get_comm_reverse_width() const override; // 每原子 double 数
@@ -377,7 +373,6 @@ namespace MetaD_zqc {
         using CV::f_check;
         using CV::error;
         using CV::Fixmetad;
-        using STEIN_QL<L>::my_averager;
         using STEIN_QL<L>::my_env;
 
         using STEIN_QL<L>::block_num;
@@ -385,29 +380,21 @@ namespace MetaD_zqc {
         using STEIN_QL<L>::N;
         using STEIN_QL<L>::stein_l;
 
-        using STEIN_QL<L>::all_count;
 
-        using STEIN_QL<L>::my_cv_SWfunc;
-
-        using STEIN_QL<L>::cv_value;
 
         STEIN_LocalQL_env* my_loc_env;
-
-        // 如果采用切换函数，那么需要考虑一些切换函数的求和
-        double                                          cvsum_in_switching;
-        // Mom [d_stein_LQlm] 1-D -> nmax (calctag): Threads_own_atoms*(stein_l + 1)*2;
+        // [localid][2*(L+1)]：owned I 的局域平均球谐分量，m=0..L，实部/虚部交错。
         GpuBuffer<double>                               d_stein_LQlm;
+        // calctag 的前 group_count 项为 owned I，后面为补齐的 J（可含 ghost）。
+        // [calctag][2*(L+1)]：所有 owned I 汇总到 q_lm 的梯度前因子。
         GpuBuffer<double>                               d_dcvdx_rjk_prefix;
-        // [sum_of_qlm_value_weights] 1-D -> nmax (calctag): Threads_own_atoms*(stein_l + 1)*2;
+        using CV::assembly_;
+        using STEIN_QL<L>::d_center_adjoint;
+        using STEIN_QL<L>::check_graph_values;
+        void evaluate_coordinate_adjoint();
+        void accumulate_bias_force();
+        // [owned center][2*(L+1)]：外层径向权重乘邻居 q_lm 的累加值，供 I→J 反向使用。
         GpuBuffer<double>                               sum_of_qlm_value_weights;
-        // 全局规约后的对LQ的sw_sum
-        double                                          global_ql_sum;
-        double                                          global_sw_sum;
-        // MPI 全局 group 原子数（FRAC 分母）；与 count(group) 一致
-        int                                             group_natoms_global = 0;
-        // 0=MEAN_SOLID(Σqf/Σf), 1=NSOLID(Σf), 2=FRAC(Σf/N)
-        // int                                             local_reduce_mode = 0;
-        using STEIN_QL<L>::local_reduce_mode;
         // 由于我们未使用过stein_ql,所以这里其实可以重复使用stein_ql以保证继承更加顺畅
         using STEIN_QL<L>::env_setNum;
         // Mom [d_stein_ql] -> d_stein_LQl;
@@ -420,12 +407,8 @@ namespace MetaD_zqc {
         using STEIN_QL<L>::d_dcvdx;
         using STEIN_QL<L>::h_stein_Ylm;
         using STEIN_QL<L>::d_stein_Ylm;
-        using STEIN_QL<L>::h_dYlm_dr;
-        using STEIN_QL<L>::d_dYlm_dr;
         using STEIN_QL<L>::h_a_virial;
         using STEIN_QL<L>::d_a_virial;
-        // Mom [dYlm_dx]
-        // 暂存所有的 dYlm/dx 1-D -> full_pair * 2*(l +1) *3(x,y,z)
 
         public:
         using CV::register_buffer;
@@ -435,33 +418,24 @@ namespace MetaD_zqc {
                              LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
                              std::string env_setNum, int group_id,
                              MetaD_zqc::Steinhardt_env* my_env,
-                             int d_block_size, MetaD_zqc::SteinhardtRequest req);
+                             int d_block_size);
         ~STEIN_LocalQL();
 
         void summary(FILE* f) override;
 
+        // Leaf 的 dV/dLQ_i 按 CVAssembly 的 owned 顺序收集，再传播 I→J→K。
+        void apply_adjoint(const GpuBuffer<double>&) override;
         void compute_Q_peratoms() override;
         void steinhardt_param_calc(double *) override;
-        // MEAN_SOLID = Σ q f / Σ f（旧名 AVE）；NSOLID = Σ f；FRAC = Σ f / N_group
-        void reduce_lq_sw_sums();
-        double compute_cv_AVE() override;
-        double compute_cv_NSOLID();
-        double compute_cv_FRAC();
-        void apply_bias_force(double dVdcv, int mode) override;
-        void bias_force_AVE(double dVdcv) override;
-        void bias_force_NSOLID(double dVdcv);
-        void bias_force_FRAC(double dVdcv);
-        // void get_dcvdx(double cv_value, double *dcvdx) override;
-        void get_dcvdx(double cv_value, double *dcvdx);
-        void call_steinhardt_Local_cv_AVE_kernel();
-        void call_steinhardt_Local_dcv_AVE_kernel();
+        void call_steinhardt_Local_forward_kernel();
+        void call_steinhardt_Local_backward_kernel();
 
         using CV_Calculation = typename CV::CV_Calculation;
         using CV_BiasForce = typename CV::CV_BiasForce;
         CV_Calculation set_CV_calculate(std::string func_name) override;
         CV_BiasForce set_CV_bias_force(std::string func_name) override;
 
-        // LocalQL 复用基类的 reverse 打包，forward 宽度为零。
+        // 使用两层 ghost halo 完成 I→J→K；reverse 包含六分量 virial 和三分量坐标梯度。
         int get_comm_forward_width() const override { return 0; }
         // // compute
         // double* get_peratom_ptr(const std::string &prop_name) override;
@@ -512,19 +486,19 @@ __global__ void steinhardt_cv_kernel(
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql);
 
 
+// Graph 梯度按 localid 输入；每个半对汇总两端的力和 virial。
 template <int L>
 __global__ void steinhardt_dcv_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    MetaD_zqc::SwitchFunctionRequest sw_params_q,
-    double q_weight_scale,
     LAMMPS_NS::tagint pair_all, int groupbit,
     int *d_mask,
     LAMMPS_NS::tagint *d_active_pair_ids,
     LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
     double *d_x_flat,
-    int *d_neigh_in_cutoff_r, double *d_neigh_in_switching,
+    double *d_neigh_in_switching,
     double *d_stein_ql, double *d_stein_qlm,
-    double *d_dYlm_dr, double *d_dcvdx, double *d_a_virial
+    double *d_dcvdx, double *d_a_virial,
+    const double *atom_adjoint
 );
 
 
@@ -585,12 +559,9 @@ __global__ void steinhardt_Local_cv_get_LQl(
     double *d_stein_LQlm, double *d_stein_ql);
 
 template <int L>
-__global__ void steinhardt_Local_dcv_AVE_ij_kernel(
+__global__ void steinhardt_Local_backward_ij_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    MetaD_zqc::SwitchFunctionRequest sw_params_LQ,
-    double cv_value, double global_sw_sum,
-    double group_natoms,
-    int reduce_mode,
+    const double *center_adjoint,
     int group_count, 
     double *d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
@@ -607,7 +578,7 @@ __global__ void steinhardt_Local_dcv_AVE_ij_kernel(
     double *d_dcvdx, double *d_a_virial);
 
 template <int L>
-__global__ void steinhardt_Local_dcv_AVE_jk_kernel(
+__global__ void steinhardt_Local_backward_jk_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_mask, 
@@ -620,7 +591,7 @@ __global__ void steinhardt_Local_dcv_AVE_jk_kernel(
     int *d_neigh_in_cutoff_r, 
     double *d_dcvdx_rjk_prefix,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
-    double *d_dYlm_dr, double *d_dcvdx, double *d_a_virial);
+    double *d_dcvdx, double *d_a_virial);
 
 
 // =========================================================================

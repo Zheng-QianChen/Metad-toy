@@ -1,0 +1,1110 @@
+[
+  {
+    "case": "q_graph",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 7.600051333325682e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_graph",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 2.541098841762901e-21,
+      "max_force": 7.600051333325684e-06,
+      "cv_energy_errors": [
+        1.3877787807814457e-17,
+        1.1102230246251565e-16,
+        0.0
+      ],
+      "pressure_errors": [
+        1.734723475976807e-18,
+        1.0842021724855044e-18,
+        8.673617379884035e-18,
+        0.0,
+        2.4936649967166602e-18,
+        3.469446951953614e-18
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 37622
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 49198
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 52020
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 37570
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 49130
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 52092
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_graph",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 1.9058241313221758e-21,
+      "max_force": 7.600051333325684e-06,
+      "cv_energy_errors": [
+        1.3877787807814457e-17,
+        1.1102230246251565e-16,
+        0.0
+      ],
+      "pressure_errors": [
+        3.469446951953614e-18,
+        3.686287386450715e-18,
+        1.1275702593849246e-17,
+        1.0842021724855044e-18,
+        6.911788849595091e-19,
+        3.469446951953614e-18
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 37778
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 49402
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 51768
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 37466
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 48994
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 52272
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 37414
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 48926
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 52272
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 37726
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 49334
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 51912
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_graph_odd",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 5.688612593307354e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_graph_odd",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 2.0328790734103208e-20,
+      "max_force": 5.688612593307352e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        8.326672684688674e-17,
+        4.163336342344337e-17,
+        1.3877787807814457e-17,
+        1.7997756063259374e-17,
+        3.469446951953614e-18,
+        7.177418381854039e-17
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 31834
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 49198
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 52020
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 31790
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 49130
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 52092
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_graph_odd",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_graph_odd_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 1.6940658945086007e-20,
+      "max_force": 5.688612593307352e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        5.551115123125783e-17,
+        5.204170427930421e-17,
+        5.204170427930421e-18,
+        5.854691731421724e-18,
+        1.9081958235744878e-17,
+        4.7704895589362195e-17
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 31966
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 49402
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 51768
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 31702
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 48994
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 52272
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 31658
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 48926
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 52272
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 11,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 31922
+          },
+          {
+            "direction": "forward",
+            "width": 17,
+            "capacity": 17,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 49334
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 51912
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_pair",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 7.600051378035369e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_pair",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np2",
+      "max_position_error": 3.552713678800501e-15,
+      "max_force_error": 1.9770592633730835e-14,
+      "max_force": 7.6000513717018915e-06,
+      "cv_energy_errors": [
+        1.3877787807814457e-17,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        1.7293506904270117e-11,
+        1.560832821496938e-11,
+        1.6851745693324816e-12,
+        3.4799305364402455e-12,
+        3.633492839287891e-13,
+        1.2858966062095911e-11
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69456
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92608
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104040
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69360
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92480
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104184
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_pair",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/q_pair_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 1.9770548588017578e-14,
+      "max_force": 7.600051371701766e-06,
+      "cv_energy_errors": [
+        1.3877787807814457e-17,
+        0.0,
+        2.7755575615628914e-17
+      ],
+      "pressure_errors": [
+        1.729330741107038e-11,
+        1.5608251453455568e-11,
+        1.6850496692422112e-12,
+        3.479945064749357e-12,
+        3.633466953961023e-13,
+        1.285900075656543e-11
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69744
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92992
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103536
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69168
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92224
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69072
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92096
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69648
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92864
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103824
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 9.951212244223995e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np2",
+      "max_position_error": 8.881784197001252e-16,
+      "max_force_error": 8.533856943587076e-20,
+      "max_force": 9.951212244223995e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        8.673617379884035e-18,
+        1.951563910473908e-18,
+        6.938893903907228e-18,
+        1.951563910473908e-18,
+        1.6127507315721878e-18,
+        1.1275702593849246e-17
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121440
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 181584
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 182160
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/communication/after/local_mix_np4",
+      "max_position_error": 8.881784197001252e-16,
+      "max_force_error": 2.275392314209047e-14,
+      "max_force": 9.951212248552867e-06,
+      "cv_energy_errors": [
+        1.3877787807814457e-17,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        1.9903384496089416e-11,
+        1.7963631558821913e-11,
+        1.939753913049458e-12,
+        4.004998156031947e-12,
+        4.181770489782022e-13,
+        1.4799203529314298e-11
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 122016
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181080
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 120768
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182232
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182520
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121152
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181656
+          }
+        ]
+      }
+    ]
+  }
+]

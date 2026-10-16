@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-16",
+  "base_commit": "ee2452462b40ed1c7a773d4137dc61aba2ee36d0",
+  "plugin_sha256": "b6a0a3512d0aaafb2b686cd2ca4be74da23fddb732a9612e70d7e4d8fee0416a",
+  "validation_directory": "/home/zqc/work/Metad-toy/build/finite-difference",
+  "cv_results": {
+    "total": 60,
+    "passed": 54,
+    "failed": 6
+  },
+  "linear_checks": 9,
+  "ctest": "19/19 passed",
+  "max_errors_at_smallest_step": {
+    "force": 2.638842200308744e-09,
+    "virial": 1.5836583070694132e-05,
+    "cv_gradient": 2.842942548042515e-10,
+    "cv_strain": 4.401855768776386e-08,
+    "linear_cv_gradient": 5.551115123125783e-17,
+    "graph_nvrtc": 6.008051001149539e-11,
+    "graph_host": 1.5610826520351395e-10
+  },
+  "full_sweep_runner_sha256": "90ddf35d2b1edce6f18b594081e0fa459dd551b49f9d590c189e0e719d4ad5c4",
+  "current_runner_sha256": "412fbbcc3aeccff511771d33e3dff29670091b300225cc87c1637dba8c207312",
+  "runner_change": "After full sweep, added nonfinite-force diagnostics; reran failing DISTANCE linear np2 only.",
+  "source_sha256": {
+    "src/cvs/CVs_Strufactor_chem.cu": "00b5455cb8bfd1ca4383586325bf811fc9db3da602c090a07d891b316c06dce3",
+    "src/cvs/CV_Weighted_Chemical_Pair_Order.cu": "5f52484f3bc029cf8b2b0151e93c88c2d48b80a8de73eb85a065e9eb14f73312",
+    "src/cvs/CVs_Steinhardt.cu": "6852e4101232e6be6f8283a772de25d0ceced7b4b4feb65495403238ed5ea1a6",
+    "src/cvs/CVs_Strufactor.cu": "c9a04f0c277eeb54c194705da43d667b2fba38da481a51d5434e69663144b786",
+    "src/cvs/CVs_CSS.cu": "830e20de0953a4a987b8d185bd07a13e5e04c968aceda51198fee1fc7253b3e2",
+    "src/cvs/CVs_DISTANCE.cu": "79f06d17b7880ff59d1a442a49eff0f661699a67e31b6ebf88d85fc7c201e0e0",
+    "src/cvs/CVs_Steinhardt_Local.cu": "a7069872bd572e8d7d3b233148c052fdab9fbbcb0990c4ea2f51d72ed4820b20",
+    "src/utils/zqc_graph_nodes.cu": "c18779f75a852a6f21bc7235d9295f0f6ab51d82e7f0df9130600662435bc673",
+    "src/utils/zqc_graph.cu": "c8e48b01dcd9e4f611c8815e610aff9277a5190454d2c84dc8e786a36255049e",
+    "src/utils/zqc_graph_execution.cu": "17ac35a9aefb80972b5af8c17d76d34bdd176d51e260e6acf67773269340c3b6",
+    "src/utils/zqc_graph_parser.cu": "5dede40e03b2c5268b28dd0f712cff6b531371b8c954566df21b8fdf314fb7f4",
+    "include/utils/zqc_graph_device.cuh": "7ef88f4f88ae7c9ad6aefc23a6b74d0ba1b7bf06d0e1a7e25ff87797b9cf4cf6",
+    "src/core/fix_crystallize.cu": "ff7b32e20a4470193e88884552a6ff6f041cf35b54d6045519df6cc50eaff380",
+    "benchmarks/finite_difference/graph.cu": "cd84542e9e623a7c7716eee7fe78cc71425878951e9a3f1e8677abbe18d1ff4b",
+    "benchmarks/finite_difference/bias_probe.cpp": "c912609c7e6ea9ea11e0050f1e3164077e41ea94d9dad5be7a3d10319bdad4c9"
+  }
+}

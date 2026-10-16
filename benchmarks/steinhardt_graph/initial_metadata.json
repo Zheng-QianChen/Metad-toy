@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-16",
+  "base_commit": "ee2452462b40ed1c7a773d4137dc61aba2ee36d0",
+  "build": "Release, ENABLE_DEBUG=OFF, USE_ML_CVS=OFF",
+  "validation_directory": "/home/zqc/work/Metad-toy/build/steinhardt-graph/validation-final",
+  "plugin_sha256": "39b411443cccd7d7425d167811fe8ded1404720bcaa55eb7f6e048d209158404",
+  "source_sha256": {
+    "include/CVsets/CV_Steinhardt.h": "a139064d3aae58d79bb2df09e511756e9088f8ff0b727dd876897f98e9388889",
+    "include/CVsets/CV_Steinhardt_math.h": "645d424676eba340e82f163b106d16338e2a6444e9da2ac1d76d5b6833ee48e5",
+    "src/cvs/CVs_Steinhardt.cu": "713e3d8abeadb29c929044cb12e78afe6c5abac6732392e3785141e58fe7d6ca",
+    "include/core/neigh_hub.h": "a0d2aa729fba0d9023924f129f9f50cb78ceb77bc301b144956161f3b9a77384",
+    "src/core/neigh_hub.cu": "2971ce922174616b9659063fd73bdf1506bcb609ada9323c326db437ef1fa3bb",
+    "include/core/fix_crystallize.h": "cf0ba191b6dd3e65daf9e9175d7ee810a584af7570a24a04ea57d19f03b0d7e9",
+    "benchmarks/steinhardt_graph/run.py": "5c7f1aa72066d0e09f953f486b51063d36fb998bea9027e203d3a630defb7254"
+  },
+  "ctest": "16/16 passed; build/steinhardt-graph/ctest.log",
+  "full_lammps_cases": 21,
+  "communication_cases": 12,
+  "legacy_baseline_cases": 6,
+  "legacy_baseline_sha256": "7c6efe590cd0cbcb817451fd8562a0c084abd77e4b987d99b928094b66329d0c"
+}

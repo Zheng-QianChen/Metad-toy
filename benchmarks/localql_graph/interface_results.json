@@ -1,0 +1,7 @@
+[
+  {
+    "interface": "value_switch",
+    "exit_code": 1,
+    "message": "STEINH L Graph: express SW_FUNC_cv in DIM"
+  }
+]

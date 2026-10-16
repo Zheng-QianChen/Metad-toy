@@ -1,0 +1,284 @@
+[
+  {
+    "case": "mean",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 1.4230153513872246e-19,
+    "stress_sum_error": 2.202285662861181e-20,
+    "max_force": 0.00010394960460121537
+  },
+  {
+    "case": "mean",
+    "ranks": 1,
+    "executor": "LEGACY",
+    "reference_error": 1.3292483704453045e-12,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 1.3552527156068805e-19,
+    "stress_sum_error": 5.421010862427522e-20,
+    "max_force": 0.00010394960524320984
+  },
+  {
+    "case": "mean",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 5.929230630780102e-20,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 8.809142651444724e-20,
+    "stress_sum_error": 1.1011428314305904e-19,
+    "max_force": 0.00010394960460121537
+  },
+  {
+    "case": "mean",
+    "ranks": 2,
+    "executor": "LEGACY",
+    "reference_error": 1.3292483433402502e-12,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 5.082197683525802e-20,
+    "stress_sum_error": 2.710505431213761e-20,
+    "max_force": 0.00010394960524320984
+  },
+  {
+    "case": "mean",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 3.713392440762853e-18,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 1.9312351197398048e-19,
+    "stress_sum_error": 7.792703114739563e-20,
+    "max_force": 0.0001039496046012131
+  },
+  {
+    "case": "mean",
+    "ranks": 4,
+    "executor": "LEGACY",
+    "reference_error": 1.3292455244146018e-12,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 8.809142651444724e-20,
+    "stress_sum_error": 5.421010862427522e-20,
+    "max_force": 0.00010394960524320759
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 2.168404344971009e-19,
+    "stress_sum_error": 4.607859233063394e-19,
+    "max_force": 0.00030077899907232034,
+    "force_fd_error": 1.2450101713468165e-12,
+    "virial_fd_error": 8.478627332554958e-12,
+    "same_step_restore_error": 1.0842021724855044e-19,
+    "migration": {
+      "raw_error": 3.191891195797325e-15,
+      "cv_error": 3.191891195797325e-16,
+      "net_force": 2.710505431213761e-19,
+      "stress_sum_error": 2.168404344971009e-19,
+      "max_force": 0.00030077899907232056
+    }
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 5.421010862427522e-19,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 4.336808689942018e-19,
+    "stress_sum_error": 2.168404344971009e-19,
+    "max_force": 0.00030077899907232034,
+    "migration": {
+      "raw_error": 3.191891195797325e-15,
+      "cv_error": 3.191891195797325e-16,
+      "net_force": 1.3552527156068805e-19,
+      "stress_sum_error": 5.692061405548898e-19,
+      "max_force": 0.00030077899907232056
+    }
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 1.8973538018496328e-19,
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 2.303929616531697e-19,
+    "stress_sum_error": 4.2012834183813297e-19,
+    "max_force": 0.00030077899907232034,
+    "migration": {
+      "raw_error": 3.191891195797325e-15,
+      "cv_error": 3.191891195797325e-16,
+      "net_force": 2.710505431213761e-19,
+      "stress_sum_error": 2.168404344971009e-19,
+      "max_force": 0.00030077899907232056
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 7.112366251504909e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 3.5236570605778894e-19,
+    "stress_sum_error": 5.149960319306146e-19,
+    "max_force": 0.00037890758101710167,
+    "force_fd_error": 9.202844649530695e-13,
+    "virial_fd_error": 1.0162678532911473e-11,
+    "same_step_restore_error": 5.421010862427522e-20,
+    "changed_group": {
+      "raw_error": 1.7937040741600185e-15,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 2.981555974335137e-19,
+      "stress_sum_error": 3.2526065174565133e-19,
+      "max_force": 0.00038060480079207376
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 4.336808689942018e-19,
+    "raw_error": 7.112366251504909e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 2.981555974335137e-19,
+    "stress_sum_error": 2.439454888092385e-19,
+    "max_force": 0.00037890758101710167,
+    "changed_group": {
+      "raw_error": 1.7937040741600185e-15,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 5.421010862427522e-19,
+      "stress_sum_error": 2.981555974335137e-19,
+      "max_force": 0.00038060480079207376
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 4.336808689942018e-19,
+    "raw_error": 7.112366251504909e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 3.5236570605778894e-19,
+    "stress_sum_error": 4.336808689942018e-19,
+    "max_force": 0.00037890758101710167,
+    "changed_group": {
+      "raw_error": 1.7937040741600185e-15,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 3.5236570605778894e-19,
+      "stress_sum_error": 8.809142651444724e-19,
+      "max_force": 0.00038060480079207376
+    }
+  },
+  {
+    "case": "radial",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 1.1310397063368782e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 2.168404344971009e-19,
+    "stress_sum_error": 7.806255641895632e-18,
+    "max_force": 0.00037820668510482613,
+    "force_fd_error": 9.317431808736343e-13,
+    "virial_fd_error": 6.25060491039886e-09,
+    "same_step_restore_error": 1.0842021724855044e-19
+  },
+  {
+    "case": "radial",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 8.673617379884035e-18,
+    "raw_error": 1.1310397063368782e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 6.505213034913027e-19,
+    "stress_sum_error": 8.239936510889834e-18,
+    "max_force": 0.00037820668510482613
+  },
+  {
+    "case": "radial",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 8.673617379884035e-18,
+    "raw_error": 1.1310397063368782e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "net_force": 7.318364664277155e-19,
+    "stress_sum_error": 5.204170427930421e-18,
+    "max_force": 0.0003782066851048261
+  },
+  {
+    "case": "isolated",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "isolated",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "isolated",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 7.216449660063518e-16,
+    "cv_error": 4.996003610813204e-16,
+    "net_force": 1.734723475976807e-18,
+    "stress_sum_error": 1.734723475976807e-18,
+    "max_force": 0.009183322409137632
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 8.673617379884035e-19,
+    "raw_error": 7.216449660063518e-16,
+    "cv_error": 4.996003610813204e-16,
+    "net_force": 1.734723475976807e-18,
+    "stress_sum_error": 8.673617379884035e-19,
+    "max_force": 0.009183322409137632
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 8.673617379884035e-19,
+    "raw_error": 7.216449660063518e-16,
+    "cv_error": 4.996003610813204e-16,
+    "net_force": 1.734723475976807e-18,
+    "stress_sum_error": 8.673617379884035e-19,
+    "max_force": 0.009183322409137632
+  }
+]

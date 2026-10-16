@@ -1,0 +1,32 @@
+[
+  {
+    "interface": "legacy_ave",
+    "exit_code": 1,
+    "message": "STEINH L requires EXECUTOR GRAPH"
+  },
+  {
+    "interface": "legacy_mean_solid",
+    "exit_code": 1,
+    "message": "STEINH L requires EXECUTOR GRAPH"
+  },
+  {
+    "interface": "legacy_switch",
+    "exit_code": 1,
+    "message": "STEINH L requires EXECUTOR GRAPH"
+  },
+  {
+    "interface": "legacy_nsolid",
+    "exit_code": 1,
+    "message": "STEINH L requires EXECUTOR GRAPH"
+  },
+  {
+    "interface": "legacy_frac",
+    "exit_code": 1,
+    "message": "STEINH L requires EXECUTOR GRAPH"
+  },
+  {
+    "interface": "value_switch",
+    "exit_code": 1,
+    "message": "SW_FUNC_cv has moved to Graph"
+  }
+]

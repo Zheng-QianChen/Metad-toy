@@ -19,7 +19,7 @@
 
 ### 前提条件
 
-* LAMMPS (29 Aug 2024 或更新版本)
+* 支持 `plugin load` 的共享库版 LAMMPS（本轮验证：29 Aug 2024）
 * CMake 3.20+
 * CUDA Toolkit (用于 `.cu` 源码编译)
 * MPICH 或 OpenMPI
@@ -43,6 +43,16 @@ cmake --build build -j4
 `fix_crystallize_plugin.so`将在本项目下的`build`文件夹中生成，可以将它复制到任何地方使用。
 编译完成后，在 LAMMPS 脚本中使用 `plugin load path/to/fix_crystallize_plugin.so` 加载。
 
+### 安装后自检
+
+```bash
+python3 benchmarks/run.py smoke --build-dir build --lammps lmp
+# 多 rank 检查
+python3 benchmarks/run.py smoke --build-dir build --lammps lmp --np 1 2 4 --mpi mpirun
+```
+
+快速自检只需要 Python 标准库和 LAMMPS 可执行文件；自动生成初态、检查当前非 ML CV 的前后向，并保存日志和通过/失败结果。完整有限差分、Graph CTest 和 O₂ 重建的入口见 [benchmarks 指南](benchmarks/README.md)。
+
 ---
 
 ## 📝 LAMMPS 输入参数
@@ -52,7 +62,7 @@ cmake --build build -j4
 ### 语法示例
 
 ```lammps
-fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
+fix metad all metad EXECUTOR GRAPH GAUSSIAN 0.01 0.005 10.0 &
                     PACE 10 &
                     RECORD FILE_NAME rec.log REC_PACE 1 &
                     CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.9 cutoff_Natoms 18 &
@@ -90,7 +100,8 @@ fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
 ├── include/            # 头文件 (.h)
 ├── third_party/            # 头文件 (.h)
 ├── CMakeLists.txt      # 构建脚本
-└── test/               # 测试用例 (DISTANCE/STEINH)
+├── benchmarks/         # 安装自检、有限差分和采样示例
+└── test/               # 历史输入与开发实验
 
 ```
 
@@ -98,7 +109,7 @@ fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
 
 ## 🧪 开发与调试
 
-当前版本为 **实验性功能验证版（experimental preview）**。Graph 已接入完整 LAMMPS 流程，支持普通/化学 `STRU_FACTOR`、`CSS` 和 `WEIGHT_CHEM`；这些 CV 需要显式设置 `EXECUTOR GRAPH`。
+当前版本为 **实验性功能验证版（experimental preview）**。Graph 已接入完整 LAMMPS 流程，支持 Global `DISTANCE`、`STEINH Q/L`、普通/化学 `STRU_FACTOR`、`CSS` 和 `WEIGHT_CHEM`。图接口使用 `EXECUTOR GRAPH`，均值与值开关由图表达式提供。`STEINH Q/L` 统一要求 Graph；原 CV 内部的 AVE／SW_FUNC 标量接口已移除，`SW_FUNC_r` 继续用于径向权重。
 
 更新内容、接口迁移和验证范围见 [更新日志](CHANGELOG.md)。独立测试入口见 [Graph 测试](benchmarks/graph/README.md)，完整流程示例见 [Stru_factor 接入说明](benchmarks/strufactor_lammps_graph/README.md)。
 
@@ -106,13 +117,13 @@ fix metad all metad GAUSSIAN 0.01 0.005 10.0 &
 
 ## 使用文档 / Documentation
 
-CSS 示例见 [多元素 CSS](benchmarks/css/README.md)，化学加权接口见 [WEIGHT_CHEM](docs/manuals/CV_Weight_Chem.zh.md)。
+- [安装与测试指南](benchmarks/README.md)
+- [用户使用手册](docs/manuals/User_Manual.zh.md)
+- [非 Local Q 的 Graph 接入](benchmarks/steinhardt_graph/README.md)与 [Local Q 接入](benchmarks/localql_graph/README.md)
+- [多元素 CSS](benchmarks/css/README.md)与 [WEIGHT_CHEM](docs/manuals/CV_Weight_Chem.zh.md)
+- [CV、线性组合与 Graph 有限差分](benchmarks/finite_difference/README.md)
+- [DISTANCE 修复验证](benchmarks/finite_difference/DISTANCE_RESULTS.md)与 [O₂ Morse 重建示例](benchmarks/o2_distance/README.md)
 
-详细参数配置与命令说明请参阅：[用户使用手册](docs/manuals/User_Manual.zh.md)
+## 贡献与反馈
 
----
-
-## 🤝 贡献与反馈
-
-如果有任何问题或建议，请联系 **ZQC**。
-gz1999zqc@163.com
+问题与建议可通过 GitHub issue 或联系 ZQC：gz1999zqc@163.com。

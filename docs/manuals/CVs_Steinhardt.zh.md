@@ -11,7 +11,8 @@
 ```lammps
 CAL NAME <cv_name> STEINH <Q/L> <L_num> <group-name> &
          [cutoff_r <float>] &
-         [cutoff_Natoms <int>] &
+         [cutoff_eps_r <float>] &
+         [SW_FUNC_r <switch-name>] &
          [d_block_size <int>]
 ```
 
@@ -32,7 +33,7 @@ Attention:
 
 | 参数项 | 源码校验规则与类型断言 | 物理与运行含义 |
 | --- | --- | --- |
-| `<Q/L>` | 必须为 `'Q'` 或 `'L'`（字符串） | **取向序空间类型**：`Q` 代表**局域键级取向序**（Local Order）；`L` 代表**局域平均键级取向序**（Global Order）。 |
+| `<Q/L>` | 必须为 `'Q'` 或 `'L'`（字符串） | `Q` 计算逐中心球谐模长；`L` 对邻居 qlm 进一步平均（Local Q）。 |
 | `<Q_num>` | 必须为 `3, 4, 6` 之一（整型） | **球谐函数展开阶数 $l$**：`4`：适用于体心立方（BCC）或面心立方（FCC）对称性识别；`6`：适用于密堆积结构（FCC/HCP）以及超冷液体形核前沿。 |
 | `<L_num>` | 必须为 `3, 4, 6` 之一（整型） | **球谐函数展开阶数 $l$**：`4`：适用于体心立方（BCC）或面心立方（FCC）对称性识别；`6`：适用于密堆积结构（FCC/HCP）以及超冷液体形核前沿。 |
 | `<group-name>` | 必须在 LAMMPS 中合法定义过 | **分析原子组**：只有属于该 Group ID 的原子才会被激活作为中心原子求解 $Q_l$ 矩阵。 |
@@ -44,11 +45,12 @@ Attention:
 | 关键字 | 类型 | 默认值 | 源码控制逻辑与边界 |
 | --- | --- | --- | --- |
 | `cutoff_r` | 浮点型 | `4.0` | 近邻列表物理截断半径极限（单位：$\text{Å}$）。用于构建微观几何环境。 |
-| `cutoff_Natoms` | 整型 | `12` | **显存安全红线**：每个中心原子允许分配的最大近邻原子数上限。用于开辟静态 GPU 线程块显存。 |
+| `cutoff_eps_r` | 浮点型 | `1e-6` | 径向开关的截断容差；对无限支撑开关，据此确定有效半径。 |
+| `SW_FUNC_r` | 名称 | 常数权重 | 引用已定义的径向开关；有限或容差支撑半径会替换 `cutoff_r`。Local Q 的两层邻居计算均使用它。 |
 | `d_block_size` | 整型 | `128` | 底层 CUDA 核函数并发执行时的 **Thread Block Size**。必须大于 `0`。用于调节 GPU 算力吞吐。 |
 
 > 💡 **源码特性提示（底层环境合并机制）**：
-> 算子内部引入了 `Steinhardt_env::get_or_create` 智能单例工厂。如果在同一个 `fix metad` 中为不同的模板声明了相同的 `group_id`、`cutoff_r` 和 `cutoff_Natoms`，**插件在底层会自动合并近邻列表的 CUDA 计算请求**，生成唯一的虚拟环境密钥 `env_setNum`，避免多维模拟时 GPU 显存和 Neighbor 搜索开销的无谓浪费。
+> 算子内部引入了 `Steinhardt_env::get_or_create` 智能单例工厂。如果在同一个 `fix metad` 中为不同的模板声明了相同的 Q/L 类型、`group_id`、有效 `cutoff_r`、`cutoff_eps_r` 和径向开关配置，**插件在底层会自动合并近邻列表的 CUDA 计算请求**，生成唯一的虚拟环境密钥 `env_setNum`，避免多维模拟时 GPU 显存和 Neighbor 搜索开销的无谓浪费。
 
 ---
 
@@ -57,26 +59,28 @@ Attention:
 通过 `CAL` 计算出的 `STEINH` 数据是一组高维的、针对单个原子的局域值矩阵。在后续的 `SYMBOL` 中将其降维为一维集体变量：
 
 ```lammps
-SYMBOL <symbol_name> <cv_name>.<func>[.<sw_name>]
+SYMBOL <symbol_name> <cv_name>.<RAW/value/AVE/MEAN>
 ```
 
 ### 3.1 `STEINH Q`（非 Local）
 
-* **`.AVE`**：组内原子 $q_l$ 的算术平均。
+必须指定 `EXECUTOR GRAPH`：
+
+- `.AVE` / `.MEAN`：由图节点对该 CV 的中心组求全局算术平均。
+- `.RAW` / `.value`：逐原子原始值，用于 `AVE(q4*q6)`、`AVE(fermi(q6,0.45,12))` 等图表达式。
+- `SW_FUNC_r`：保留邻居距离的径向权重。
+
+Q 原有 LEGACY 的 `AVE`、`SW_FUNC` 回调及 `SW_FUNC_cv` 参数已移除。对 q 值的开关在图中定义。例如 `SYMBOL q6 Q6.RAW` 配合 `DIM ... "AVE(fermi(q6,0.45,12))"` 得到平均开关值。
+
+旧 Q 的 `SW_FUNC` 实际计算 $\sum_i q_i f(q_i)$，不是平均开关值；Graph 当前仅提供均值规约，迁移这类输入时需要明确目标量。
 
 ### 3.2 `STEINH L`（Local / LQ）
 
-Local 路径上，每个原子先得到局域平均序 $q_i$（LQ），再用 `SW_FUNC_cv` 给出的开关函数 $f(q)$ 做三种规约（$N$ 为 MPI 全局 group 原子数）：
+Local Q 必须使用 `EXECUTOR GRAPH`，提供 `.RAW` / `.value` 及 `.AVE` / `.MEAN`。Graph `.AVE` 是原始 LQ 的算术均值，值开关写在 DIM 中，例如 `AVE(fermi(q6,0.45,12))`。输入与验证见 [Local Q Graph](../../benchmarks/localql_graph/README.md)。
 
-| SYMBOL 后缀 | 别名 | 公式 | 用途 |
-| --- | --- | --- | --- |
-| `MEAN_SOLID` | `AVE` | $\sum_i q_i f(q_i)\,/\,\sum_i f(q_i)$ | 类固原子上的平均序（对晶核尺寸不敏感） |
-| `NSOLID` | `SW_FUNC` | $\sum_i f(q_i)$ | 软类固原子数 — **形核 MetaD 主轴推荐** |
-| `FRAC` | — | $\sum_i f(q_i)\,/\,N$ | 结晶度 / 类固分数 |
+旧 CV 内部的 `AVE` / `MEAN_SOLID`、`SW_FUNC` / `NSOLID`、`FRAC` 和 `SW_FUNC_cv` 已移除，输入这些旧配置会提示迁移到 Graph。旧 `MEAN_SOLID` 计算 $\sum_i q_i f(q_i)/\sum_i f(q_i)$，与原始值的算术平均不同；旧 `NSOLID` 计算 $\sum_i f(q_i)$，Graph 当前尚未提供 SUM 规约。
 
-偏置力：`MEAN_SOLID` 用商法则；`NSOLID` 用 $\partial f/\partial q$ 链；`FRAC` 的力为 `NSOLID` 力除以 $N$（同一 kernel 热路径）。
-
-`SW_FUNC_cv` 作用在 **$q\sim 0$–$1$** 上：典型 `FERMI r_0 0.3–0.5 alpha >0`。勿把距离截断的 `r_0~3` 误用到 $q$ 掩膜上。
+`.AVE` / `.MEAN` 按该 CV 自己的中心组求均值。`AVE(expr)` 按 Graph 公共中心并集求均值；当图中只有同一中心组时，`AVE(fermi(q6,...))` 可以表达原先的平均类固分数。
 
 ---
 
@@ -84,45 +88,47 @@ Local 路径上，每个原子先得到局域平均序 $q_i$（LQ），再用 `S
 
 ### 用例一：局域短程序识别（经典 $Q_6$ 序参数计算）
 
-用于捕捉液相向密堆积晶体（FCC/HCP）形核演化的标准配置：
+以下 CAL/SYMBOL 片段放在 `fix ... metad EXECUTOR GRAPH ...` 中：
 
 ```lammps
 # 声明一个名为 Q6 的局域六角对称性特征算子
-CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.2 cutoff_Natoms 12 d_block_size 128
+CAL NAME Q6 STEINH Q 6 metad_group cutoff_r 3.2 d_block_size 128
 # 将高维原子矩阵规约为一维符号变量 v1
 SYMBOL v1 Q6.AVE
 ```
 
 ### 用例二：立方晶格对称性追踪（$Q_4$ 序参数计算）
 
-用于追踪 BCC 或高密堆积相变，适当放宽近邻容纳上限：
+以下片段同样使用 `EXECUTOR GRAPH`，以 Q4 的中心组均值作为符号：
 
 ```lammps
-# 探测四角/立方局域对称性，近邻上限强行开辟至 14
-CAL NAME Q4 STEINH Q 4 bcc_group cutoff_r 3.5 cutoff_Natoms 14 &
+# 计算 Q4 并由 Graph 求均值
+CAL NAME Q4 STEINH Q 4 bcc_group cutoff_r 3.5 &
 SYMBOL v2 Q4.AVE
 ```
 
-### 用例三：Local LQ6 + 软类固原子数（形核主 CV）
+### 用例三：Local LQ6 + 平均类固分数
 
 ```lammps
-CAL NAME SW_r    SW_FUNC FERMI r_0 3.0  alpha -20 &
-CAL NAME SW_filt SW_FUNC FERMI r_0 0.40 alpha  20 &
-CAL NAME LQ6     STEINH  L 6 metad_group cutoff_eps 1e-4 SW_FUNC_r SW_r SW_FUNC_cv SW_filt &
-SYMBOL v1 LQ6.NSOLID
-# 兼容旧写法：SYMBOL v1 LQ6.SW_FUNC
-# 监视用：SYMBOL v2 LQ6.FRAC   或  LQ6.MEAN_SOLID（别名 .AVE）
+fix m all metad EXECUTOR GRAPH GAUSSIAN 0.10 0.10 10 PACE 100000 &
+    CAL NAME SW_r SW_FUNC FERMI r_0 3.0 alpha -20 &
+    CAL NAME LQ6 STEINH L 6 metad_group cutoff_eps_r 1e-4 SW_FUNC_r SW_r &
+    SYMBOL q6 LQ6.RAW &
+    CV_dim 1 DIM 1 0 1 500 "AVE(fermi(q6,0.40,20))" &
+    METAD_RESTART 0 WT 0
 ```
+
+径向开关作用于邻居距离，Graph 的 `fermi` 作用于逐中心 LQ6；梯度依次通过这两部分传播到坐标。
 
 ---
 
 ## 5. 常见底层异常排查
 
-1. **"Error: Steinhardt order L must be 3, 4, 6, 8, or 12."**
+1. **"Error: Steinhardt order L must be 3, 4, or 6."**
 * *原因*：用户传入了不支持的阶数（例如配置成了 `STEINH Q 5 ...`），底层 `ERR_COND` 断言失败。
 
 
-2. **"Error: Steinhardt type must be 'Q' (local) or 'L' (global)."**
+2. **"Error: Steinhardt type must be 'Q' (per-center) or 'L' (neighbor-averaged)."**
 * *原因*：第三位参数未能识别。请检查是否发生了拼写错误（如写成了小写 `q` 或是其他非关键字符）。
 
 

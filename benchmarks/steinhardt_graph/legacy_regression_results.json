@@ -1,0 +1,898 @@
+[
+  {
+    "case": "q_pair",
+    "np": 1,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/q_pair_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/q_pair_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 2.541098841762901e-21,
+      "max_force": 7.600051378035369e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        1.5178830414797062e-18,
+        0.0,
+        6.505213034913027e-19,
+        3.7947076036992655e-19,
+        1.3010426069826053e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_pair",
+    "np": 2,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/q_pair_np2",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/q_pair_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 3.3881317890172014e-21,
+      "max_force": 7.6000513717018915e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        8.673617379884035e-19,
+        1.734723475976807e-18,
+        2.168404344971009e-19,
+        0.0,
+        3.469446951953614e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69456
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92608
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104040
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69360
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92480
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104184
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69456
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92608
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104040
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 69360
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 92480
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 104184
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_pair",
+    "np": 4,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/q_pair_np4",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/q_pair_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 2.117582368135751e-21,
+      "max_force": 7.600051371701766e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        2.6020852139652106e-18,
+        0.0,
+        2.168404344971009e-19,
+        5.421010862427522e-20,
+        1.3010426069826053e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69744
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92992
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103536
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69168
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92224
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69072
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92096
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69648
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92864
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103824
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69744
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92992
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103536
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69168
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92224
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69072
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92096
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 104544
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 69648
+          },
+          {
+            "direction": "forward",
+            "width": 16,
+            "capacity": 16,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 92864
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 103824
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 1,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/local_mix_np1",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/local_mix_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 1.6940658945086007e-21,
+      "max_force": 9.951212244223995e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        1.6263032587282567e-18,
+        0.0,
+        1.0842021724855044e-18,
+        3.2526065174565133e-19,
+        6.938893903907228e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 2,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/local_mix_np2",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/local_mix_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 1.6940658945086007e-21,
+      "max_force": 9.951212244223995e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        1.734723475976807e-18,
+        3.2526065174565133e-19,
+        5.204170427930421e-18,
+        4.336808689942018e-19,
+        1.5178830414797062e-18,
+        3.469446951953614e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121440
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 181584
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 182160
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121440
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 181584
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 32,
+            "doubles": 182160
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_mix",
+    "np": 4,
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/before/local_mix_np4",
+      "b": "/home/zqc/work/Metad-toy/build/steinhardt-graph/legacy-regression/after/local_mix_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 3.3881317890172014e-21,
+      "max_force": 9.951212248552867e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        6.505213034913027e-19,
+        3.469446951953614e-18,
+        0.0,
+        1.1384122811097797e-18,
+        1.734723475976807e-18
+      ]
+    },
+    "before": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 122016
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181080
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 120768
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182232
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182520
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121152
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181656
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 122016
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181080
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 120768
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182232
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121056
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 182520
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 12,
+            "capacity": 12,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 121152
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 16,
+            "sends": 64,
+            "doubles": 181656
+          }
+        ]
+      }
+    ]
+  }
+]

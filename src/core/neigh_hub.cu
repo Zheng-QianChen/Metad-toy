@@ -139,6 +139,7 @@ int NeighHub::get_or_create(NeighSpec spec)
 void NeighHub::rerequest_all()
 {
   if (!lmp_ || !fix_) return;
+  ++generation_;
   for (int id = 1; id < (int)specs_.size(); ++id) {
     issue_request(id, specs_[id]);
     lists_[id] = nullptr;

@@ -14,6 +14,7 @@
 namespace MetaD_zqc {
     class Averager {
     public:
+        virtual ~Averager() = default;
         virtual void compute(int n, int glob_N, double* arr, int* mask, int groupbit, double &ave) = 0;
         virtual void compute_sw(int n, double* arr, int* mask, int groupbit, double &cvi_sum, double &sw_sum, SwitchFunction* sw_func) = 0;
     };

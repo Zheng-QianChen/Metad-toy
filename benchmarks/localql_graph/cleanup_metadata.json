@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-16",
+  "scope": "Local Q legacy scalar interface removal",
+  "base_commit": "ee2452462b40ed1c7a773d4137dc61aba2ee36d0",
+  "build": "Release, ENABLE_DEBUG=OFF, USE_ML_CVS=OFF",
+  "validation_directory": "/home/zqc/work/Metad-toy/build/localql-interface-cleanup",
+  "plugin_sha256": "b6a0a3512d0aaafb2b686cd2ca4be74da23fddb732a9612e70d7e4d8fee0416a",
+  "baseline_sha256": "6cd85a8b850cace936dfabd554c735947c31fcd1215c5f8976167723984fe6fb",
+  "source_sha256": {
+    "include/CVsets/CV_Steinhardt.h": "86ab7101133c606dd7582be77edb694dcc61d0ef32134fe5b6c0789f179c32ab",
+    "src/cvs/CVs_Steinhardt.cu": "6852e4101232e6be6f8283a772de25d0ceced7b4b4feb65495403238ed5ea1a6",
+    "src/cvs/CVs_Steinhardt_Local.cu": "a7069872bd572e8d7d3b233148c052fdab9fbbcb0990c4ea2f51d72ed4820b20",
+    "benchmarks/steinhardt_graph/run.py": "7f52f8aa6637d9caba23f6b7759321efea98bba43c8ad5993ff57f8202659013",
+    "benchmarks/cv_communication/run.py": "27b2998fc56d84382e3ad00127fe290d21ae7211831b9b53c9a125dcb468b2fd"
+  },
+  "local_graph_cases": 21,
+  "mixed_graph_cases": 12,
+  "q_regression_cases": 6,
+  "communication_comparisons": 6,
+  "local_obsolete_interface_cases": 6,
+  "ctest": "16/16 passed",
+  "communication_records_identical": true,
+  "checks": [
+    {
+      "check": "local",
+      "exit_code": 0,
+      "seconds": 58.99
+    },
+    {
+      "check": "mixed",
+      "exit_code": 0,
+      "seconds": 27.77
+    },
+    {
+      "check": "q-regression",
+      "exit_code": 0,
+      "seconds": 14.6
+    },
+    {
+      "check": "comparison",
+      "exit_code": 0,
+      "seconds": 20.33
+    },
+    {
+      "check": "ctest",
+      "exit_code": 0,
+      "seconds": 8.2
+    }
+  ],
+  "max_errors": {
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "reference_error": 4.623038063478191e-16,
+    "force_fd_error": 1.2071551982843765e-12,
+    "virial_fd_error": 1.4443792703544567e-08,
+    "net_force": 1.951563910473908e-18,
+    "stress_sum_error": 7.37257477290143e-18,
+    "local_only_raw_error": 4.440892098500626e-16,
+    "before_after_force_error": 3.3881317890172014e-21,
+    "before_after_cv_energy_error": 0.0,
+    "before_after_pressure_error": 9.540979117872439e-18
+  }
+}

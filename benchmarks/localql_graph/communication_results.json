@@ -1,0 +1,416 @@
+[
+  {
+    "case": "local_graph",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 1.2413246944989578e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_graph",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 5.421010862427522e-20,
+      "max_force": 1.2413246944989547e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        2.7755575615628914e-17
+      ],
+      "pressure_errors": [
+        1.5092094240998222e-16,
+        3.946495907847236e-17,
+        1.0581813203458523e-16,
+        4.336808689942018e-18,
+        1.111307226797642e-18,
+        4.5102810375396984e-17
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 90792
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 91080
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "local_graph",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/local_graph_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 2.202285662861181e-19,
+      "max_force": 1.2413246944989362e-05,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        1.3877787807814457e-17
+      ],
+      "pressure_errors": [
+        2.411265631607762e-16,
+        7.068998164605489e-17,
+        1.734723475976807e-16,
+        2.688821387764051e-17,
+        4.174178364069192e-18,
+        7.546047120499111e-17
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 90540
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 91116
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 91260
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 90828
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_local_graph",
+    "np": 1,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np1",
+      "max_position_error": 0.0,
+      "max_force_error": 0.0,
+      "max_force": 9.951212181327804e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 11,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 0,
+            "doubles": 0
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 0,
+            "doubles": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_local_graph",
+    "np": 2,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np2",
+      "max_position_error": 0.0,
+      "max_force_error": 3.3881317890172014e-21,
+      "max_force": 9.951212181327804e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        6.938893903907228e-18,
+        3.3610267347050637e-18,
+        5.204170427930421e-18,
+        2.6020852139652106e-18,
+        1.870248747537495e-18,
+        7.806255641895632e-18
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 65780
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 90792
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 8,
+            "doubles": 65572
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 16,
+            "doubles": 91080
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case": "q_local_graph",
+    "np": 4,
+    "reference": "after_np1",
+    "comparison": {
+      "a": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np1",
+      "b": "/home/zqc/work/Metad-toy/build/localql-graph/communication/after/q_local_graph_np4",
+      "max_position_error": 0.0,
+      "max_force_error": 3.2017845406212553e-19,
+      "max_force": 9.951212181327484e-06,
+      "cv_energy_errors": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "pressure_errors": [
+        3.452099717193846e-16,
+        4.9981720151581754e-17,
+        2.8275992658421956e-16,
+        4.2500725161431774e-17,
+        2.5343225781848666e-18,
+        1.4137996329210978e-16
+      ]
+    },
+    "after": [
+      {
+        "rank": 0,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 66092
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 90540
+          }
+        ]
+      },
+      {
+        "rank": 1,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 65416
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 91116
+          }
+        ]
+      },
+      {
+        "rank": 2,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 65572
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 91260
+          }
+        ]
+      },
+      {
+        "rank": 3,
+        "barriers": 13,
+        "records": [
+          {
+            "direction": "forward",
+            "width": 13,
+            "capacity": 13,
+            "calls": 4,
+            "sends": 16,
+            "doubles": 65624
+          },
+          {
+            "direction": "reverse",
+            "width": 9,
+            "capacity": 9,
+            "calls": 8,
+            "sends": 32,
+            "doubles": 90828
+          }
+        ]
+      }
+    ]
+  }
+]

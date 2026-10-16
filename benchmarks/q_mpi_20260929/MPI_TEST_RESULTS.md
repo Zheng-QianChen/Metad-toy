@@ -97,7 +97,7 @@ The guard is reached after a previous CV has already had the opportunity to writ
 
 The available binary is older than the current source, but the control-flow pattern in the source explains the observed old-plugin failure:
 
-1. `Steinhardt_env::last_neigh_lastcall_` is updated after flattening a neighbor list but is not reset when a new `run` rebinds neighbor lists.
+1. `Steinhardt_env::neigh_lastcall_` is updated after flattening a neighbor list but is not reset when a new `run` rebinds neighbor lists.
 2. The flatten-skip condition uses `neighbor->lastcall` and cached state, but not a NeighHub generation, the `NeighList*`, `nlocal`, or `nghost`.
 3. The second run begins at the same timestep at which the first run ended. After `displace_atoms`, `last_update_step == ntimestep`, so the timestep-only environment refresh test can also reuse stale coordinates.
 4. In multi-MPI runs, ghost local indices can change across setup/rebinding. Reusing flattened old localtags feeds the derivative kernel invalid or zero `q_l` and neighbor counts.

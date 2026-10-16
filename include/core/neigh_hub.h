@@ -65,6 +65,8 @@ class NeighHub {
   LAMMPS_NS::NeighList *list(int id) const;
 
   int max_id() const { return next_id_ - 1; }
+  // 每次重新申请邻居表递增，供 CV 识别新 run 中复用地址的邻居表。
+  unsigned long long generation() const { return generation_; }
 
  private:
   std::string make_key(const NeighSpec &s) const;
@@ -75,6 +77,7 @@ class NeighHub {
   LAMMPS_NS::LAMMPS *lmp_ = nullptr;
   LAMMPS_NS::Fix *fix_ = nullptr;
   int next_id_ = 1;
+  unsigned long long generation_ = 0;
   std::unordered_map<std::string, int> key_to_id_;
   std::vector<NeighSpec> specs_;                    // [0] unused; parallel to ids
   std::vector<LAMMPS_NS::NeighList *> lists_;       // [0] unused

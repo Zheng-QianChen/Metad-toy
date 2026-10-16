@@ -1,0 +1,287 @@
+[
+  {
+    "case": "mean",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 8.131516293641283e-20,
+    "stress_sum_error": 1.0842021724855044e-19,
+    "max_force": 0.00017329953812643566
+  },
+  {
+    "case": "mean",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 1.8973538018496328e-19,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 1.4907779871675686e-19,
+    "stress_sum_error": 1.6263032587282567e-19,
+    "max_force": 0.0001732995381264357
+  },
+  {
+    "case": "mean",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 2.168404344971009e-19,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 5.421010862427522e-20,
+    "stress_sum_error": 1.7618285302889447e-19,
+    "max_force": 0.0001732995381264357
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 2.7755575615628914e-17,
+    "net_force": 4.607859233063394e-19,
+    "stress_sum_error": 1.0842021724855044e-19,
+    "max_force": 0.0004666807538872704,
+    "force_fd_error": 6.02579065881988e-13,
+    "virial_fd_error": 9.37679122715862e-12,
+    "same_step_restore_error": 1.0842021724855044e-19,
+    "migration": {
+      "raw_error": 3.3306690738754696e-16,
+      "cv_error": 2.7755575615628914e-17,
+      "net_force": 5.149960319306146e-19,
+      "stress_sum_error": 3.2526065174565133e-19,
+      "max_force": 0.00046668075388726996
+    }
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 3.2526065174565133e-19,
+    "stress_sum_error": 4.336808689942018e-19,
+    "max_force": 0.0004666807538872704,
+    "migration": {
+      "raw_error": 3.3306690738754696e-16,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 4.0657581468206416e-19,
+      "stress_sum_error": 4.336808689942018e-19,
+      "max_force": 0.0004666807538872699
+    }
+  },
+  {
+    "case": "nonlinear",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 4.0657581468206416e-19,
+    "stress_sum_error": 3.1848438816761693e-19,
+    "max_force": 0.00046668075388726546,
+    "migration": {
+      "raw_error": 3.3306690738754696e-16,
+      "cv_error": 2.7755575615628914e-17,
+      "net_force": 7.589415207398531e-19,
+      "stress_sum_error": 2.168404344971009e-19,
+      "max_force": 0.00046668075388726503
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 3.2526065174565133e-19,
+    "stress_sum_error": 3.2526065174565133e-19,
+    "max_force": 0.00048174519296714444,
+    "force_fd_error": 1.0508729032365077e-12,
+    "virial_fd_error": 1.1280068133896759e-11,
+    "same_step_restore_error": 5.421010862427522e-20,
+    "changed_group": {
+      "raw_error": 2.220446049250313e-16,
+      "cv_error": 6.938893903907228e-18,
+      "net_force": 2.439454888092385e-19,
+      "stress_sum_error": 3.5236570605778894e-19,
+      "max_force": 0.00048187503282306956
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 6.938893903907228e-18,
+    "net_force": 2.439454888092385e-19,
+    "stress_sum_error": 2.981555974335137e-19,
+    "max_force": 0.00048174519296714444,
+    "changed_group": {
+      "raw_error": 2.220446049250313e-16,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 6.2341624917916505e-19,
+      "stress_sum_error": 3.2526065174565133e-19,
+      "max_force": 0.0004818750328230551
+    }
+  },
+  {
+    "case": "groups",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 2.220446049250313e-16,
+    "cv_error": 6.938893903907228e-18,
+    "net_force": 7.589415207398531e-19,
+    "stress_sum_error": 3.2526065174565133e-19,
+    "max_force": 0.0004817451929671435,
+    "changed_group": {
+      "raw_error": 2.220446049250313e-16,
+      "cv_error": 1.1102230246251565e-16,
+      "net_force": 6.2341624917916505e-19,
+      "stress_sum_error": 4.336808689942018e-19,
+      "max_force": 0.00048187503282305524
+    }
+  },
+  {
+    "case": "radial",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 1.3877787807814457e-17,
+    "net_force": 1.8973538018496328e-19,
+    "stress_sum_error": 8.673617379884035e-19,
+    "max_force": 0.0004475496883219241,
+    "force_fd_error": 1.1660885473364913e-12,
+    "virial_fd_error": 2.3193048081029954e-09,
+    "same_step_restore_error": 5.421010862427522e-20
+  },
+  {
+    "case": "radial",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 4.623038063478191e-16,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 1.3877787807814457e-17,
+    "net_force": 1.6263032587282567e-19,
+    "stress_sum_error": 1.734723475976807e-18,
+    "max_force": 0.0004475496883218987
+  },
+  {
+    "case": "radial",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 2.220446049250313e-16,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 1.1102230246251565e-16,
+    "net_force": 6.505213034913027e-19,
+    "stress_sum_error": 1.734723475976807e-18,
+    "max_force": 0.0004475496883219075
+  },
+  {
+    "case": "isolated",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "isolated",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "isolated",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 0.0,
+    "cv_error": 0.0,
+    "net_force": 0.0,
+    "stress_sum_error": 0.0,
+    "max_force": 0.0
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 5.551115123125783e-17,
+    "cv_error": 0.0,
+    "net_force": 1.951563910473908e-18,
+    "stress_sum_error": 6.938893903907228e-18,
+    "max_force": 0.007761750605396962
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 6.938893903907228e-18,
+    "raw_error": 5.551115123125783e-17,
+    "cv_error": 0.0,
+    "net_force": 1.0842021724855044e-18,
+    "stress_sum_error": 3.469446951953614e-18,
+    "max_force": 0.00776175060539696
+  },
+  {
+    "case": "empty_rank",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 6.938893903907228e-18,
+    "raw_error": 5.551115123125783e-17,
+    "cv_error": 0.0,
+    "net_force": 1.0842021724855044e-18,
+    "stress_sum_error": 3.469446951953614e-18,
+    "max_force": 0.00776175060539696
+  },
+  {
+    "case": "excluded",
+    "ranks": 1,
+    "executor": "GRAPH",
+    "reference_error": 0.0,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 7.352245982167327e-19,
+    "stress_sum_error": 3.469446951953614e-18,
+    "max_force": 0.0006865907494386904,
+    "force_fd_error": 1.2071551982843765e-12,
+    "virial_fd_error": 1.4443792703544567e-08,
+    "same_step_restore_error": 1.0842021724855044e-19
+  },
+  {
+    "case": "excluded",
+    "ranks": 2,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 9.215718466126788e-19,
+    "stress_sum_error": 4.7704895589362195e-18,
+    "max_force": 0.0006865907494386903
+  },
+  {
+    "case": "excluded",
+    "ranks": 4,
+    "executor": "GRAPH",
+    "reference_error": 1.1102230246251565e-16,
+    "raw_error": 4.440892098500626e-16,
+    "cv_error": 2.220446049250313e-16,
+    "net_force": 9.75781955236954e-19,
+    "stress_sum_error": 1.734723475976807e-18,
+    "max_force": 0.0006865907494386902
+  }
+]

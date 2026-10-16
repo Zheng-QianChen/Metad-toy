@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-16",
+  "base_commit": "ee2452462b40ed1c7a773d4137dc61aba2ee36d0",
+  "build": "Release, ENABLE_DEBUG=OFF, USE_ML_CVS=OFF",
+  "validation_directory": "/home/zqc/work/Metad-toy/build/localql-graph",
+  "plugin_sha256": "6cd85a8b850cace936dfabd554c735947c31fcd1215c5f8976167723984fe6fb",
+  "baseline_sha256": "6fc3b78db197659db234d07569b453e46f5c9dd80d5e0a257b547d14e07ec831",
+  "source_sha256": {
+    "include/CVsets/CV_Steinhardt.h": "e222caa34456ca8f1dc71354f9a40097d6e595cdb880ef032c8dbe3aaf79f545",
+    "src/cvs/CVs_Steinhardt.cu": "ee27d369c9809da3f099648749bf4407c06c91c9094af84cffe1623dafcbc8e9",
+    "src/cvs/CVs_Steinhardt_Local.cu": "94a0973dd8a4be2f03ed50406fe424bffbf0e09474d7fc79eeb4614e48073f46",
+    "benchmarks/steinhardt_graph/run.py": "00b1cf2787288113a64a9e9b14be9dde7d7535a80c84f7352b4cd4f81d2dea8a",
+    "benchmarks/cv_communication/run.py": "733943a85588a69451b2625ca4d9bdd7760d1184b32330016f390c8c3fa565f9"
+  },
+  "local_graph_cases": 21,
+  "mixed_graph_cases": 15,
+  "q_regression_cases": 9,
+  "communication_cases": 6,
+  "legacy_regression_cases": 9,
+  "ctest": "16/16 passed",
+  "memcheck": {
+    "memcheck.1196355.txt": "========= COMPUTE-SANITIZER\n========= ERROR SUMMARY: 0 errors\n",
+    "memcheck.1196354.txt": "========= COMPUTE-SANITIZER\n========= ERROR SUMMARY: 0 errors\n"
+  },
+  "max_errors": {
+    "raw_error": 3.3740371607748898e-15,
+    "cv_error": 3.3306690738754696e-16,
+    "reference_error": 4.623038063478191e-16,
+    "force_fd_error": 1.2071551982843765e-12,
+    "virial_fd_error": 2.031189256460758e-08,
+    "net_force": 1.951563910473908e-18,
+    "stress_sum_error": 6.938893903907228e-18,
+    "local_only_raw_error": 4.440892098500626e-16,
+    "legacy_force_error": 5.082197683525802e-21,
+    "legacy_cv_energy_error": 0.0
+  }
+}

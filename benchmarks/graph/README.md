@@ -188,3 +188,8 @@ LAMMPS_SOURCE_DIR=/path/to/lammps/src \
 - 多输出 DAG 可以共享节点；每张可融合图生成一个前向 kernel 和一个反向 kernel。
 - `AVE`/`MEAN` 通过 Host/MPI 执行，规约后可以继续全局标量运算；LAMMPS 的 `evaluate_bias` 通过 `EXECUTOR GRAPH` 调用该执行器。
 - 实现通过 `zqc_graph_runtime` 静态库链接，可从多个 CUDA 翻译单元使用。设备数值函数仍保留 inline 并通过 xxd 嵌入，供 NVRTC 内联；当前每个执行器编译一次，跨执行器的编译缓存留待后续实现。
+
+
+## 逐输入有限差分
+
+新增 `zqc_graph_fd_test`，通过实际前向值的双边差分检查完整 Leaf Jacobian 和多输出 VJP。覆盖 Host 标量、NVRTC、共享乘积/AVE、MPI 不均匀分配与空 rank；`zqc_graph_fd_mpi_1/2/4` 已加入 CTest。独立测试现共 19 项，详细方法与完整 LAMMPS CV 对照见 [有限差分验证](../finite_difference/README.md)。
