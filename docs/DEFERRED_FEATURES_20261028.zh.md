@@ -67,12 +67,12 @@ LocalQL_CSS 的表达式替代已纳入小体系能量与导数回归；这不�
 
 ## 与旧功能恢复分开追踪的开发项
 
-- 生产共享势 SUM 与在线共享沉积/WT 历史。
+- 生产共享势 SUM 与在线共享沉积/WT 历史已实现，见 [共享功能验收](SHARED_ONLINE_20261028.zh.md)。
 - 概率压缩策略的统计验证和未知相比例下的校准。
-- 全局 Q/Half 等兼容消费者的邻居设备化、LocalQL 球谐缓存和进一步的大体系性能。
-  CSS/StruFactor、LocalQL 的 Kokkos 邻居 CSR 设备路径已实现；仍保留 Host
-  选择集元数据、LocalQL 两个标量计数回读及诊断下载，不能称为全项目零 Host。
-  本轮实现、正确性和 A100/WSL 对照见 [设备邻居验证](DEVICE_NEIGHBORS_20261028.zh.md)。
+- Q/Half、属性 forward 及无 Weave 设备力合批已完成，见 [路径验收](DEVICE_COVERAGE_20261028.zh.md)。
+  LocalQL 无用球谐缓存已移除、直接借用设备 CSR，见 [A100/WSL 性能](LOCALQL_PROFILE_20261028.zh.md)。
+  仍保留 Host 选择集元数据、LocalQL 一个纯 J 标量计数回读、无 Weave 的 reverse 边界包及诊断下载。
+  不能称为全项目零 Host；更多硬件与规模的性能仍需对应平台证据。
 - Al3Sc 形核机制、FES 收敛和重加权验收。
 
-这些是尚未完成的开发或科学验收，不能在本次“版本已统一”结论中一并勾选完成。
+其中尚未完成的生产规模或科学验收，不能因“版本已统一”一并勾选完成。

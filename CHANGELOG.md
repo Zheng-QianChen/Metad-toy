@@ -1,5 +1,15 @@
 # 更新日志
 
+## 未发布 — 2026-10-28 设备路径、LocalQL 优化与在线共享偏势
+
+- 删除 LocalQL 无用球谐缓存，直接借用设备 CSR；WSL 与 A100 同机重复对照通过。
+- Q/Half 邻居准备与 Q 属性 forward 设备化，无 Weave 设备力合批仅暂存原生 reverse 边界包。
+- 固定共享表支持 SUM；新增在线 Gaussian/WT、独立的能量和沉积归约、校验历史、冻结与续算。
+- 默认一次沉积总基础高度由全局中心分摊。新增共享历史导出工具；普通 WT FES 工具不解释该格式。
+- 共享功能的 40 项 CTest、三种构建 20 项真实 NPT/重启矩阵、CUDA 内存检查与导出表参考对照通过。
+- 具体环境、误差和限制见 [共享验收](docs/SHARED_ONLINE_20261028.zh.md)、
+  [性能验收](docs/LOCALQL_PROFILE_20261028.zh.md)及[设备覆盖](docs/DEVICE_COVERAGE_20261028.zh.md)。
+
 ## 未发布 — 2026-10-28 旧独有 CV 功能恢复
 
 - 新增设备 LocalGeom COORD/TET 叶，恢复软配位总数与目标配位计数的 Graph 前后向和 virial。

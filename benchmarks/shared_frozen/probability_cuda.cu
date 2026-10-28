@@ -1,6 +1,5 @@
-// Pointwise bridge to the actual production CUDA evaluator. Each call compares
-// a two-center configuration; multiplying MEAN by two also checks SUM semantics
-// without adding a new aggregation mode to the production implementation.
+// Pointwise bridge to the production CUDA evaluator. The legacy ABI defaults
+// to MEAN; evaluate_mode exercises the production aggregation explicitly.
 #include "zqc_shared_bias.cuh"
 #include "zqc_gpu_buffer.cuh"
 #include <string>
@@ -14,10 +13,11 @@ void check(cudaError_t status) {
 }
 extern "C" {
 const char* shared_probability_cuda_error() {return last_error.c_str();}
-int shared_probability_cuda_evaluate(const char* path,int count,const double* pairs,
-                                    double* energies,double* derivatives) {
+int shared_probability_cuda_evaluate_mode(const char* path,int count,const double* pairs,
+                                    double* energies,double* derivatives,int sum) {
     try {
-        FrozenSharedBias bias(path);
+        if(sum!=0 && sum!=1) throw std::invalid_argument("aggregation must be 0 (MEAN) or 1 (SUM)");
+        FrozenSharedBias bias(path,{},sum ? SharedAggregation::Sum : SharedAggregation::Mean);
         GpuBuffer<double> coordinates; GpuBuffer<int> slots;
         coordinates.grow_to(2,__FILE__,__LINE__); slots.grow_to(2,__FILE__,__LINE__);
         const int indices[]={0,1};
@@ -35,5 +35,9 @@ int shared_probability_cuda_evaluate(const char* path,int count,const double* pa
         }
         last_error.clear(); return 0;
     } catch(const std::exception& error) {last_error=error.what(); return -1;}
+}
+int shared_probability_cuda_evaluate(const char* path,int count,const double* pairs,
+                                    double* energies,double* derivatives) {
+    return shared_probability_cuda_evaluate_mode(path,count,pairs,energies,derivatives,0);
 }
 }

@@ -23,6 +23,7 @@ parser.add_argument("--output",type=Path,required=True)
 parser.add_argument("--lammps-args",default="")
 parser.add_argument("--weave-plugin",type=Path,help="Load matching Weave communicator before creating the box")
 parser.add_argument("--raw-product",action="store_true",help="Use LocalQL6*CSS without an outer switch")
+parser.add_argument("--aggregation",choices=['MEAN','SUM'],default='MEAN')
 parser.add_argument("--restart",type=Path)
 parser.add_argument("--single",action="store_true",help="Only atom 1 contributes, exercising empty local families")
 parser.add_argument("--skip-fd",action="store_true")
@@ -75,7 +76,7 @@ thermo_modify norm no format float %.17g
 run 0
 """
 descriptor="q*c" if args.raw_product else "q*c*fermi(q*c,0.35,15)"
-bias_configuration=f"""fix bias all metad EXECUTOR GRAPH SHARED_FROZEN {table} family PACE 0 &
+bias_configuration=f"""fix bias all metad EXECUTOR GRAPH SHARED_FROZEN {table} family SHARED_AGGREGATION {args.aggregation} PACE 0 &
  CAL NAME SW_r6 SW_FUNC FERMI r_0 3.50 alpha -20 &
  CAL NAME SW_css SW_FUNC FERMI r_0 3.30 alpha -20 &
  CAL NAME LQ6 STEINH L 6 Sc cutoff_eps_r 1e-12 SW_FUNC_r SW_r6 &
@@ -108,7 +109,7 @@ def state():
     coordinate=product if args.raw_product else product/(1+np.exp(-15*(product-.35)))
     energy=float(simulation.extract_fix("bias",0,0))
     mean=float(simulation.extract_fix("bias",0,1,nrow=0))
-    expected=float(np.mean(.4*(coordinate-.35)**2))
+    expected=float((np.mean if args.aggregation=='MEAN' else np.sum)(.4*(coordinate-.35)**2))
     if not np.isclose(energy,expected,rtol=1e-11,atol=1e-13): raise AssertionError(("energy reference",energy,expected))
     if not np.isclose(mean,np.mean(coordinate),rtol=1e-11,atol=1e-13): raise AssertionError("coordinate reference")
     # units metal: pressure [bar] * volume [A^3] / nktv2p = virial [eV].

@@ -36,6 +36,7 @@ namespace MetaD_zqc {
 
   class BiasSession;
   class FrozenSharedBias;
+  class OnlineSharedBias;
   // class GH_t0_uniformGrid;
 
   class SwitchFunction;
@@ -102,6 +103,7 @@ namespace LAMMPS_NS {
     int cv_dim,nbin_num;
     MetaD_zqc::BiasSession *p_gaussian;
     std::unique_ptr<MetaD_zqc::FrozenSharedBias> shared_frozen_bias;
+    std::unique_ptr<MetaD_zqc::OnlineSharedBias> shared_online_bias;
     MetaD_zqc::SelectionId shared_frozen_selection = MetaD_zqc::all_atoms;
     int pace,rec_pace;
     bool first_run;

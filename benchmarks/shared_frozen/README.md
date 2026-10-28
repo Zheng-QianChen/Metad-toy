@@ -1,5 +1,7 @@
 # Al3Sc 冻结共享原子偏势原型
 
+当前正式实现已增加 `SHARED_AGGREGATION SUM`、`SHARED_ONLINE`、共享 WT 历史和续算；下面保留最初 MEAN 冻结原型的定义与记录。新接口与数学定义见 [共享偏势手册](../../docs/manuals/SHARED_BIAS.zh.md)。`online.py` 检查真实 MEAM/NPT 的共享在线历史与续算，`al3sc.py --aggregation SUM` 检查生产 SUM 的力/virial。
+
 本原型使用 Sc 中心上的原始 LocalQ6、CSS 及其组合：
 
 ```text

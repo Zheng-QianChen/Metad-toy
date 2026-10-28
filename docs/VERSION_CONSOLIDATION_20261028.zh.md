@@ -1,7 +1,8 @@
 # MetaDtoy 版本整合记录（2026-10-28）
 
-本文记录首次整合时的状态。其后 LocalGeom、NSOLID、MEAN_SOLID 已恢复并完成验证，
-见 [旧功能恢复记录](LEGACY_RESTORATION_20261028.zh.md)；后续任务按
+本文正文记录首次整合时的历史状态，不代表当前功能缺口。其后 LocalGeom、NSOLID、MEAN_SOLID、
+LocalQL 性能、Q/Half 设备路径、共享 SUM 和在线 WT 均已实现并完成相应验证；
+见 [旧功能恢复记录](LEGACY_RESTORATION_20261028.zh.md)、[共享验收](SHARED_ONLINE_20261028.zh.md)；后续任务按
 [完成顺序](COMPLETION_ORDER_20261028.zh.md) 跟踪。
 
 本次以主工作区的完整开发状态为底座，吸收另存的 Weave/Kokkos GPU 联合实现。

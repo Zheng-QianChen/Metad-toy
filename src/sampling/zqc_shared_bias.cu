@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
 
 namespace MetaD_zqc {
 namespace {
@@ -93,10 +94,17 @@ struct FrozenSharedBias::Impl {
     GpuBuffer<double> table, gradient, partials, packed;
     GpuBuffer<int> seen;
     SumReducer sum;
+    SharedAggregation aggregation;
     int nodes=0;
     double lower=0, spacing=0;
     std::string fingerprint;
-    Impl(const std::string& path, SumReducer reducer) : sum(std::move(reducer)) {
+    Impl(int count,double low,double high,SumReducer reducer,SharedAggregation mode)
+        : sum(std::move(reducer)),aggregation(mode),nodes(count),lower(low),spacing((high-low)/(count-1)) {
+        table.grow_to(size_t(nodes)*2,__FILE__,__LINE__);
+        table.clear_async(execution.get());table.record_write(execution.get());
+        packed.grow_to(3,__FILE__,__LINE__);execution.synchronize();
+    }
+    Impl(const std::string& path, SumReducer reducer, SharedAggregation mode) : sum(std::move(reducer)),aggregation(mode) {
         std::ifstream input(path);
         if (!input) throw std::runtime_error("Shared frozen bias: cannot open "+path);
         std::string line;
@@ -173,21 +181,212 @@ struct FrozenSharedBias::Impl {
         if (!(aggregate[2]>0) || aggregate[2]>9007199254740991.0 || !std::isfinite(aggregate[2]))
             throw std::runtime_error("Shared frozen bias: global family must be nonempty with an exact count");
         const double inverse_count=1.0/aggregate[2];
+        const double scale=aggregation==SharedAggregation::Mean ? inverse_count : 1.0;
         if (size) scale_gradient<<<(size+block_size-1)/block_size,block_size,0,execution.get()>>>(
-            gradient.ptr,size,inverse_count);
+            gradient.ptr,size,scale);
         check(cudaGetLastError());
         gradient.record_write(execution.get());
-        return {aggregate[0]*inverse_count,aggregate[1]*inverse_count,
+        return {aggregate[0]*scale,aggregate[1]*inverse_count,
                 static_cast<long long>(aggregate[2]),gradient.view(size)};
     }
 };
 
-FrozenSharedBias::FrozenSharedBias(const std::string& path, SumReducer sum)
-    : impl_(std::make_unique<Impl>(path,std::move(sum))) {}
+FrozenSharedBias::FrozenSharedBias(const std::string& path, SumReducer sum, SharedAggregation aggregation)
+    : impl_(std::make_unique<Impl>(path,std::move(sum),aggregation)) {}
 FrozenSharedBias::~FrozenSharedBias() = default;
 FrozenSharedBias::Result FrozenSharedBias::evaluate(ArrayView<const double> coordinates,
                                                    ArrayView<const int> slots) {
     return impl_->evaluate(coordinates,slots);
 }
 const std::string& FrozenSharedBias::fingerprint() const { return impl_->fingerprint; }
+
+namespace {
+// Each center updates the common grid. No center coordinates or hills cross the
+// Host boundary; only the grid increment and an error scalar are reduced.
+__global__ void shared_heights(ArrayView<const double> coordinates,ArrayView<const int> slots,
+        const double* table,int nodes,double lower,double spacing,double sigma,double height,
+        double tempering,double normalization,double* heights,double* invalid) {
+    const size_t index=size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    if(index>=slots.item_count) return;
+    const double q=coordinates(slots(index));
+    const double upper=lower+(nodes-1)*spacing;
+    heights[index]=0;
+    if(q<lower || q>upper) {atomicAdd(invalid,1.0);return;}
+    double energy,derivative;interpolate(q,table,nodes,lower,spacing,energy,derivative);
+    const double weight=height*normalization*(tempering>0 ? exp(-energy/tempering) : 1.0);
+    if(!isfinite(weight)) {atomicAdd(invalid,1.0);return;}
+    heights[index]=weight;
+}
+__global__ void deposit_shared(ArrayView<const double> coordinates,ArrayView<const int> slots,
+        const double* heights,double lower,double spacing,double sigma,double* increment) {
+    // A block owns one node. Reducing all centers here avoids O(N*nodes)
+    // contended global atomics while retaining the full Gaussian, including tails.
+    const double q=lower+blockIdx.x*spacing;
+    double energy=0,derivative=0;
+    for(size_t index=threadIdx.x;index<slots.item_count;index+=blockDim.x) {
+        const double distance=(q-coordinates(slots(index)))/sigma;
+        const double value=heights[index]*exp(-.5*distance*distance);
+        energy+=value;derivative-=distance/sigma*value;
+    }
+    __shared__ double energies[256],derivatives[256];
+    energies[threadIdx.x]=energy;derivatives[threadIdx.x]=derivative;__syncthreads();
+    for(int offset=128;offset;offset/=2) {
+        if(threadIdx.x<offset) {energies[threadIdx.x]+=energies[threadIdx.x+offset];derivatives[threadIdx.x]+=derivatives[threadIdx.x+offset];}
+        __syncthreads();
+    }
+    if(!threadIdx.x) {increment[2*blockIdx.x]=energies[0];increment[2*blockIdx.x+1]=derivatives[0];}
+}
+std::string shared_hash(const std::string& text) {
+    std::uint64_t hash=14695981039346656037ULL;
+    for(unsigned char c:text) {hash^=c;hash*=1099511628211ULL;}
+    std::ostringstream output;output<<std::hex<<std::setfill('0')<<std::setw(16)<<hash;return output.str();
+}
+constexpr std::int64_t exact_step_limit=9007199254740991LL;
+}
+
+struct OnlineSharedBias::Impl {
+    SharedOnlineSettings settings;
+    SharedOnlineHost host;
+    std::unique_ptr<FrozenSharedBias::Impl> bias;
+    GpuBuffer<double> increment, invalid, heights;
+    std::vector<double> values;
+    std::ofstream output;
+    std::string configuration;
+    std::int64_t last_step=-1,seen_step=-1;
+    std::uint64_t records=0;
+    bool initialized=false;
+
+    Impl(SharedOnlineSettings s,SharedOnlineHost h):settings(std::move(s)),host(std::move(h)) {
+        const auto finite=[](double x){return std::isfinite(x);};
+        if(settings.nodes<4 || settings.nodes>1000000 || !finite(settings.lower) || !finite(settings.upper) ||
+           !(settings.upper>settings.lower) || !finite(settings.sigma) || !(settings.sigma>0) ||
+           !finite(settings.height) || !(settings.height>0) || settings.pace<0 ||
+           !finite(settings.thermal_energy) || !(settings.thermal_energy>0) || !finite(settings.bias_factor) ||
+           (settings.well_tempered && !(settings.bias_factor>1)) || settings.history_path.empty() ||
+           (!host.root && !host.broadcast))
+            throw std::invalid_argument("Shared online: invalid grid, deposition, WT or host configuration");
+        const double spacing=(settings.upper-settings.lower)/(settings.nodes-1);
+        if(!finite(spacing) || !(spacing>0) || spacing>settings.sigma/2)
+            throw std::invalid_argument("Shared online: grid spacing must be positive and at most sigma/2");
+        if(settings.well_tempered && !finite(settings.thermal_energy*(settings.bias_factor-1)))
+            throw std::invalid_argument("Shared online: WT thermal scale overflow");
+        std::ostringstream config;config<<std::setprecision(17)
+            <<settings.nodes<<' '<<settings.lower<<' '<<settings.upper<<' '<<settings.sigma<<' '<<settings.height
+            <<' '<<settings.thermal_energy<<' '<<settings.bias_factor<<' '<<settings.well_tempered
+            <<' '<<int(settings.aggregation)<<' '<<settings.mean_deposition<<' '<<shared_hash(settings.identity);
+        configuration=config.str();
+        bias=std::make_unique<FrozenSharedBias::Impl>(settings.nodes,settings.lower,settings.upper,host.sum,settings.aggregation);
+        values.assign(size_t(settings.nodes)*2,0.0);
+        increment.grow_to(values.size(),__FILE__,__LINE__);invalid.grow_to(1,__FILE__,__LINE__);
+    }
+    void broadcast(double* data,size_t size) {if(host.broadcast) host.broadcast(data,size);}
+    template<class Function> void root_operation(Function function) {
+        double failed=0;std::string message;
+        if(host.root) try {function();} catch(const std::exception& error) {failed=1;message=error.what();}
+        broadcast(&failed,1);
+        if(failed) throw std::runtime_error(host.root ? message : "Shared online: root history operation failed");
+    }
+    std::string record_text(std::int64_t step,std::uint64_t count,const std::vector<double>& table) const {
+        std::ostringstream text;text<<std::setprecision(17)<<"STATE "<<step<<' '<<count;
+        for(double value:table) text<<' '<<value;
+        return text.str();
+    }
+    void write_record(std::int64_t step,std::uint64_t count,const std::vector<double>& table) {
+        const auto text=record_text(step,count,table);
+        output<<text<<' '<<shared_hash(configuration+'\n'+text)<<'\n';output.flush();
+        if(!output) throw std::runtime_error("Shared online: failed writing complete history record");
+    }
+    void load_history(std::int64_t step) {
+        std::ifstream input(settings.history_path);std::string line;
+        if(!input || !std::getline(input,line) || line!="# METAD_TOY_SHARED_ONLINE 1" ||
+           !std::getline(input,line) || line!="CONFIG "+configuration)
+            throw std::invalid_argument("Shared online: history configuration/header mismatch");
+        bool initial=false;
+        while(std::getline(input,line)) {
+            if(line.empty() || input.eof()) throw std::invalid_argument("Shared online: empty/truncated history record");
+            const auto end=line.find_last_of(' ');
+            if(end==std::string::npos || line.substr(end+1)!=shared_hash(configuration+'\n'+line.substr(0,end)))
+                throw std::invalid_argument("Shared online: history checksum mismatch");
+            std::istringstream row(line.substr(0,end));std::string marker,extra;
+            std::int64_t next_step;std::uint64_t next_count;
+            if(!(row>>marker>>next_step>>next_count) || marker!="STATE" || next_step>step || next_step>exact_step_limit ||
+               (!initial && (next_step!=-1 || next_count!=0)) ||
+               (initial && (next_step<=last_step || next_count!=records+1)))
+                throw std::invalid_argument("Shared online: invalid/future history step or record sequence");
+            for(auto& value:values)
+                if(!(row>>value) || !std::isfinite(value)) throw std::invalid_argument("Shared online: invalid history table");
+            if(row>>extra) throw std::invalid_argument("Shared online: extra history fields");
+            last_step=next_step;records=next_count;initial=true;
+        }
+        if(input.bad() || !initial) throw std::runtime_error("Shared online: incomplete history");
+    }
+    void upload() {
+        bias->table.upload_from(values.data(),values.size(),bias->execution.get());
+        bias->table.record_write(bias->execution.get());bias->execution.synchronize();
+    }
+    void initialize(std::int64_t step) {
+        if(step<0 || step>exact_step_limit) throw std::invalid_argument("Shared online: step outside exact range");
+        if(initialized) {
+            if(step<seen_step) throw std::invalid_argument("Shared online: simulation step moved backwards");
+            return;
+        }
+        root_operation([&]{
+            if(settings.restart) load_history(step);
+            else {
+                std::ifstream existing(settings.history_path);
+                if(existing) throw std::invalid_argument("Shared online: history already exists; choose restart or a new path");
+            }
+            output.open(settings.history_path,settings.restart ? std::ios::app : std::ios::trunc);
+            if(!output) throw std::runtime_error("Shared online: cannot write history");
+            if(!settings.restart) {
+                output<<"# METAD_TOY_SHARED_ONLINE 1\nCONFIG "<<configuration<<'\n';
+                write_record(-1,0,values);
+            }
+        });
+        double state[2]={double(last_step),double(records)};broadcast(state,2);
+        last_step=static_cast<std::int64_t>(state[0]);records=static_cast<std::uint64_t>(state[1]);
+        broadcast(values.data(),values.size());upload();seen_step=step;initialized=true;
+    }
+    bool advance(std::int64_t step,ArrayView<const double> coordinates,ArrayView<const int> slots) {
+        if(!initialized) throw std::logic_error("Shared online: initialize before deposition");
+        if(step<seen_step || step<0 || step>exact_step_limit) throw std::invalid_argument("Shared online: invalid/backward step");
+        seen_step=step;
+        if(!settings.pace || step%settings.pace || step==last_step) return false;
+        // Reuse the exact same owned-slot validation and global count as force evaluation.
+        const auto before=bias->evaluate(coordinates,slots);
+        const auto stream=bias->execution.get();coordinates.wait_on(stream);slots.wait_on(stream);
+        invalid.clear_async(stream);heights.grow_to(slots.item_count,__FILE__,__LINE__);
+        const double tempering=settings.well_tempered ? settings.thermal_energy*(settings.bias_factor-1) : 0;
+        if(slots.item_count) shared_heights<<<(slots.item_count+255)/256,256,0,stream>>>(
+            coordinates,slots,bias->table.ptr,settings.nodes,settings.lower,bias->spacing,settings.sigma,
+            settings.height,tempering,settings.mean_deposition ? 1.0/before.count : 1.0,heights.ptr,invalid.ptr);
+        deposit_shared<<<settings.nodes,256,0,stream>>>(coordinates,slots,heights.ptr,
+            settings.lower,bias->spacing,settings.sigma,increment.ptr);
+        check(cudaGetLastError());
+        std::vector<double> delta(values.size()+1,0);
+        increment.download_to(delta.data(),values.size(),stream);invalid.download_to(&delta.back(),1,stream);
+        if(host.sum) host.sum(delta.data(),delta.size());
+        if(delta.back()!=0) throw std::invalid_argument("Shared online: center outside grid or nonfinite WT height");
+        std::vector<double> next(values.size());
+        for(size_t i=0;i<values.size();++i) {
+            next[i]=values[i]+delta[i];
+            if(!std::isfinite(next[i])) throw std::runtime_error("Shared online: table overflow");
+        }
+        root_operation([&]{write_record(step,records+1,next);});
+        values.swap(next);upload();last_step=step;++records;return true;
+    }
+};
+OnlineSharedBias::OnlineSharedBias(SharedOnlineSettings settings,SharedOnlineHost host)
+    :impl_(std::make_unique<Impl>(std::move(settings),std::move(host))) {}
+OnlineSharedBias::~OnlineSharedBias()=default;
+void OnlineSharedBias::initialize(std::int64_t step) {impl_->initialize(step);}
+bool OnlineSharedBias::advance(std::int64_t step,ArrayView<const double> coordinates,ArrayView<const int> slots) {
+    return impl_->advance(step,coordinates,slots);
+}
+OnlineSharedBias::Result OnlineSharedBias::evaluate(ArrayView<const double> coordinates,ArrayView<const int> slots) {
+    if(!impl_->initialized) throw std::logic_error("Shared online: initialize before evaluation");
+    return impl_->bias->evaluate(coordinates,slots);
+}
+std::int64_t OnlineSharedBias::last_deposition_step() const {return impl_->last_step;}
+std::uint64_t OnlineSharedBias::depositions() const {return impl_->records;}
 } // namespace MetaD_zqc

@@ -132,3 +132,14 @@ zqc_graph_test(zqc_shared_frozen_test shared_frozen.cu)
 target_link_libraries(zqc_shared_frozen_test PRIVATE zqc_shared_bias)
 add_test(NAME zqc_shared_frozen COMMAND zqc_shared_frozen_test)
 set_tests_properties(zqc_shared_frozen PROPERTIES LABELS "cuda;sampling;finite-difference" TIMEOUT 90)
+if(ZQC_TEST_MPI)
+    zqc_graph_test(zqc_shared_online_test shared_online.cu)
+    target_link_libraries(zqc_shared_online_test PRIVATE zqc_shared_bias MPI::MPI_CXX)
+    foreach(process_count 1 2 4)
+        add_test(NAME zqc_shared_online_mpi_${process_count}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${process_count} ${MPIEXEC_PREFLAGS}
+                $<TARGET_FILE:zqc_shared_online_test> ${MPIEXEC_POSTFLAGS})
+        set_tests_properties(zqc_shared_online_mpi_${process_count} PROPERTIES
+            TIMEOUT 120 PROCESSORS ${process_count} LABELS "mpi;cuda;sampling;finite-difference")
+    endforeach()
+endif()

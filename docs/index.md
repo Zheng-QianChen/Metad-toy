@@ -1,5 +1,7 @@
 # MetaD-toy: High-Performance Metadynamics Plugin for LAMMPS
 
+2026-10-28 验收入口：[LocalGeom 与旧功能恢复](LEGACY_RESTORATION_20261028.zh.md)、[LocalQL 性能](LOCALQL_PROFILE_20261028.zh.md)、[设备路径覆盖](DEVICE_COVERAGE_20261028.zh.md)、[共享偏势手册](manuals/SHARED_BIAS.zh.md)。当前进度以 [完成顺序](COMPLETION_ORDER_20261028.zh.md) 为准。
+
 Welcome to the official documentation of **MetaD-toy**, an advanced, non-intrusive metadynamics (MetaD) sampling plugin tailor-made for the LAMMPS molecular dynamics framework. 
 
 This plugin is specifically engineered to accelerate the simulation of **solidification nucleation, phase transitions, and polymorph selection** in complex multi-component metallic systems (e.g., Al-based or W-based alloys).

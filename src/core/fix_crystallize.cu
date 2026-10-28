@@ -86,6 +86,11 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     std::vector<double> axis_sigmas, axis_periods;
     std::string hills_path = "HILLS";
     std::string shared_table_path, shared_group;
+    auto shared_aggregation=MetaD_zqc::SharedAggregation::Mean;
+    bool shared_aggregation_explicit=false;
+    bool shared_online=false,shared_deposition_explicit=false;
+    MetaD_zqc::SharedOnlineSettings shared_settings;
+    std::string shared_identity;
     bool pace_explicit = false;
     unsigned history_workers=1;
     bool pb_sum_normalization=false;
@@ -97,6 +102,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     virial_global_flag = 1;
     virial_peratom_flag = 1;
     while (i < narg) {
+        const int keyword_begin=i;
         LOG("Im in arg loop");
         if (strcmp(arg[i], "GAUSSIAN") == 0) {
             ERR_COND(i + 3 >= narg, "Error: GAUSSIAN command requires 3 arguments: sigma, height, biasf.");
@@ -118,9 +124,27 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             use_graph = strcmp(arg[i+1], "GRAPH") == 0;
             i += 2;
         } else if (strcmp(arg[i], "SHARED_FROZEN") == 0) {
-            ERR_COND(i+2>=narg || !shared_table_path.empty(),
+            ERR_COND(i+2>=narg || !shared_table_path.empty() || shared_online,
                      "SHARED_FROZEN requires one table file and one center group");
             shared_table_path=arg[i+1]; shared_group=arg[i+2]; i+=3;
+        } else if (strcmp(arg[i], "SHARED_ONLINE") == 0) {
+            ERR_COND(i+4>=narg || shared_online || !shared_table_path.empty(),
+                     "SHARED_ONLINE requires group lower upper nodes and cannot coexist with SHARED_FROZEN");
+            shared_group=arg[i+1];
+            shared_settings.lower=utils::numeric(FLERR,arg[i+2],false,lmp);
+            shared_settings.upper=utils::numeric(FLERR,arg[i+3],false,lmp);
+            shared_settings.nodes=utils::inumeric(FLERR,arg[i+4],false,lmp);
+            shared_online=true;i+=5;
+        } else if (strcmp(arg[i], "SHARED_DEPOSIT") == 0) {
+            ERR_COND(i+1>=narg || (strcmp(arg[i+1],"MEAN") && strcmp(arg[i+1],"SUM")),
+                     "SHARED_DEPOSIT requires MEAN or SUM");
+            shared_settings.mean_deposition=strcmp(arg[i+1],"MEAN")==0;
+            shared_deposition_explicit=true;i+=2;
+        } else if (strcmp(arg[i], "SHARED_AGGREGATION") == 0) {
+            ERR_COND(i+1>=narg || (strcmp(arg[i+1],"MEAN") && strcmp(arg[i+1],"SUM")),
+                     "SHARED_AGGREGATION requires MEAN or SUM");
+            shared_aggregation=strcmp(arg[i+1],"SUM")==0 ? MetaD_zqc::SharedAggregation::Sum : MetaD_zqc::SharedAggregation::Mean;
+            shared_aggregation_explicit=true;i+=2;
         } else if (strcmp(arg[i], "PACE") == 0) {
             pace_explicit = true;
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
@@ -296,6 +320,18 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             ERR_COND(1, "Error: Unknown keyword in fix metadynamics command: %s", arg[i]);
             break;
         }
+        const std::string keyword=arg[keyword_begin];
+        if(keyword=="CAL" || keyword=="SYMBOL" || keyword=="CV_dim" || keyword=="DIM" || keyword=="DIM_EXPR")
+            for(int token=keyword_begin;token<i;++token)
+                shared_identity+=std::to_string(std::strlen(arg[token]))+":"+arg[token]+";";
+    }
+    const bool shared_mode=shared_online || !shared_table_path.empty();
+    ERR_COND(shared_deposition_explicit && !shared_online,"SHARED_DEPOSIT requires SHARED_ONLINE");
+    ERR_COND(shared_aggregation_explicit && !shared_mode,"SHARED_AGGREGATION requires a shared bias");
+    if(shared_online) {
+        ERR_COND(!use_graph || cv_dim!=1,"SHARED_ONLINE requires EXECUTOR GRAPH and CV_dim 1");
+        ERR_COND(!axis_periods.empty() && axis_periods[0]!=0,"SHARED_ONLINE currently requires a nonperiodic coordinate");
+        Gaussian_Hill_type=2;
     }
     if (!shared_table_path.empty()) {
         ERR_COND(!use_graph || cv_dim!=1, "SHARED_FROZEN requires EXECUTOR GRAPH and CV_dim 1");
@@ -327,11 +363,11 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     try {
         if (use_graph) {
             std::vector<MetaD_zqc::SelectionId> output_selections;
-            if (!shared_table_path.empty()) {
+            if (shared_mode) {
                 shared_frozen_selection=engine_adapter->selection_id(shared_group);
                 output_selections.push_back(shared_frozen_selection);
-                shared_frozen_bias=std::make_unique<MetaD_zqc::FrozenSharedBias>(
-                    shared_table_path,engine_adapter->sum_reducer());
+                if(!shared_online) shared_frozen_bias=std::make_unique<MetaD_zqc::FrozenSharedBias>(
+                    shared_table_path,engine_adapter->sum_reducer(),shared_aggregation);
             }
             graph_execution = std::make_unique<MetaD_zqc::CVGraphExecution>(
                 *engine_adapter, symbol_configs, dim_expressions, output_selections);
@@ -389,10 +425,29 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             fprintf(output,"%s\n",message.c_str());fflush(output);
         }
     };
-    if (!shared_frozen_bias)
+    if(shared_online) {
+        shared_settings.sigma=axis_sigmas.empty() ? sigma : axis_sigmas[0];
+        shared_settings.height=height0;shared_settings.thermal_energy=force->boltz*current_temp;
+        shared_settings.bias_factor=biasf;shared_settings.well_tempered=WellT_bool;
+        shared_settings.pace=pace;shared_settings.restart=continue_from_file;
+        shared_settings.history_path=hills_path;shared_settings.identity=shared_group+";"+shared_identity;
+        shared_settings.aggregation=shared_aggregation;
+        try {
+            shared_online_bias=std::make_unique<MetaD_zqc::OnlineSharedBias>(shared_settings,
+                MetaD_zqc::SharedOnlineHost{engine_adapter->sum_reducer(),bias_host.broadcast,comm->me==0});
+        } catch(const std::exception& failure) {error->one(FLERR,"MetaD shared configuration: {}",failure.what());}
+        if(comm->me==0) for(FILE* output:{screen,logfile}) if(output) {
+            fprintf(output,"[MetaD] bias=SHARED_ONLINE aggregation=%s deposition=%s group=%s nodes=%d WT=%d history=%s\n",
+                shared_aggregation==MetaD_zqc::SharedAggregation::Mean ? "MEAN" : "SUM",
+                shared_settings.mean_deposition ? "MEAN" : "SUM",shared_group.c_str(),shared_settings.nodes,WellT_bool,hills_path.c_str());
+            fflush(output);
+        }
+    }
+    if (!shared_mode)
         p_gaussian=new MetaD_zqc::BiasSession(std::move(bias_settings),std::move(bias_host));
     if (shared_frozen_bias && comm->me==0) for (FILE* output:{screen,logfile}) if (output) {
-        fprintf(output,"[MetaD] bias=SHARED_FROZEN aggregation=MEAN group=%s table=%s fingerprint=%s\n",
+        fprintf(output,"[MetaD] bias=SHARED_FROZEN aggregation=%s group=%s table=%s fingerprint=%s\n",
+                shared_aggregation==MetaD_zqc::SharedAggregation::Mean ? "MEAN" : "SUM",
                 shared_group.c_str(),shared_table_path.c_str(),shared_frozen_bias->fingerprint().c_str());
         fflush(output);
     }
@@ -416,7 +471,9 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     scalar_flag = 1;                 // f_metad -> 偏置势 V_b（见 compute_scalar）
     vector_flag = 1;
     size_vector = cv_dim;            // f_metad[1]..f_metad[cv_dim] -> CV 值
-    extscalar = 0;                   // 强度量，不是跨进程求和的广延量
+    // Already globally reduced; this flag only tells thermo whether norm yes
+    // should divide the extensive SUM energy by the system atom count.
+    extscalar = shared_mode && shared_aggregation==MetaD_zqc::SharedAggregation::Sum ? 1 : 0;
     extvector = 0;
 
     // NPT/能量账本：偏置力必须进 virial；偏置势可进 PE（fix_modify energy）
@@ -488,6 +545,7 @@ void FixMetadynamics::init() try {
   // drop cached ensure state. Do NOT Neighbor::build() / ago here (corrupts MEAM).
   neigh_hub.rerequest_all();
   neigh_hub.invalidate_all();
+  if(shared_online_bias) shared_online_bias->initialize(update->ntimestep);
 
   if (first_run) {
     if (p_gaussian) p_gaussian->initialize(update->ntimestep);
@@ -564,8 +622,8 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
   }
   if (graph_execution) {
     const auto values = graph_execution->forward();
-    if (shared_frozen_bias) {
-      if (!values.empty()) throw std::invalid_argument("SHARED_FROZEN DIM_EXPR must return a PerAtom field");
+    if (shared_frozen_bias || shared_online_bias) {
+      if (!values.empty()) throw std::invalid_argument("Shared bias DIM_EXPR must return a PerAtom field");
     } else {
       if (values.size()!=static_cast<size_t>(cv_dim))
         throw std::invalid_argument("Global bias DIM expressions must return Global scalars");
@@ -582,9 +640,13 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
   MetaD_zqc::FrozenSharedBias::Result shared_result;
   // 冻结表的求值独立于 setup/积分节拍；输出能量与数组种子来自同一份固定表。
   try {
-    if (shared_frozen_bias) {
-      shared_result=shared_frozen_bias->evaluate(graph_execution->per_atom_output(0),
-          graph_execution->selected_slots(shared_frozen_selection));
+    if (shared_frozen_bias || shared_online_bias) {
+      const auto field=graph_execution->per_atom_output(0);
+      const auto slots=graph_execution->selected_slots(shared_frozen_selection);
+      if(shared_online_bias) {
+        if(advance_history) shared_online_bias->advance(update->ntimestep,field,slots);
+        shared_result=shared_online_bias->evaluate(field,slots);
+      } else shared_result=shared_frozen_bias->evaluate(field,slots);
       bias_energy=shared_result.energy;
       cv_values[0]=shared_result.mean_coordinate;
     } else {
@@ -599,7 +661,7 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
   // printf("cv_compute = %g, dVdcv = %.g\n",cv_values[0], dVdcvs[0]);
   try {
     if (graph_execution) {
-      if (shared_frozen_bias) graph_execution->backward({}, {shared_result.gradient});
+      if (shared_frozen_bias || shared_online_bias) graph_execution->backward({}, {shared_result.gradient});
       else graph_execution->backward(std::vector<double>(dVdcvs, dVdcvs + cv_dim));
     } else {
       for (int ii = 0; ii < cv_dim; ++ii) cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);

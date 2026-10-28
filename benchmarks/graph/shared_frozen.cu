@@ -36,6 +36,7 @@ int main() try {
         for (int q=0;q<=3;++q) file<<q<<" "<<potential(q)<<" "<<derivative(q)<<"\n";
     }
     FrozenSharedBias bias(path);
+    FrozenSharedBias sum_bias(path,{},SharedAggregation::Sum);
     GpuBuffer<double> input,gradient,extra;
     GpuBuffer<int> slots;
     CudaExecutionStream producer;
@@ -56,6 +57,11 @@ int main() try {
         close(result.energy,(potential(x[0]*x[0])+potential(x[2]*x[2]))/2,"selected mean energy");
         if (result.count!=2) throw std::runtime_error("count");
         const auto seed=get(result.gradient);
+        const auto sum_result=sum_bias.evaluate(execution.per_atom_output(0),slots.view(2));
+        close(sum_result.energy,potential(x[0]*x[0])+potential(x[2]*x[2]),"selected sum energy");
+        close(sum_result.mean_coordinate,result.mean_coordinate,"SUM monitor is mean coordinate");
+        const auto sum_seed=get(sum_result.gradient);
+        for(size_t slot=0;slot<seed.size();++slot) close(sum_seed[slot],seed[slot]*2,"SUM adjoints");
         close(seed[1],0,"padding seed");
         execution.backward({.7},{result.gradient,extra.view(3)});
         const auto actual=get(gradient.view(3));
