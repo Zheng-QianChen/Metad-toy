@@ -72,6 +72,7 @@ LocalQL_CSS 的表达式替代已纳入小体系能量与导数回归；这不�
 - 全局 Q/Half 等兼容消费者的邻居设备化、LocalQL 球谐缓存和进一步的大体系性能。
   CSS/StruFactor、LocalQL 的 Kokkos 邻居 CSR 设备路径已实现；仍保留 Host
   选择集元数据、LocalQL 两个标量计数回读及诊断下载，不能称为全项目零 Host。
+  本轮实现、正确性和 A100/WSL 对照见 [设备邻居验证](DEVICE_NEIGHBORS_20261028.zh.md)。
 - Al3Sc 形核机制、FES 收敛和重加权验收。
 
 这些是尚未完成的开发或科学验收，不能在本次“版本已统一”结论中一并勾选完成。
