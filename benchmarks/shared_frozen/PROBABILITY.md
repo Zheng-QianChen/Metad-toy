@@ -103,3 +103,6 @@ summary.json 给出每项判据、原始/正确/错误对照统计、输入源�
 后续两步分别验证在线时间依赖和真实 Al3Sc 体系。
 
 实测结果见 [310 统计验证记录](PROBABILITY_RESULTS_310.md)。
+
+连续动力学见 [KINETICS.md](KINETICS.md)；直接坐标沉积、冻结、重新平衡后，
+仅读取 CV 和完整总偏势的重建见 [FES_RECOVERY.md](FES_RECOVERY.md)。

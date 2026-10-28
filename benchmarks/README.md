@@ -106,3 +106,9 @@ python benchmarks/run.py o2 --build-dir build --lammps lmp
 
 [shared_frozen/COMPRESSION.md](shared_frozen/COMPRESSION.md)包含平坦原势能的解析控制、
 相关双阱的共同沉积和原坐标 FES 图。对压缩导致的权重退化同时报告有效覆盖与未达标项。
+
+## 共享偏势的科学控制模型
+
+[Langevin 动力学](shared_frozen/KINETICS.md)、[同表配对](shared_frozen/MATCHED_MD.md)及
+[沉积后冻结的 FES 复原](shared_frozen/FES_RECOVERY.md)分别检查动力学、协议配对及完整偏势重加权。
+这些是独立控制模型，不能替代 Al3Sc 形核与生产在线 WT 的统计验收。

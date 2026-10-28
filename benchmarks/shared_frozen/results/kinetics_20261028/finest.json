@@ -1,0 +1,469 @@
+{
+  "model": "U=4[(x\u00b2-1)\u00b2+(y\u00b2-1)\u00b2]+(x-y)\u00b2",
+  "units": {
+    "mass": 1,
+    "thermal_energy": 1,
+    "friction": 1,
+    "time": "reduced MD time"
+  },
+  "integrator": "BAOAB",
+  "harmonic_calibration": [
+    {
+      "step": 0.00025,
+      "rows": [
+        [
+          0.1,
+          0.9982287515309805,
+          0.007064815958874481,
+          0.995166584721977,
+          0.9989480859514049,
+          40000.0
+        ],
+        [
+          0.5,
+          0.8962039571754962,
+          0.006701359003325176,
+          0.8955945265449207,
+          0.9993780348340557,
+          40000.0
+        ],
+        [
+          1.0,
+          0.659588629678377,
+          0.005983376716750669,
+          0.6597001533917017,
+          0.9938461719690771,
+          40000.0
+        ],
+        [
+          2.0,
+          0.1521315940362497,
+          0.005033364411897115,
+          0.15057436514588768,
+          1.006530629773811,
+          40000.0
+        ],
+        [
+          5.0,
+          -0.07901177395875225,
+          0.005020613791334853,
+          -0.07459056659503334,
+          1.0000715983908763,
+          40000.0
+        ]
+      ],
+      "max_zscore": 0.8806109267654755
+    }
+  ],
+  "basins": {
+    "A": "x<-.6 and y<-.6",
+    "B": "x>.6 and y>.6"
+  },
+  "initial_ensemble": "original Boltzmann conditional on source core, Maxwell velocities; all bias modes share seeds",
+  "stationary_initial_ensemble": "exact rejection under frozen biased potential within [-3,3]^2",
+  "online": {
+    "height": 0.02,
+    "physical_sigma": 0.12,
+    "compressed_sigma": 0.02,
+    "pace": 0.5,
+    "aggregation": "MEAN",
+    "well_tempered": false
+  },
+  "configuration": {
+    "library": "/home/saitang/work/MetadToy-shared-probability-20261028/build/benchmarks/graph/libzqc_shared_kinetics_probe.so",
+    "tables": "/home/saitang/work/MetadToy-shared-probability-20261028/run-compression-extended-v2",
+    "output": "/home/saitang/work/MetadToy-shared-probability-20261028/run-kinetics-compressed-finest",
+    "replicas": 128,
+    "stationary_replicas": 16,
+    "cap": 1000.0,
+    "duration": 2000.0,
+    "workers": 4,
+    "steps": [
+      0.00025
+    ],
+    "cases": [
+      "frozen_compressed",
+      "online_compressed"
+    ]
+  },
+  "records": [
+    {
+      "name": "frozen_compressed",
+      "mode": 2,
+      "step": 0.00025,
+      "force_fd_max": 1.050685185077782e-06,
+      "passage": [
+        {
+          "replicas": 128,
+          "events": 128,
+          "censored": 0,
+          "restricted_mean_time": 214.39484570312504,
+          "restricted_mean_ci": [
+            185.15771186523438,
+            245.10946757812502
+          ],
+          "observed_fraction": 1.0,
+          "cap": 1000.0,
+          "maximum_bias_force": 95.81140111020439,
+          "maximum_hills": 0,
+          "integrator_force_evaluations": 109770289,
+          "table_energy_error": 0.0,
+          "table_gradient_error": 0.0,
+          "batch_wall_seconds": 10.081012960523367,
+          "batch_cpu_seconds": 39.708763
+        },
+        {
+          "replicas": 128,
+          "events": 17,
+          "censored": 111,
+          "restricted_mean_time": 942.225201171875,
+          "restricted_mean_ci": [
+            912.3852042480468,
+            969.5022854492188
+          ],
+          "observed_fraction": 0.1328125,
+          "cap": 1000.0,
+          "maximum_bias_force": 95.81140132152655,
+          "maximum_hills": 0,
+          "integrator_force_evaluations": 482419431,
+          "table_energy_error": 0.0,
+          "table_gradient_error": 0.0,
+          "batch_wall_seconds": 39.9537879191339,
+          "batch_cpu_seconds": 158.373132
+        }
+      ],
+      "stationary": {
+        "replicas": 16,
+        "duration_per_replica": 2000.0,
+        "retained_per_replica": 20000,
+        "complete_core_transitions": 5,
+        "left_to_right": 3,
+        "right_to_left": 2,
+        "round_trips": 2,
+        "transition_rate": 0.00015625,
+        "transition_rate_ci": [
+          0.0,
+          0.00034375
+        ],
+        "kinetic_temperature": 1.0028696613266375,
+        "kinetic_temperature_ci": [
+          0.9926995855138226,
+          1.0134232936103449
+        ],
+        "reweighted_p_x_positive": 0.49652774244845377,
+        "independent_chain_p_mean": 0.8104764896659946,
+        "independent_chain_p_sem": 0.0821858132841489,
+        "independent_chain_mse": 0.19771326921297316,
+        "independent_chain_probabilities": [
+          0.9590702954769461,
+          0.9935841228384473,
+          0.9811928176081963,
+          0.9775026255952057,
+          0.9500883590571991,
+          0.1584637459996068,
+          0.8943199349172288,
+          1.0,
+          0.1459136282891003,
+          0.1792013122799419,
+          0.9991330856868621,
+          0.7390190565625473,
+          1.0,
+          0.9908822926553958,
+          0.9992525576892348,
+          1.0
+        ],
+        "reweighted": {
+          "moments": [
+            0.49652774244845377,
+            0.48765435882386304,
+            0.9239009747784003,
+            0.786276015597356,
+            0.9118337604770025,
+            0.9079138842622803
+          ],
+          "total_variation": 0.05335397556627832,
+          "fes_rmse_kbt": 0.07797474072914927,
+          "covered_reference_mass": 0.85648284874914,
+          "weight_ess": 11953.758506941987
+        },
+        "transitions_per_replica": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          2,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "mean_weight_ess": 775.1524342370363,
+        "projected_transitions": {
+          "1.0": {
+            "counts": [
+              [
+                6179,
+                30,
+                10,
+                0
+              ],
+              [
+                20,
+                618,
+                0,
+                143
+              ],
+              [
+                10,
+                0,
+                1066,
+                123
+              ],
+              [
+                0,
+                133,
+                123,
+                311385
+              ]
+            ],
+            "matrix": [
+              [
+                0.993568097764914,
+                0.00482392667631452,
+                0.0016079755587715067,
+                0.0
+              ],
+              [
+                0.02560819462227913,
+                0.7912932138284251,
+                0.0,
+                0.18309859154929578
+              ],
+              [
+                0.008340283569641367,
+                0.0,
+                0.8890742285237698,
+                0.10258548790658882
+              ],
+              [
+                0.0,
+                0.00042677311393558615,
+                0.0003946849098802789,
+                0.9991785419761842
+              ]
+            ],
+            "ck_row_total_variation": [
+              0.0008917574124136401,
+              0.03729329133591222,
+              0.011973163579042193,
+              0.00013026734001958962
+            ],
+            "row_origins": [
+              6219,
+              781,
+              1199,
+              311641
+            ]
+          },
+          "5.0": {
+            "counts": [
+              [
+                6052,
+                78,
+                50,
+                39
+              ],
+              [
+                67,
+                298,
+                0,
+                416
+              ],
+              [
+                50,
+                0,
+                744,
+                405
+              ],
+              [
+                0,
+                405,
+                405,
+                310191
+              ]
+            ],
+            "matrix": [
+              [
+                0.9731468081685158,
+                0.012542209358417752,
+                0.008039877793857533,
+                0.006271104679208876
+              ],
+              [
+                0.08578745198463508,
+                0.38156209987195905,
+                0.0,
+                0.5326504481434059
+              ],
+              [
+                0.041701417848206836,
+                0.0,
+                0.6205170975813178,
+                0.3377814845704754
+              ],
+              [
+                0.0,
+                0.0013022466165703648,
+                0.0013022466165703648,
+                0.9973955067668593
+              ]
+            ],
+            "ck_row_total_variation": [
+              0.003859952068080438,
+              0.01772842924890336,
+              0.016944791253134556,
+              6.469754292175204e-05
+            ],
+            "row_origins": [
+              6219,
+              781,
+              1199,
+              311001
+            ]
+          },
+          "10.0": {
+            "counts": [
+              [
+                5902,
+                91,
+                100,
+                126
+              ],
+              [
+                78,
+                124,
+                0,
+                579
+              ],
+              [
+                100,
+                0,
+                453,
+                646
+              ],
+              [
+                39,
+                566,
+                646,
+                308950
+              ]
+            ],
+            "matrix": [
+              [
+                0.9490271747869432,
+                0.01463257758482071,
+                0.016079755587715065,
+                0.020260492040520984
+              ],
+              [
+                0.0998719590268886,
+                0.1587708066581306,
+                0.0,
+                0.7413572343149808
+              ],
+              [
+                0.08340283569641367,
+                0.0,
+                0.377814845704754,
+                0.5387823185988324
+              ],
+              [
+                0.00012572493318848102,
+                0.0018246233893507758,
+                0.002082520688198942,
+                0.9959671309892618
+              ]
+            ],
+            "ck_row_total_variation": [
+              0.010782022888586066,
+              0.0140090111438423,
+              0.05650156254846059,
+              0.00013419391584585869
+            ],
+            "row_origins": [
+              6219,
+              781,
+              1199,
+              310201
+            ]
+          }
+        },
+        "batch_wall_seconds": 8.243530601263046,
+        "batch_cpu_seconds": 32.80965500000002,
+        "cpu_microseconds_per_step": 0.25632542968750016
+      },
+      "wall_seconds": 59.41569325700402
+    },
+    {
+      "name": "online_compressed",
+      "mode": 5,
+      "step": 0.00025,
+      "force_fd_max": 6.430914822885825e-08,
+      "passage": [
+        {
+          "replicas": 128,
+          "events": 128,
+          "censored": 0,
+          "restricted_mean_time": 117.98302539062499,
+          "restricted_mean_ci": [
+            103.69855219726563,
+            132.96445561523436
+          ],
+          "observed_fraction": 1.0,
+          "cap": 1000.0,
+          "maximum_bias_force": 68.38506697758025,
+          "maximum_hills": 1530,
+          "integrator_force_evaluations": 60437574,
+          "table_energy_error": 2.229020523714098e-09,
+          "table_gradient_error": 2.6874937120169307e-05,
+          "batch_wall_seconds": 6.451171852648258,
+          "batch_cpu_seconds": 25.451638000000003
+        },
+        {
+          "replicas": 128,
+          "events": 100,
+          "censored": 28,
+          "restricted_mean_time": 418.86766992187506,
+          "restricted_mean_ci": [
+            355.7994079589844,
+            485.5515850097655
+          ],
+          "observed_fraction": 0.78125,
+          "cap": 1000.0,
+          "maximum_bias_force": 52.185086310233046,
+          "maximum_hills": 4000,
+          "integrator_force_evaluations": 214567557,
+          "table_energy_error": 3.3327873794064544e-10,
+          "table_gradient_error": 4.520261519758151e-06,
+          "batch_wall_seconds": 21.008080154657364,
+          "batch_cpu_seconds": 82.204317
+        }
+      ],
+      "wall_seconds": 27.638251286000013
+    }
+  ],
+  "comparisons": [],
+  "timestep_comparison": [],
+  "wall_seconds": 87.0599084533751,
+  "cpu_seconds": 339.774178,
+  "source_sha256": "4a2f40d9c41f1e118909f67098fa57b582ce6aa36b2d4c07cb25fc44d0623ac3",
+  "cpp_sha256": "77b6c982c37024d8db7c4655dcb13eeef5614cc631c61006971fc6fdef400a78",
+  "library_sha256": "58f6aeb703e3ae35999ace77504189b2ee33a5196768e45b5dc38c54885629b6"
+}

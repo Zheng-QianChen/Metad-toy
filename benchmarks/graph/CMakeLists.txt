@@ -31,6 +31,9 @@ target_link_libraries(zqc_shared_probability_probe PRIVATE zqc_bias zqc_build_op
 # Probability-compression experiment, run explicitly via compression.py.
 add_library(zqc_shared_compression_probe SHARED ../shared_frozen/compression_probe.cpp)
 target_link_libraries(zqc_shared_compression_probe PRIVATE zqc_bias zqc_build_options)
+# Explicit scientific benchmark; it does not replace the production shared WT.
+add_library(zqc_shared_kinetics_probe SHARED ../shared_frozen/kinetics_probe.cpp)
+target_link_libraries(zqc_shared_kinetics_probe PRIVATE zqc_bias zqc_build_options)
 if(NOT ZQC_ENABLE_CUDA)
     return()
 endif()

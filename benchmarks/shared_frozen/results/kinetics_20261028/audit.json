@@ -1,0 +1,237 @@
+{
+  "temperature_checks": [
+    {
+      "run": "coarse",
+      "name": "unbiased",
+      "step": 0.002,
+      "mean": 0.9992904660201953,
+      "independent_sem": 0.003651466396642569,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "frozen_plain",
+      "step": 0.002,
+      "mean": 1.0037353329321028,
+      "independent_sem": 0.005478809855274881,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "frozen_compressed",
+      "step": 0.002,
+      "mean": 1.0916594427709894,
+      "independent_sem": 0.007080518360357638,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": false
+    },
+    {
+      "run": "coarse",
+      "name": "well_fill_control",
+      "step": 0.002,
+      "mean": 1.0001161664995668,
+      "independent_sem": 0.005026943110031582,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "unbiased",
+      "step": 0.001,
+      "mean": 0.9977096885009589,
+      "independent_sem": 0.004124428480652705,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "frozen_plain",
+      "step": 0.001,
+      "mean": 0.993815484956674,
+      "independent_sem": 0.005219910705765336,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "frozen_compressed",
+      "step": 0.001,
+      "mean": 1.0051517403513897,
+      "independent_sem": 0.0049376506649882815,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "coarse",
+      "name": "well_fill_control",
+      "step": 0.001,
+      "mean": 1.001025562451951,
+      "independent_sem": 0.005235739286885497,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "refined",
+      "name": "unbiased",
+      "step": 0.0005,
+      "mean": 1.0046371338504287,
+      "independent_sem": 0.00800213877034519,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "refined",
+      "name": "frozen_plain",
+      "step": 0.0005,
+      "mean": 1.002738485226501,
+      "independent_sem": 0.00799396333186417,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "refined",
+      "name": "frozen_compressed",
+      "step": 0.0005,
+      "mean": 0.9942241223152284,
+      "independent_sem": 0.005699113719085862,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "refined",
+      "name": "well_fill_control",
+      "step": 0.0005,
+      "mean": 0.9982156056192006,
+      "independent_sem": 0.005569201242263808,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    },
+    {
+      "run": "finest",
+      "name": "frozen_compressed",
+      "step": 0.00025,
+      "mean": 1.0028696613266375,
+      "independent_sem": 0.005562126013166535,
+      "rule": "abs(T-1) < 4 independent-chain SEM + .005",
+      "consistent": true
+    }
+  ],
+  "timestep_passage_comparison": [
+    {
+      "name": "frozen_compressed",
+      "direction": 0,
+      "change": -17.881271484374963,
+      "paired_bootstrap_ci": [
+        -68.30393876953124,
+        31.97579360351567
+      ],
+      "compatible_at_current_precision": true
+    },
+    {
+      "name": "frozen_compressed",
+      "direction": 1,
+      "change": -22.411615234375063,
+      "paired_bootstrap_ci": [
+        -62.36441538085937,
+        17.585791748046873
+      ],
+      "compatible_at_current_precision": true
+    },
+    {
+      "name": "online_compressed",
+      "direction": 0,
+      "change": 4.8762949218749725,
+      "paired_bootstrap_ci": [
+        -13.717040966796873,
+        24.16536567382814
+      ],
+      "compatible_at_current_precision": true
+    },
+    {
+      "name": "online_compressed",
+      "direction": 1,
+      "change": -9.470818359374903,
+      "paired_bootstrap_ci": [
+        -98.52203701171874,
+        82.3089743164063
+      ],
+      "compatible_at_current_precision": true
+    }
+  ],
+  "online_frozen_table_force_checks": [
+    {
+      "run": "coarse",
+      "path": "online_physical_0.002_0_path0.table",
+      "physical_gradient_fd_max": 5.8991155071908e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_physical_0.002_1_path0.table",
+      "physical_gradient_fd_max": 5.98561271658582e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_compressed_0.002_0_path0.table",
+      "physical_gradient_fd_max": 8.298199816181295e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_compressed_0.002_1_path0.table",
+      "physical_gradient_fd_max": 4.0230666087381906e-07
+    },
+    {
+      "run": "coarse",
+      "path": "online_physical_0.001_0_path0.table",
+      "physical_gradient_fd_max": 6.163827492855489e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_physical_0.001_1_path0.table",
+      "physical_gradient_fd_max": 5.4475371769058256e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_compressed_0.001_0_path0.table",
+      "physical_gradient_fd_max": 5.62165709538931e-08
+    },
+    {
+      "run": "coarse",
+      "path": "online_compressed_0.001_1_path0.table",
+      "physical_gradient_fd_max": 6.430903454202053e-08
+    },
+    {
+      "run": "refined",
+      "path": "online_physical_0.0005_0_path0.table",
+      "physical_gradient_fd_max": 6.941976948837691e-08
+    },
+    {
+      "run": "refined",
+      "path": "online_physical_0.0005_1_path0.table",
+      "physical_gradient_fd_max": 6.502392579932348e-08
+    },
+    {
+      "run": "refined",
+      "path": "online_compressed_0.0005_0_path0.table",
+      "physical_gradient_fd_max": 6.430914822885825e-08
+    },
+    {
+      "run": "refined",
+      "path": "online_compressed_0.0005_1_path0.table",
+      "physical_gradient_fd_max": 5.920201431308669e-07
+    },
+    {
+      "run": "finest",
+      "path": "online_compressed_0.00025_0_path0.table",
+      "physical_gradient_fd_max": 6.430914822885825e-08
+    },
+    {
+      "run": "finest",
+      "path": "online_compressed_0.00025_1_path0.table",
+      "physical_gradient_fd_max": 7.813529379063766e-08
+    }
+  ],
+  "harmonic_max_zscore": 1.871770508045157,
+  "interpretation": "Finite precision agreement at these tested steps; not a proof of exact continuous-time rates."
+}

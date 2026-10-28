@@ -55,3 +55,14 @@ The result directories keep command lines, exit codes, plugin SHA256, independen
 energy references, finite differences and states for cross-backend comparison.
 See [the consolidation record](../../docs/VERSION_CONSOLIDATION_20261028.zh.md)
 and [validation scope](../../docs/INTEGRATION_VALIDATION_20261028.zh.md).
+
+For production shared online WT, run `benchmarks/shared_frozen/online.py` with
+an AlSc fixture, explicit plugin and LAMMPS arguments. See the
+[shared manual](../../docs/manuals/SHARED_BIAS.zh.md).
+
+On the recorded WSL OpenMPI 5.0.6 stack, `early_cuda.py --device 0 test.py ...`
+initializes CUDA before Python imports MPI. It provides a sanitizer-compatible
+startup while retaining CUDA-aware communication. Select each rank's device
+explicitly; this is not a device mapping policy for arbitrary clusters. The
+[environment diagnosis](../../docs/SCIENCE_ENV_20261028.zh.md) records the
+isolated reproducer, unchanged installed libraries, and tested limitations.

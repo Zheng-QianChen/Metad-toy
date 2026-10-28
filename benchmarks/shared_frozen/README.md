@@ -136,3 +136,12 @@ HILLS/表格重启、实际 CUDA 求值器和 CLI 交叉检查。统计验证独
 
 [CV 压缩测试](COMPRESSION.md)进一步检验 90% 概率压进 10% CV 区间后的共同沉积、
 偏势高度、原坐标 FES 和重加权样本退化，保留未达标结果及其覆盖掩码。
+
+## 科学控制模型
+
+[Langevin MD](KINETICS.md)统计双向首次到达、删失、核心跃迁及 CPU 成本；
+[同表配对](MATCHED_MD.md)使冻结/继续分支从相同 CV 的同一训练表和初态起步。
+[FES 复原](FES_RECOVERY.md)从独立固定时长轨迹及完整总偏势恢复联合分布。
+
+这些模型使用恒高原型沉积及 MEAN 冻结势，尚未验证生产在线 WT 的 Al3Sc 联合 FES；
+其 hill 归一化与 SHARED_DEPOSIT 的默认值也应分别记录。
