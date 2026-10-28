@@ -29,6 +29,8 @@ def worker(args):
         for newton in ('on','off'):
             simulation=lammps(cmdargs=['-screen','none','-log',f'log.{geometry}.{newton}',*shlex.split(args.lammps_args)],comm=comm)
             try:
+                if args.weave_plugin:
+                    simulation.commands_list([f'plugin load "{args.weave_plugin}"','weave/batch_comm'])
                 commands=['units lj','atom_style atomic','atom_modify map array sort 0 0.0',
                           'boundary p p p',f'newton {newton}',
                           f'region box block 0 {length} 0 {length} 0 {length}', 'create_box 2 box','mass * 1']
@@ -72,6 +74,8 @@ def main():
     parser.add_argument('--np',type=int,nargs='+',default=[1,2,4])
     for name in ('mpi','mpicxx','lammps-src','nvcc','probe'):parser.add_argument('--'+name,type=Path)
     parser.add_argument('--lammps-args',default='')
+    parser.add_argument('--device-csr',action='store_true',help='Require device Half CSR without Host mirror')
+    parser.add_argument('--weave-plugin',type=Path)
     parser.add_argument('--worker',action='store_true')
     args=parser.parse_args();args.plugin=plugin_path(args.plugin);args.output=args.output.resolve()
     if args.worker:return worker(args)
@@ -82,6 +86,7 @@ def main():
     supplied_probe = args.probe is not None
     args.probe = args.probe.resolve() if supplied_probe else args.output/'engine_neighbors_probe.so'
     environment=os.environ.copy();environment.setdefault('OMPI_CXX',cache.get('CLEAN_HOST_COMPILER','g++'));environment.setdefault('OMP_NUM_THREADS','1')
+    if args.device_csr:environment['METAD_TEST_DEVICE_NEIGHBORS']='1'
     if not supplied_probe:
         subprocess.run([str(nvcc),'-ccbin',str(compiler),'-std=c++17','--shared','--cudart','shared','-Xcompiler=-fPIC',
                         str(Path(__file__).with_name('engine_neighbors_probe.cu')),'-I'+str(headers),
@@ -92,6 +97,7 @@ def main():
         directory=args.output/f'np{ranks}';directory.mkdir()
         command=[str(launcher),'-np',str(ranks),sys.executable,str(Path(__file__).resolve()),'--worker',
                  '--plugin',str(args.plugin),'--output',str(directory),'--probe',str(args.probe),'--lammps-args='+args.lammps_args]
+        if args.weave_plugin:command.extend(['--weave-plugin',str(args.weave_plugin)])
         with (directory/'screen.txt').open('w') as output:
             subprocess.run(command,env=environment,stdout=output,stderr=subprocess.STDOUT,timeout=240,check=True)
         rows=json.loads((directory/'results.json').read_text());results.extend(rows)

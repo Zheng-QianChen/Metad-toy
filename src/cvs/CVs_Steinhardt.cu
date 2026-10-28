@@ -9,6 +9,64 @@
 #include "zqc_cv_parse.h"
 using namespace MetaD_zqc;
 namespace {
+__global__ void q_scatter_adjoint(int count,const int* centers,const double* source,double* dest) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<count) dest[centers[i]]=source[i];
+}
+__global__ void q_property_rows(int count,int components,double* harmonics,double* value,
+                                 double* weights,double* adjoint,double* rows,bool unpack) {
+    const size_t k=size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    const int width=components+3;
+    if(k>=size_t(count)*width) return;
+    const size_t atom=k/width;const int c=k%width;
+    double* field=c<components ? harmonics+atom*components+c :
+                  c==components ? value+atom : c==components+1 ? weights+atom : adjoint+atom;
+    if(unpack) *field=rows[k]; else rows[k]=*field;
+}
+__global__ void q_map_rows(ArrayView<const int> centers, int total, int* rows, int* status) {
+    const size_t row=size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    if (row>=centers.item_count) return;
+    const int atom=centers(row);
+    if (atom<0 || atom>=total) {atomicOr(status,1);return;}
+    if (atomicCAS(rows+atom,-1,int(row))!=-1) atomicOr(status,2);
+}
+__global__ void q_row_counts(int count, const int* centers, const int* rows,
+                              ArrayView<const int> offsets, int pairs, int* counts, int* status) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    const int row=rows[centers[i]];
+    if (row<0) {counts[i]=0;atomicOr(status,4);return;}
+    const int first=offsets(row),last=offsets(row+1);
+    if (first<0 || last<first || last>pairs) {counts[i]=0;atomicOr(status,8);return;}
+    counts[i]=last-first;
+}
+__global__ void q_copy_candidates(int count, int total, const int* centers, const int* rows,
+                                    ArrayView<const int> offsets, ArrayView<const int> neighbors,
+                                    const int* packed_offsets, const AtomId* ids,
+                                    ArrayView<const int> flags, int* packed, int* half_flags, int* status) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    const int first=centers[i],row=rows[first];
+    int dest=packed_offsets[i];
+    for (int source=offsets(row);source<offsets(row+1);++source,++dest) {
+        const int second=neighbors(source);
+        if (second<0 || second>=total) {atomicOr(status,16);packed[dest]=0;half_flags[dest]=0;continue;}
+        packed[dest]=second;
+        half_flags[dest]=!flags(second) || ids[first]<=ids[second];
+    }
+}
+__global__ void q_pack_halves(int count, const int* centers, const int* offsets,
+                               const int* neighbors, const int* half_prefix,
+                               int* full_to_half, int* half_i, int* half_j) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    for (int entry=offsets[i];entry<offsets[i+1];++entry) {
+        if (full_to_half[entry]) {
+            const int half=half_prefix[entry];
+            half_i[half]=centers[i];half_j[half]=neighbors[entry];full_to_half[entry]=half;
+        } else full_to_half[entry]=-1;
+    }
+}
 __global__ void physical_force_from_gradient(const double* gradient, double* force, size_t count) {
     const size_t i = size_t(blockIdx.x)*blockDim.x+threadIdx.x;
     if (i < count) force[i] = -gradient[i];
@@ -189,7 +247,7 @@ Steinhardt_env::Steinhardt_env(CVContext& context, SteinhardtRequest request)
     neighbors.cutoff=cutoff_r;
     neighbors.centers=LOC_flag ? all_atoms : group_id;
     neighbors.ghost_centers=LOC_flag;
-    neighbors.host_csr=!LOC_flag;
+    neighbors.host_csr=false;
     neigh_id=engine.neighbors().request(neighbors);
 }
 
@@ -223,76 +281,88 @@ void Steinhardt_env::refresh_centers() {
 
 void Steinhardt_env::get_env() {
     const auto candidates=engine.neighbors().prepare(neigh_id);
-    candidates.host_centers.wait_host(); candidates.host_offsets.wait_host(); candidates.host_neighbors.wait_host();
+    candidates.centers.validate();candidates.offsets.validate();candidates.neighbors.validate();
+    candidates.centers.wait_on(execution.get());candidates.offsets.wait_on(execution.get());
+    candidates.neighbors.wait_on(execution.get());
     ERR_COND(candidates.coordinates!=NeighborCoordinates::PeriodicImages,
              "STEINH requires image-resolved neighbor coordinates");
     const int total=engine.total_atom_count();
-    if(!init_flag || cached_neigh_generation!=candidates.topology_generation) {
-        // 建立中心行到 CSR 的映射；支持 provider 的任意行顺序和 Host 步长。
-        std::vector<int> row_by_atom(total,-1);
-        for(size_t row=0;row<candidates.host_centers.item_count;++row)
-            row_by_atom.at(candidates.host_centers(row))=int(row);
-        resize_host(candidate_offset_storage,h_group_numneigh,group_count+1);
-        h_group_numneigh[0]=0;
-        candidate_neighbor_storage.clear();
-        std::vector<int> full_to_half, half_i,half_j,half_to_full;
-        const auto ids=engine.atom_ids();
-        const auto flags=engine.selection_flags(group_id,MemorySpace::Host);
-        ids.wait_host(); flags.wait_host();
-        for(int center=0;center<group_count;++center) {
-            const int first=h_group_indices[center], row=row_by_atom[first];
-            ERR_COND(row<0,"STEINH: missing neighbor row for owned center");
-            for(int entry=candidates.host_offsets(row);entry<candidates.host_offsets(row+1);++entry) {
-                const int second=candidates.host_neighbors(entry);
-                const int full=int(candidate_neighbor_storage.size());
-                candidate_neighbor_storage.push_back(second);
-                if(!flags(second) || ids(first)<=ids(second)) {
-                    full_to_half.push_back(int(half_i.size()));
-                    half_i.push_back(first);half_j.push_back(second);half_to_full.push_back(full);
-                } else full_to_half.push_back(-1);
-            }
-            h_group_numneigh[center+1]=int(candidate_neighbor_storage.size());
-        }
-        h_firstneigh_ptrs=candidate_neighbor_storage.data();
+    ERR_COND(candidates.centers.memory!=MemorySpace::Cuda || candidates.offsets.memory!=MemorySpace::Cuda ||
+             candidates.neighbors.memory!=MemorySpace::Cuda || candidates.offsets.item_count!=candidates.centers.item_count+1 ||
+             candidates.centers.item_count>size_t(INT_MAX) || candidates.neighbors.item_count>size_t(INT_MAX),
+             "STEINH Q requires device CSR candidates within int range");
+    if(!init_flag || !candidates.topology_generation || centers_changed ||
+       cached_neigh_generation!=candidates.topology_generation) {
+        const auto stream=execution.get();
         d_group_indices.grow_to(group_count,__FILE__,__LINE__);
-        d_group_indices.upload_from(h_group_indices,group_count, execution.get());
-        d_group_numneigh.grow_to(group_count+1,__FILE__,__LINE__);
-        d_group_numneigh.upload_from(h_group_numneigh,group_count+1, execution.get());
-        const size_t pairs=candidate_neighbor_storage.size();
-        d_firstneigh_ptrs.grow_to(pairs,__FILE__,__LINE__);
-        d_firstneigh_ptrs.upload_from(h_firstneigh_ptrs,pairs, execution.get());
-        d_full_to_half.grow_to(pairs,__FILE__,__LINE__);
-        d_full_to_half.upload_from(full_to_half.data(),pairs, execution.get());
-        n_half_candidates=int(half_i.size());
+        d_group_indices.upload_from(h_group_indices,group_count,stream);
+        d_q_row_by_atom.grow_to(std::max(total,1),__FILE__,__LINE__);
+        execution_check(cudaMemsetAsync(d_q_row_by_atom.ptr,0xff,size_t(total)*sizeof(int),stream));
+        d_q_status.grow_to(1,__FILE__,__LINE__);d_q_status.clear_async(stream);
+        const int rows=int(candidates.centers.item_count);
+        if (rows) q_map_rows<<<(rows+255)/256,256,0,stream>>>(
+            candidates.centers,total,d_q_row_by_atom.ptr,d_q_status.ptr);
+        d_q_counts.grow_to(group_count,__FILE__,__LINE__);
+        if (group_count) q_row_counts<<<block_num,d_block_size,0,stream>>>(
+            group_count,d_group_indices.ptr,d_q_row_by_atom.ptr,candidates.offsets,
+            int(candidates.neighbors.item_count),d_q_counts.ptr,d_q_status.ptr);
+        CUDA_LAUNCH_CHECK();
+        int invalid=0;
+        d_q_status.download_to(&invalid,1,stream);
+        ERR_COND(invalid,"STEINH Q: invalid or missing device neighbor row");
+        d_group_numneigh.grow_to(size_t(group_count)+1,__FILE__,__LINE__);
+        d_q_counts.scan_to(d_group_numneigh,group_count,stream);
+        execution_check(cudaMemcpyAsync(&n_full_candidates,d_group_numneigh.ptr+group_count,
+                                       sizeof(int),cudaMemcpyDeviceToHost,stream));
+        execution.synchronize();
+        ERR_COND(n_full_candidates<0 || size_t(n_full_candidates)>candidates.neighbors.item_count,
+                 "STEINH Q: candidate count overflow");
+
+        // Atom IDs are layout metadata. Only this topology rebuild uploads them;
+        // candidate rows, pair selection, and half-pair compaction stay on device.
+        const auto ids=engine.atom_ids();
+        ids.validate();ids.wait_host();
+        ERR_COND(ids.memory!=MemorySpace::Host || ids.component_count!=1 || ids.item_count<size_t(total),
+                 "STEINH Q: invalid atom IDs");
+        q_id_storage.resize(total);
+        for(int i=0;i<total;++i) q_id_storage[i]=ids(i);
+        d_q_atom_ids.grow_to(total,__FILE__,__LINE__);
+        d_q_atom_ids.upload_from(q_id_storage.data(),total,stream);
+        d_firstneigh_ptrs.grow_to(n_full_candidates,__FILE__,__LINE__);
+        d_full_to_half.grow_to(n_full_candidates,__FILE__,__LINE__);
+        if(group_count) q_copy_candidates<<<block_num,d_block_size,0,stream>>>(
+            group_count,total,d_group_indices.ptr,d_q_row_by_atom.ptr,candidates.offsets,candidates.neighbors,
+            d_group_numneigh.ptr,d_q_atom_ids.ptr,selection_flags,d_firstneigh_ptrs.ptr,d_full_to_half.ptr,d_q_status.ptr);
+        CUDA_LAUNCH_CHECK();
+        d_q_status.download_to(&invalid,1,stream);
+        ERR_COND(invalid,"STEINH Q: invalid device neighbor atom index");
+        d_q_half_prefix.grow_to(size_t(n_full_candidates)+1,__FILE__,__LINE__);
+        d_full_to_half.scan_to(d_q_half_prefix,n_full_candidates,stream);
+        execution_check(cudaMemcpyAsync(&n_half_candidates,d_q_half_prefix.ptr+n_full_candidates,
+                                       sizeof(int),cudaMemcpyDeviceToHost,stream));
+        execution.synchronize();
+        ERR_COND(n_half_candidates<0 || n_half_candidates>n_full_candidates,"STEINH Q: half-pair count overflow");
         d_half_pair_i.grow_to(n_half_candidates,__FILE__,__LINE__);
         d_half_pair_j.grow_to(n_half_candidates,__FILE__,__LINE__);
-        d_half_to_full.grow_to(n_half_candidates,__FILE__,__LINE__);
         d_active_pair_mask.grow_to(n_half_candidates,__FILE__,__LINE__);
         d_active_pair_ids.grow_to(n_half_candidates,__FILE__,__LINE__);
-        d_half_pair_i.upload_from(half_i.data(),n_half_candidates, execution.get());
-        d_half_pair_j.upload_from(half_j.data(),n_half_candidates, execution.get());
-        d_half_to_full.upload_from(half_to_full.data(),n_half_candidates, execution.get());
+        if(group_count) q_pack_halves<<<block_num,d_block_size,0,stream>>>(
+            group_count,d_group_indices.ptr,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr,d_q_half_prefix.ptr,
+            d_full_to_half.ptr,d_half_pair_i.ptr,d_half_pair_j.ptr);
+        CUDA_LAUNCH_CHECK();
         cached_neigh_generation=candidates.topology_generation;init_flag=true;
     }
     d_neigh_in_cutoff_r.grow_to(std::max(total,1),__FILE__,__LINE__);
     d_neigh_in_switching.grow_to(std::max(total,1),__FILE__,__LINE__);
-    d_calculated_numneigh.grow_to(candidate_neighbor_storage.size(),__FILE__,__LINE__);
+    d_calculated_numneigh.grow_to(n_full_candidates,__FILE__,__LINE__);
     d_neigh_in_cutoff_r.clear_async(execution.get());d_neigh_in_switching.clear_async(execution.get());d_active_pair_mask.clear_async(execution.get());
     if(group_count) get_environment_Steinhardt_Q<<<block_num,d_block_size,0,execution.get()>>>(
         my_r_SWfunc->params,group_count,0,cutoff_r,cutoff_eps_r,
         d_group_indices.ptr,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr,positions,d_full_to_half.ptr,
         d_neigh_in_cutoff_r.ptr,d_active_pair_mask.ptr,d_neigh_in_switching.ptr,d_calculated_numneigh.ptr);
     CUDA_LAUNCH_CHECK();
-    d_calculated_firstneigh_ptrs.grow_to(group_count+1,__FILE__,__LINE__);
-    d_calculated_firstneigh_ptrs.clear_async(execution.get());
-    if(group_count) d_neigh_in_cutoff_r.scan_to(d_calculated_firstneigh_ptrs,group_count, execution.get());
     n_active_pairs=0;
     if(n_half_candidates) d_active_pair_mask.flag_to(d_active_pair_ids,n_half_candidates,&n_active_pairs, execution.get());
-    resize_host(active_offset_storage,h_calculated_firstneigh_ptrs,group_count+1);
-    d_calculated_firstneigh_ptrs.download_to(h_calculated_firstneigh_ptrs,group_count+1, execution.get());
-    num_of_all_calc_fullpair=h_calculated_firstneigh_ptrs[group_count];
-    resize_host(weight_storage,h_neigh_in_switching,total);
-    if(total) d_neigh_in_switching.download_to(h_neigh_in_switching,total, execution.get());
     geometry_evaluation=engine.evaluation_id();
 }
 
@@ -355,6 +425,24 @@ void MetaD_zqc::STEIN_QL<L>::apply_adjoint(ArrayView<const double> leaf_adjoint)
     const int atom_count = engine.total_atom_count();
     d_center_adjoint.grow_to(center_count, __FILE__, __LINE__);
     assembly_->gather_adjoint(leaf_adjoint, d_center_adjoint.view(center_count), my_env->execution.get());
+    d_atom_adjoint.grow_to(atom_count,__FILE__,__LINE__);
+    d_atom_adjoint.clear_async(my_env->execution.get());
+    if(center_count) q_scatter_adjoint<<<(center_count+255)/256,256,0,my_env->execution.get()>>>(
+        center_count,my_env->d_group_indices.ptr,d_center_adjoint.ptr,d_atom_adjoint.ptr);
+    const size_t property_size=size_t(atom_count)*size_t(num_elements+3);
+    d_forward_properties.grow_to(property_size,__FILE__,__LINE__);
+    if(property_size) q_property_rows<<<(property_size+255)/256,256,0,my_env->execution.get()>>>(
+        atom_count,num_elements,d_stein_qlm.ptr,d_stein_ql.ptr,my_env->d_neigh_in_switching.ptr,
+        d_atom_adjoint.ptr,d_forward_properties.ptr,false);
+    CUDA_LAUNCH_CHECK();
+    d_forward_properties.record_write(my_env->execution.get());
+    const bool device_forward=engine.communicate_forward_device(d_forward_properties.view(atom_count,num_elements+3));
+    if(device_forward) {
+        if(property_size) q_property_rows<<<(property_size+255)/256,256,0,my_env->execution.get()>>>(
+            atom_count,num_elements,d_stein_qlm.ptr,d_stein_ql.ptr,my_env->d_neigh_in_switching.ptr,
+            d_atom_adjoint.ptr,d_forward_properties.ptr,true);
+        CUDA_LAUNCH_CHECK();
+    } else {
     h_center_adjoint.resize(center_count);
     h_atom_adjoint.assign(atom_count, 0.0);
     if (center_count) {
@@ -369,6 +457,8 @@ void MetaD_zqc::STEIN_QL<L>::apply_adjoint(ArrayView<const double> leaf_adjoint)
     if (atom_count) {
         d_stein_ql.download_to(stein_q, atom_count, my_env->execution.get());
         d_stein_qlm.download_to(h_stein_qlm, size_t(atom_count)*num_elements, my_env->execution.get());
+        resize_host(my_env->weight_storage,my_env->h_neigh_in_switching,atom_count);
+        my_env->d_neigh_in_switching.download_to(my_env->h_neigh_in_switching,atom_count,my_env->execution.get());
     }
     engine.communicate_forward(*this);
     d_atom_adjoint.grow_to(atom_count, __FILE__, __LINE__);
@@ -377,6 +467,7 @@ void MetaD_zqc::STEIN_QL<L>::apply_adjoint(ArrayView<const double> leaf_adjoint)
         d_stein_qlm.upload_from(h_stein_qlm, size_t(atom_count)*num_elements, my_env->execution.get());
         d_stein_ql.upload_from(stein_q, atom_count, my_env->execution.get());
         my_env->d_neigh_in_switching.upload_from(my_env->h_neigh_in_switching, atom_count, my_env->execution.get());
+    }
     }
 
     // localid 连续存储：梯度 [3*localid+c]，完整 virial [9*localid+c]。

@@ -23,6 +23,7 @@ public:
         // 一次 reverse 可能包含多个邻域交换阶段，计数不等于 MPI 消息数。
         std::uint64_t force_virial_submissions = 0, force_virial_flushes = 0;
         std::uint64_t force_reverse_calls = 0;
+        std::uint64_t device_property_forwards = 0;
     };
     LammpsEngineAdapter(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics*, Logger = {});
     ~LammpsEngineAdapter() override;
@@ -48,6 +49,7 @@ public:
     std::int64_t timestep() const override;
     void communicate_forward(AtomCommunication&) override;
     void communicate_reverse(AtomCommunication&) override;
+    bool communicate_forward_device(ArrayView<double>) override;
     int register_neighbors(const NeighborRequest&) override;
     NeighborListView prepare_neighbors(int) override;
     void read_owned_atoms(const AtomId*, size_t, double*, int*) override;

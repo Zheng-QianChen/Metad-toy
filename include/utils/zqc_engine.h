@@ -152,6 +152,10 @@ public:
     // 属性通信由适配器转发，CV 只定义数据包的 pack/unpack。
     virtual void communicate_forward(AtomCommunication&) { throw std::logic_error("Engine: forward communication unavailable"); }
     virtual void communicate_reverse(AtomCommunication&) { throw std::logic_error("Engine: reverse communication unavailable"); }
+    // Optional owner-to-ghost transfer for a CUDA [total,width] property field.
+    // false leaves the field unchanged and requests the legacy packet fallback.
+    // true returns only after all writes finish, including empty-rank participation.
+    virtual bool communicate_forward_device(ArrayView<double>) { return false; }
     SumReducer sum_reducer() { return [this](double* values, size_t count) { sum(values,count); }; }
 
     // 每个请求 ID 填写 [x,y,z,owner_count] 及本 rank owned 下标；缺失下标为 -1。

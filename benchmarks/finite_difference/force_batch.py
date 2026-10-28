@@ -89,6 +89,7 @@ def main():
             print(f"PASS: {comm.size} ranks; Graph {difference}; 12 batch layouts/lifecycles",flush=True)
     finally:
         simulation.close()
+        simulation.lib.lammps_kokkos_finalize()
 if __name__=="__main__":
     try:
         main()

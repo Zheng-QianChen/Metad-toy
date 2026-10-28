@@ -21,6 +21,7 @@ public:
     ArrayView<const double> positions(size_t count);
     ArrayView<const int> types(size_t count);
     KokkosNeighborView full_neighbors(LAMMPS_NS::NeighList*, bool ghost_centers);
+    bool communicate_forward(ArrayView<double>);
     // MPI reverse 后的 owned 增量上传并加到已有力上，完成后标记 Device 为最新。
     void add_forces(const double* values, size_t count);
     void add_force(int local, const double values[3]);

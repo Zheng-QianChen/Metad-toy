@@ -16,6 +16,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <cstdlib>
 using namespace MetaD_zqc;
 namespace {
 thread_local std::string last_error;
@@ -52,6 +53,8 @@ extern "C" int engine_neighbors_register(void* pointer) {
         auto* simulation=static_cast<LAMMPS_NS::LAMMPS*>(pointer); auto& engine=adapter(simulation);
         NeighborRequest request; request.cutoff=cutoff;
         reference_handle=engine.neighbors().request(request);
+        const bool device_requested=std::getenv("METAD_TEST_DEVICE_NEIGHBORS")!=nullptr;
+        if(device_requested) request.host_csr=false;
         const int first=simulation->group->find("first"),second=simulation->group->find("second"),
                   overlap=simulation->group->find("overlap"),empty=simulation->group->find("empty");
         require(first>=0 && second>=0 && overlap>=0 && empty>=0,"test selections missing");
@@ -82,16 +85,26 @@ extern "C" int engine_neighbors_check(void* pointer,double* maximum_error) {
         double local_error=0;
         const int rows[9]={0,1,2,0,0,1,1,2,2},columns[9]={0,1,2,1,2,2,0,0,1};
         for(const auto& test:cases) {
-            const auto half=engine.neighbors().prepare(test.handle);
+            auto half=engine.neighbors().prepare(test.handle);
             require(half.kind==NeighborKind::Half && half.pair_ownership==NeighborPairOwnership::UniqueAcrossRanks,"Half metadata");
             // 新流从返回视图的事件获取依赖，验证候选上传不会依赖默认流隐式同步。
             cudaStream_t consumer;require(cudaStreamCreateWithFlags(&consumer,cudaStreamNonBlocking)==cudaSuccess,"consumer stream");
             half.neighbors.wait_on(consumer);half.offsets.wait_on(consumer);half.centers.wait_on(consumer);
             std::vector<int> copied(half.neighbors.item_count);
+            std::vector<int> offsets(half.offsets.item_count);
             if(!copied.empty()) require(cudaMemcpyAsync(copied.data(),half.neighbors.data,copied.size()*sizeof(int),
                 cudaMemcpyDeviceToHost,consumer)==cudaSuccess,"neighbor download");
+            if(!offsets.empty()) require(cudaMemcpyAsync(offsets.data(),half.offsets.data,offsets.size()*sizeof(int),
+                cudaMemcpyDeviceToHost,consumer)==cudaSuccess,"offset download");
             require(cudaStreamSynchronize(consumer)==cudaSuccess,"consumer wait");cudaStreamDestroy(consumer);
-            for(size_t entry=0;entry<copied.size();++entry) require(copied[entry]==half.host_neighbors(entry),"stale device neighbors");
+            if(std::getenv("METAD_TEST_DEVICE_NEIGHBORS")) {
+                require(!half.host_neighbors.item_count && !half.host_offsets.item_count,"unexpected Host CSR mirror");
+                require(engine.sync_stats().device_neighbor_rebuilds>0,"native device neighbors not exercised");
+                half.host_neighbors=make_aos_view<const int>(copied.data(),copied.size(),1,copied.size(),MemorySpace::Host);
+                half.host_offsets=make_aos_view<const int>(offsets.data(),offsets.size(),1,offsets.size(),MemorySpace::Host);
+            } else {
+                for(size_t entry=0;entry<copied.size();++entry) require(copied[entry]==half.host_neighbors(entry),"stale device neighbors");
+            }
             std::vector<double> expected((largest+1)*12,0),forces(total*3,0),virials(total*9,0);
             std::array<double,11> reference{},actual{}; // pair count, energy, W[9]
             const auto evaluate=[&](const NeighborListView& list,bool oracle) {

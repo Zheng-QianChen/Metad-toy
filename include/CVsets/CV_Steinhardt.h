@@ -63,6 +63,10 @@ protected:
     int num_of_all_calc_fullpair = 0, n_half_candidates = 0, n_active_pairs = 0;
     GpuBuffer<int> d_half_pair_i, d_half_pair_j, d_half_to_full, d_full_to_half;
     GpuBuffer<int> d_active_pair_mask, d_active_pair_ids;
+    GpuBuffer<int> d_q_row_by_atom, d_q_counts, d_q_half_prefix, d_q_status;
+    GpuBuffer<AtomId> d_q_atom_ids;
+    std::vector<AtomId> q_id_storage;
+    int n_full_candidates = 0;
 public:
     int neigh_id = -1;
     Steinhardt_env(CVContext&, SteinhardtRequest);
@@ -92,6 +96,7 @@ protected:
     GpuBuffer<double> d_dcvdx, d_a_virial, d_physical_force;
     // Graph 梯度按 owned 中心提取，forward 通信后补齐另一端的值、球谐和梯度。
     GpuBuffer<double> d_center_adjoint, d_atom_adjoint;
+    GpuBuffer<double> d_forward_properties;
     std::vector<double> h_center_adjoint, h_atom_adjoint, force_storage;
     // 按需归并到 owner 的诊断梯度；同轮请求 x/y/z 时共用一次 reverse。
     std::vector<double> output_gradient;

@@ -253,6 +253,7 @@ run 0
         simulation.commands_string('timestep 0.1\nfix drift all move linear 0.8 0.3 0.5 units box\nrun 40\nunfix drift')
         report['migration']=validate(state())
     simulation.close()
+    simulation.lib.lammps_kokkos_finalize()
     if rank==0:
         log=(directory/'log.lammps').read_text(encoding='utf-8')
         if args.executor=='GRAPH': assert log.count('NVRTC ready:')==1,'unexpected recompilation'

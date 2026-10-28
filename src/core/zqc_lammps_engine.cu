@@ -23,20 +23,36 @@
 namespace MetaD_zqc {
 namespace {
 #ifdef ZQC_LAMMPS_KOKKOS
+struct DeviceNeighborFilter {
+    ArrayView<const int> centers, neighbors;
+    ArrayView<const AtomId> ids;
+    ArrayView<const double> positions;
+    bool unique = false;
+    __device__ bool keep(int i, int j) const {
+        if(neighbors.data && !neighbors(j)) return false;
+        if(!unique || (centers.data && !centers(j)) || (neighbors.data && !neighbors(i))) return true;
+        if(ids(i)!=ids(j)) return ids(i)<ids(j);
+        for(int axis=2;axis>=0;--axis) {
+            const double delta=positions(j,axis)-positions(i,axis);
+            if(delta!=0) return delta>0;
+        }
+        return false;
+    }
+};
 __global__ void count_device_neighbors(int rows, const int* centers, KokkosNeighborView native,
-                                       ArrayView<const int> flags, unsigned long long* counts) {
+                                       DeviceNeighborFilter filter, unsigned long long* counts) {
     const int row = blockIdx.x*blockDim.x+threadIdx.x;
     if (row >= rows) return;
     const int center = centers[row];
     unsigned long long count = 0;
     for (int k = 0; k < native.counts(center); ++k) {
         const int neighbor = native.neighbors(center,k) & NEIGHMASK;
-        if (!flags.data || flags(neighbor)) ++count;
+        if (filter.keep(center,neighbor)) ++count;
     }
     counts[row] = count;
 }
 __global__ void pack_device_neighbors(int rows, const int* centers, KokkosNeighborView native,
-                                      ArrayView<const int> flags, const unsigned long long* prefix,
+                                      DeviceNeighborFilter filter, const unsigned long long* prefix,
                                       int* offsets, int* neighbors) {
     const int row = blockIdx.x*blockDim.x+threadIdx.x;
     if (row > rows) return;
@@ -46,7 +62,7 @@ __global__ void pack_device_neighbors(int rows, const int* centers, KokkosNeighb
     int write = offsets[row];
     for (int k = 0; k < native.counts(center); ++k) {
         const int neighbor = native.neighbors(center,k) & NEIGHMASK;
-        if (!flags.data || flags(neighbor)) neighbors[write++] = neighbor;
+        if (filter.keep(center,neighbor)) neighbors[write++] = neighbor;
     }
 }
 #endif
@@ -204,6 +220,7 @@ struct LammpsEngineAdapter::Impl {
         GpuBuffer<int> device_centers, device_offsets, device_neighbors;
 #ifdef ZQC_LAMMPS_KOKKOS
         GpuBuffer<unsigned long long> device_counts, device_prefix;
+        GpuBuffer<AtomId> device_ids;
 #endif
     };
     // unique_ptr 保证追加请求不会移动 GpuBuffer 所有者。
@@ -461,6 +478,17 @@ void LammpsEngineAdapter::communicate_forward(AtomCommunication& packet) {
 void LammpsEngineAdapter::communicate_reverse(AtomCommunication& packet) {
     impl_->fix->communicate_reverse(packet);
 }
+bool LammpsEngineAdapter::communicate_forward_device(ArrayView<double> rows) {
+#ifdef ZQC_LAMMPS_KOKKOS
+    if (impl_->kokkos->communicate_forward(rows)) {
+        ++impl_->stats.device_property_forwards;
+        return true;
+    }
+#else
+    (void)rows;
+#endif
+    return false;
+}
 
 int LammpsEngineAdapter::register_neighbors(const NeighborRequest& request) {
     request.validate();
@@ -483,7 +511,7 @@ int LammpsEngineAdapter::register_neighbors(const NeighborRequest& request) {
     native.ghost = request.ghost_centers ? 1 : 0; native.use_cutoff = 1;
     native.cutoff = NeighHub::canonicalize_cutoff(request.cutoff);
 #ifdef ZQC_LAMMPS_KOKKOS
-    list->native_device = state.kokkos->active() && !request.host_csr && request.kind == NeighborKind::Full;
+    list->native_device = state.kokkos->active() && !request.host_csr;
     native.kokkos_device = list->native_device ? 1 : 0;
 #endif
     state.lmp->comm->cutghostuser = std::max(state.lmp->comm->cutghostuser,
@@ -529,18 +557,28 @@ NeighborListView LammpsEngineAdapter::prepare_neighbors(int handle) {
             for (int center = 0; center < limit; ++center)
                 if (center >= owned || all_centers || (state.lmp->atom->mask[center] & mask))
                     list.centers.push_back(center);
-            ArrayView<const int> flags;
+            DeviceNeighborFilter filter;
             if (list.request.neighbors != all_atoms && list.request.neighbors != 0)
-                flags = selection_flags(list.request.neighbors, MemorySpace::Cuda);
+                filter.neighbors = selection_flags(list.request.neighbors, MemorySpace::Cuda);
             const int rows = static_cast<int>(list.centers.size());
             const auto stream = state.transfer.get();
-            native.counts.wait_on(stream); native.neighbors.wait_on(stream); flags.wait_on(stream);
+            filter.unique=list.request.kind==NeighborKind::Half && !list.native_half;
+            if(filter.unique) {
+                if(!all_centers) filter.centers=selection_flags(list.request.centers,MemorySpace::Cuda);
+                const auto ids=atom_ids();
+                list.device_ids.grow_to(ids.item_count,__FILE__,__LINE__);
+                list.device_ids.upload_from(ids.data,ids.item_count,stream);
+                filter.ids=list.device_ids.view(ids.item_count);
+                filter.positions=positions(MemorySpace::Cuda);
+            }
+            native.counts.wait_on(stream); native.neighbors.wait_on(stream);
+            filter.centers.wait_on(stream);filter.neighbors.wait_on(stream);filter.positions.wait_on(stream);
             upload(list.device_centers, list.centers, stream);
             list.device_counts.grow_to(rows, __FILE__, __LINE__);
             list.device_prefix.grow_to(size_t(rows)+1, __FILE__, __LINE__);
             if (rows) {
                 count_device_neighbors<<<(rows+255)/256,256,0,stream>>>(rows,list.device_centers.ptr,
-                    native,flags,list.device_counts.ptr);
+                    native,filter,list.device_counts.ptr);
                 check_cuda(cudaGetLastError());
                 list.device_counts.record_write(stream);
             }
@@ -554,7 +592,7 @@ NeighborListView LammpsEngineAdapter::prepare_neighbors(int handle) {
             list.device_offsets.grow_to(size_t(rows)+1,__FILE__,__LINE__);
             list.device_neighbors.grow_to(list.device_neighbor_count,__FILE__,__LINE__);
             pack_device_neighbors<<<(rows+256)/256,256,0,stream>>>(rows,list.device_centers.ptr,
-                native,flags,list.device_prefix.ptr,list.device_offsets.ptr,list.device_neighbors.ptr);
+                native,filter,list.device_prefix.ptr,list.device_offsets.ptr,list.device_neighbors.ptr);
             check_cuda(cudaGetLastError());
             list.device_offsets.record_write(stream); list.device_neighbors.record_write(stream);
             ++state.stats.neighbor_rebuilds;
