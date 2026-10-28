@@ -1,0 +1,95 @@
+{
+  "snapshot_commit": "5c2e8a6ef4f01acaf8641a61728cea219bee1b4f",
+  "sources": [
+    {
+      "source": "/home/zqc/work/Al3Sc-kokkos-shared-20261028/source/metadtoy",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/1-metadtoy.tar.gz",
+      "sha256": "4dac6f30b3358b7df23f4c8f3836b6f996e686a559e3f1e6d11f4475e20b752e"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/2-Metad-toy.tar.gz",
+      "sha256": "688060d1f85a41f0dda0663936bce340fee30950e5186ac9e45031fa0501f0d6"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-al3sc-kokkos-joint-20261027",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/3-Metad-toy-al3sc-kokkos-joint-20261027.tar.gz",
+      "sha256": "b56d1241ad4ff26c0681b139427249ee3fb193d4fafd044a862443619ca373c1"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-hybrid-mpi",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/4-Metad-toy-hybrid-mpi.tar.gz",
+      "sha256": "cbe5fcdeb9006cddbcb8eb571659bbf6ac671cdeef7a52cba482951b5b8793a1"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-localql-css-l12",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/5-Metad-toy-localql-css-l12.tar.gz",
+      "sha256": "2e40e7162b959f1ce1843e75c9dbfd0f7fab37d74e2c9ee25d6694b7d3f44fe0"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-localql-css-sw-no-wt",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/6-Metad-toy-localql-css-sw-no-wt.tar.gz",
+      "sha256": "05c8f919995ba866866e7d3f5cfe9e60e6053f0e0ac279b81c602b76914f3024"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-plumed-compare",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/7-Metad-toy-plumed-compare.tar.gz",
+      "sha256": "39561b306f3213ac8c3fb6c802500e4d6adbca662d368b79d0dbd65abc2b8c65"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-plumed-compare/Metad-toy-fork",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/8-Metad-toy-fork.tar.gz",
+      "sha256": "8e78cf5c24ec61f7737c080be10cb981c8b7100631e699e7cc9d99401508aa4e"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-views-graph",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/9-Metad-toy-views-graph.tar.gz",
+      "sha256": "c19a09fba69ce6139864e8fcc4f501722554a31a3127c9e7e2b6ac7d90849f69"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-views-q",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/10-Metad-toy-views-q.tar.gz",
+      "sha256": "4bda50c8f4693d912af30d2f54e57ca707245f6a0e1cfdfa4c4d51dcd8a619e9"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy-views-radial",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/11-Metad-toy-views-radial.tar.gz",
+      "sha256": "9b2f3e15c3037c0c9db8fd6146d0fdf927352b63fcc386b57b31e0203a8c80fa"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy/build/bias-layer-20261023/grid-worktree",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/12-grid-worktree.tar.gz",
+      "sha256": "e75b335cbeec5691f80984f4a4fef7281a07ade9d49e10d501dc816e2334d993"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy/build/gpumd-adapter-worktree",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/13-gpumd-adapter-worktree.tar.gz",
+      "sha256": "dee3e0a2c59467daf7064f28aec6f3eb12a75b240ff1a32c3b23d2304f5c55a8"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy/build/gpumd-dynamic-review",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/14-gpumd-dynamic-review.tar.gz",
+      "sha256": "58f030ada3f3dc4ac99bef16375a54af425f915d3117f8c998a5ce1a1558f6a4"
+    },
+    {
+      "source": "/home/zqc/work/Metad-toy/build/gpumd-neighbors-worktree",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/15-gpumd-neighbors-worktree.tar.gz",
+      "sha256": "29084df6073b0a2c99283bcc004ec0dc1ad7e4998f37c8ba86b64d51b6092d3e"
+    },
+    {
+      "source": "/mnt/f/Users/Administrator/Documents/ChatGPT/work_MetaDtoy/weave_metad_joint_20261027/metadtoy",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/20-metadtoy.tar.gz",
+      "sha256": "35f57e713ae569cb5b32f3764a0cc589e6f040dabf0f234bbe131b3685fc27be"
+    },
+    {
+      "source": "/mnt/f/Users/Administrator/Documents/ChatGPT/work_MetaDtoy/weave_metad_joint_20261027/metadtoy-baseline",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/21-metadtoy-baseline.tar.gz",
+      "sha256": "31f06d65be765c629730440130b517e6cf5b8946f125b7e3312aeb50d9e36114"
+    },
+    {
+      "source": "/home/zqc/work/lammps-metad-toy",
+      "archive": "/mnt/f/Users/Administrator/Documents/ChatGPT/Work_MetaD/artifacts/metadtoy-integration-20261028/source-snapshots/22-lammps-metad-toy.tar.gz",
+      "sha256": "675e0207d36330687c1dd983e716e2f9686d47ac6cd0417e4922f79e715c4be9"
+    }
+  ]
+}

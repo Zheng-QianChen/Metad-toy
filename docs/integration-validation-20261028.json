@@ -1,0 +1,269 @@
+{
+  "source_code_sha256": "875f3cc6093d06c086b0dd30e143d5cf301bb27f7c78537e5dbdf674ddd9f168",
+  "source_files": {
+    "CMakeLists.txt": "6633810f3157049f17e92583729c2bd7be0e6e78fe6d93055effb622c08e24da",
+    "CMakePresets.json": "11e277468bd97a3737ee3db90855a9b7e1b794709f6e6e0517ff94158c32957a",
+    "cmake/BuildOptions.cmake": "9d41455b2c20e2e413cfd9f6136d3a6be25b71d35783f9f1682ebc7f717407fc",
+    "cmake/GraphDependencies.cmake": "1e34ee094f726cf27bc48d0493d2d267ed72fe8d77e4e7c54ce2e939bea17216",
+    "cmake/LammpsDependencies.cmake": "779a4fb3c147b2e2374a1d3641cc13e6768e4f99b208bb1cd26e6c45f530a149",
+    "cmake/LammpsTrimCompatibility.cmake": "3ee6dcaa596003de365bfe78db8c41e1cf37c5ad98ecf1f7820d793c620dc979",
+    "cmake/README.md": "7342d0ae6ebddd9901d1dfe4b1c4c1c833fbbf16463b4f0f9259fe52a7272d3b",
+    "cmake/prepare_gpumd.py": "1629e38613447f259ceff124f37baa7fcbe3d8804d06d24503c3a9df885f2c7f",
+    "cmake/xxd_embed.cmake": "5093a9ae1a47e61e1e85aa1713eb876c57a978df7d9312ef4a729dcd052e826b",
+    "include/CVsets/CV_CSS.h": "2f104f5c76a9a1c6f4ac5092ccb758545fb931e129c6344a3e6914fbb6e756eb",
+    "include/CVsets/CV_Distance.h": "01eeff8e4a32b75e8e412d9a829f6226b2c20c5362885686bb409f72d336c48f",
+    "include/CVsets/CV_Steinhardt.h": "a2bb22cfac9dfd96466d018b5663e0f12e7787e011229b48626ecd82c9e0cad0",
+    "include/CVsets/CV_Steinhardt_math.h": "645d424676eba340e82f163b106d16338e2a6444e9da2ac1d76d5b6833ee48e5",
+    "include/CVsets/CV_Stru_factor.h": "6d45256a7b804bd6a62edd278449fc84154b03367380c7a10fb602dd570fd2fa",
+    "include/CVsets/CV_Weighted_Chemical_Pair_Order.h": "2f04826e25dae0b48938efc3d687b2849828f2de78a995668afcdf5f5d027250",
+    "include/adapters/zqc_gpumd_bridge.cuh": "4d243cebff5dd9280b5518faf9b8d7154dff6effa1cef479ca82e20164ed39bf",
+    "include/adapters/zqc_gpumd_engine.cuh": "e938f21aeb738ad7dce2fc96a39c65e82dc5ff8d64e4d80ac365c9b97019b25c",
+    "include/adapters/zqc_metadtoy_api.h": "f88eaf4e475b155118c657980515fefc824c9384c675c4bf6427d3e35fb98584",
+    "include/core/compute_MetaDToy.h": "102d28f329473e0d100dff6a6c1c922110567685cf5fd9a942dafaab9a951d34",
+    "include/core/fix_crystallize.h": "9e2e4cd8bdde7f5df4dafc7c009faa2fc5bdb42aa501851b9041b26fe9643dca",
+    "include/core/neigh_hub.h": "a0d2aa729fba0d9023924f129f9f50cb78ceb77bc301b144956161f3b9a77384",
+    "include/core/zqc_DimSet.h": "f155eff39131982a659d5e1d8ac2b7f5951dfeb12090695f822109c00d70e53e",
+    "include/core/zqc_cv_graph.cuh": "7065e45e29e83cd32531c3ff579285ad8bafeb37dd765e0222603fe266d66893",
+    "include/core/zqc_lammps_diagnostics.h": "b7c2ad16dbf7b004576a66b19a7935cc3f59096af9d91c588ada7f16c00fefe2",
+    "include/core/zqc_lammps_engine.h": "ce0695d20cea2cc52c3405c239e13ff144a18ccd28d760bdf7155a79f128283a",
+    "include/core/zqc_lammps_kokkos.h": "c6736de44db9d7780b7b27018613ed455619d73ac00a6a5e00467e1c90917021",
+    "include/ml_cvs/zqc_mlcvs.h": "d2dc9745c27018430acdd6ba91191221cab4fe7d344c8b94513176769fa52b08",
+    "include/utils/zqc_CVs_tools.h": "862f0ddf183c2163b266f0faeb55f113a5af7bd757d5ad79732b5491c105259c",
+    "include/utils/zqc_array_view.h": "738e715e1af5136d68c1c46a837b200b835a06afe613e027055e4add64758cf8",
+    "include/utils/zqc_bias.h": "3927aeb4981edb0cbc66cf00d15823b08401567b9acafe72e7d00d2c53b98ce0",
+    "include/utils/zqc_bias_grid.h": "6a77dc0978e970b4ec099da90744f1cabb20c97d7d85d54148961f792e5b92ca",
+    "include/utils/zqc_collective.h": "a54e1c1982600254243091934903f729b0e67a41b34fef07a37999d73654c8af",
+    "include/utils/zqc_cuda_execution.cuh": "fe1f424cbe2f0de8a6388a9889f452d1c22ae174d995f277b2fbd03c9a95add5",
+    "include/utils/zqc_cv.h": "5ec72226dc252db0ed31c4f769d3de403d61d34fa7135f238cf3f18b22c1a681",
+    "include/utils/zqc_cv_assembly.cuh": "2fa7a9538fe6b73886f5a481ae30e18fef213f089645759706ac6e9bda8a4ef4",
+    "include/utils/zqc_cv_debug.h": "c1159f2dd4583fac689d6e56f50ad0211d29e2117e2e135f7ec2242e5556290d",
+    "include/utils/zqc_cv_parse.h": "3b4bd1e906cb833e3d3c5ad412a1e2e45109dae95f034d150b073cf3575c41bc",
+    "include/utils/zqc_debug.h": "284f71d9217d94613a8f8b3f2ed7a4baf3b8538516a649619e56871d8baa36e8",
+    "include/utils/zqc_diagnostics.h": "91f7f560d4327e5dbb7f6cfcf4bf00cf9cf4240b1eb802424e9e39395df71c10",
+    "include/utils/zqc_distance.h": "9410903b7f6e40ac4050da41164af77ae2ba5d28ae6e9c026c7c4e587badd70e",
+    "include/utils/zqc_engine.h": "e5b7429050269335450bf95404d8828acf4cfce8c900aea43017581d3894fd52",
+    "include/utils/zqc_gpu_buffer.cuh": "efb4bd07b25f393508caaadaafac2c48852831f51e90c6da9c77ea3ea6c7536a",
+    "include/utils/zqc_graph.cuh": "4fd175097fa0d4ac5d674cf3cde6c279b4db510155c9a2d82ff8e232c9573e3c",
+    "include/utils/zqc_graph_device.cuh": "7ef88f4f88ae7c9ad6aefc23a6b74d0ba1b7bf06d0e1a7e25ff87797b9cf4cf6",
+    "include/utils/zqc_hill_bias.h": "2a46f92286ef66fa896061010d0e7f8929a518db3b6417d00d1249a9bb529a06",
+    "include/utils/zqc_shared_bias.cuh": "c16ae3007175df1718a29041e88e44388b82a91f5ab1f830b6aa6febd00ac2bc",
+    "include/utils/zqc_switch_function.h": "c1fc6ce2e1af57e1d435339050935bc87b7883fba5a3446dd43ca331adcc0b1c",
+    "include/utils/zqc_switch_function_device.cuh": "7c364a7ae6069e43eb3514f148a859a12617acaab4f5b9880d9f5b3ff8415193",
+    "include/utils/zqc_virial.h": "5eecb8279cacd8cdb1283a025f86c93fbaf355c0a2c51aed3bda08895489dd42",
+    "src/adapters/gpumd/CMakeLists.txt": "6b774469dc9095dfd974ae9d87aa7ad979b15beae2f6059d4c4ba86dbb1f9b84",
+    "src/adapters/gpumd/metadtoy.exports": "bc9ddfda97f292621c78963816a7adef51a4118112d0d13915ce066be0a680c7",
+    "src/adapters/gpumd/zqc_gpumd_bridge.cu": "3d2de35ffbe5b6adff17f2dbebad888faae132280b3cffa858562bbb2fea6508",
+    "src/adapters/gpumd/zqc_gpumd_engine.cu": "34fed648afd6fd7b376537abdb9007c5aa33b94dab0fe5d50d8cd755146c0937",
+    "src/adapters/gpumd/zqc_gpumd_neighbors.cu": "7d32475760905a14ca0b5b6400783d46c4ef1e45484c75b0e91719aa8b6ab77e",
+    "src/adapters/gpumd/zqc_gpumd_neighbors.cuh": "a42c085ada3d00b7783a98abe007c6826efc43ca9808e1284cc2b99ba6b34e1c",
+    "src/adapters/gpumd/zqc_gpumd_runtime.cu": "4f704c125fd6d8bb3f55c1677add02976afa4ab9104fd45cf626286e7f3145a1",
+    "src/core/CMakeLists.txt": "0517dad162b2b82d52dde4e3d445a2bd60bac8b9d0924e525e036ac4b97c1f46",
+    "src/core/CVFactory.cu": "73d48e5b5cf62e31a5bbdb095cc4590911de1df51f8144863bce9f97bca2169d",
+    "src/core/compute_MetaDToy.cu": "af876d53aded1a12397b1487ac6de990808dddbd68eb6c729f8ad759cc1de3f3",
+    "src/core/fix_crystallize.cu": "440d4152f4774821a9591c0332aae8a86f8efaa47775a81943a7ddbf6541a2b6",
+    "src/core/neigh_hub.cu": "2971ce922174616b9659063fd73bdf1506bcb609ada9323c326db437ef1fa3bb",
+    "src/core/zqc_cv_graph.cu": "49490414a29d92bddb0e6035033fe937dfaa4bfed3713b595e601330c5d64b86",
+    "src/core/zqc_lammps_diagnostics.cpp": "621899714e4cbfb3578affff297a414b6e7b40f0cf565f6a688a98a34212d1bb",
+    "src/core/zqc_lammps_engine.cu": "ace5c4d852a5710bcde9c2db751fc289280c15dbe326d05db52adca6b31319ed",
+    "src/core/zqc_lammps_kokkos.cu": "258ac3c880da8873770a36907162604feb5bdea2ad232139cfcf71633f46a3f1",
+    "src/cvs/CMakeLists.txt": "73a1408b7d09c5e756bfeada33f42393fda5efff130294b0fdeba901390531e4",
+    "src/cvs/CV_Weighted_Chemical_Pair_Order.cu": "4cc5d2649bbc090f705018af9d481bf24a4217c6678ff106f07b32777c46c49d",
+    "src/cvs/CVs_CSS.cu": "f3d17484acb4f2d8f6e6f7f635ed090b6459753a71619b56d6174f2aa9426957",
+    "src/cvs/CVs_DISTANCE.cu": "6da90cb04564453acdedb61e92df84a3a54bc8a34ec573fa28a943b2cb8218ae",
+    "src/cvs/CVs_Steinhardt.cu": "c5d6c63acf55edca62914a3a904f4fe98873f2c3a73baa9d03aa3a7e795966f7",
+    "src/cvs/CVs_Steinhardt_Local.cu": "31df907d7047826a070c33f0fe15f6571463b6fd5f19a2622fffd6914f0f263e",
+    "src/cvs/CVs_Strufactor.cu": "57881c25f57d04fd80a9667529a14d801feb5f49332a2cf1a20aa506ace6679f",
+    "src/cvs/CVs_Strufactor_chem.cu": "fed26768fbbcd76c7c130d7448a512cf0ce92c1ba4467f6ef7222dce10a7f82d",
+    "src/grids/CMakeLists.txt": "e02c728fa2ed20602e8f4fd4c5cefb27c50a5c195e4a4cf9c9ef242d5ae795a2",
+    "src/grids/DimSet.cu": "17b68c4cf01d102f77578b3e32ffdd54c955722ec426aa0c75b7b707ba671d04",
+    "src/ml_cvs/CMakeLists.txt": "6dccf8c7dca3017735ddb22fc3a1f3960ccbdb151a5937c2dd57ea6121c3d749",
+    "src/ml_cvs/mlcvs.cu": "6f500383cb0a69291bea1ac91ed10834bd6667dc1ea3435912c02c2996e74bf5",
+    "src/sampling/zqc_bias.cpp": "13e77009cab4767cffbd7f0aa0bd7e20c6cc4f3d80f73cf71840d58ac9f16ffe",
+    "src/sampling/zqc_bias_grid.cpp": "88275f5a38caede26218a52d9554f3a60ae0e7dcce042d5eb45070f595cdbb35",
+    "src/sampling/zqc_hill_bias.cpp": "f2e8b2dbeebd4c97714085a1f2e4a4cccb3323c68e532256f32951cbe3176631",
+    "src/sampling/zqc_shared_bias.cu": "07ca01fbdde810e795b03250e0dd96bf32ee5696b47866607231d61cf2988845",
+    "src/utils/CMakeLists.txt": "0211d71794d38c9524e9b0311cdd583929584a03fe694674968ed66eff96e2d1",
+    "src/utils/CVs_tools.cu": "b4b598ea9c0df7ddd0de3a70e9b6bb2afde0bad6b6fd4a3194c2f3cc75727071",
+    "src/utils/zqc_cv_assembly.cu": "8f53e53179b5e1cc35d4e4f1a4d475129018625b0e9d1165f09bc8354d09c92b",
+    "src/utils/zqc_graph.cu": "8a82a605d834c931c9d26ffc5df2fca9ed540e519acd796234ee2514fee89a8f",
+    "src/utils/zqc_graph_execution.cu": "97e22707e8385e8189493992af26064f2da7aa5d4cfab1067f2af9525b8f69ab",
+    "src/utils/zqc_graph_nodes.cu": "1870cd5c339d5ca4918c24918b807197c7bf432282b444e306506c8772611305",
+    "src/utils/zqc_graph_parser.cu": "5dede40e03b2c5268b28dd0f712cff6b531371b8c954566df21b8fdf314fb7f4",
+    "third_party/exprtk.hpp": "a423d64706a425d4b2e1b97949d5d38fafe7814affac9c2d59c28170cd1af434",
+    "third_party/fmt/LICENSE": "07580f2a3b35709ce703d523f447b242f6dfec7582a8c0df102c7fa2849375f8",
+    "third_party/fmt/README.md": "83a79cd14f09335ccbc922ac055a53742cf95c1ed96fb7b157adc13d8b7a305d",
+    "third_party/fmt/include/fmt/args.h": "418b645e9022277a5858841c07a3c65237053d45311a8c099573ac517b43d1c2",
+    "third_party/fmt/include/fmt/chrono.h": "a38d6c02f64e2af3684369ad4df6ab88be203a0d4bdfbf51fde542f83546eac9",
+    "third_party/fmt/include/fmt/color.h": "014c9dacc521f9c3768468f46a71545d10da1f3c4a8b826b8596b8a03588a77a",
+    "third_party/fmt/include/fmt/compile.h": "69aa4297b42f273bbfacf5c9eebe4b6a26b552d06fb74cd151c47260c37b6850",
+    "third_party/fmt/include/fmt/core.h": "8c75a764b48d5630810f98b60f78c19f91b59a05902fc606a28c956236a4865c",
+    "third_party/fmt/include/fmt/format-inl.h": "3d854231e2b5bf5f4e0a3a5e7e20533e7c332a2d3d7ccbe6ec598537b2cab829",
+    "third_party/fmt/include/fmt/format.h": "e14d7ce47077111c4705bd0e09a580c14efd1cbe0b63e6d5e67acf98cadcf286",
+    "third_party/fmt/include/fmt/os.h": "89b7a98365b90127e11d5e84c2fa58443088164ec9c99ce262ed303a7c197eed",
+    "third_party/fmt/include/fmt/ostream.h": "f839f36281b36ac9e514e4c6d944f6f6699a2101bb36e9d4809aade4bd25ff61",
+    "third_party/fmt/include/fmt/printf.h": "d121c2b5b48f68de396ca3ac5fa32b7c7dd77dd8d8e9684e8604a88756e680e5",
+    "third_party/fmt/include/fmt/ranges.h": "87a9911af535273e9f9bed00d6da3083b71eec3491c9a54013258a882342b6f3",
+    "third_party/fmt/include/fmt/std.h": "06467b405f40291f40f26c6e46c15d756254581c397413a77c02b2b7d62dcb41",
+    "third_party/fmt/include/fmt/xchar.h": "e7b39f998679214676059671b9085d2ab2549634ac0e49f8ff94028a1a3e69dc"
+  },
+  "profiles": {
+    "weave": {
+      "plugin": "/home/zqc/work/Metad-toy-unified-20261028/build/integration-weave/fix_crystallize_plugin.so",
+      "sha256": "304ad0ee9c51d0f264a5941d68b21f50d0466bf27f62642a8b05c9bb4f8aa5dc"
+    },
+    "kokkos": {
+      "plugin": "/home/zqc/work/Metad-toy-unified-20261028/build/integration-kokkos/fix_crystallize_plugin.so",
+      "sha256": "f73ff146d6b358568eb8692360bf88a48d515f5bad2e83b643bb34b428802cbf"
+    },
+    "host": {
+      "plugin": "/home/zqc/work/Metad-toy-unified-20261028/build/integration-host/fix_crystallize_plugin.so",
+      "sha256": "f41b35d2e8b35fc23148bd92c4bc239e26ab7469c305eb4f552becf35689eca8"
+    }
+  },
+  "validation_root": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028",
+  "validations": [
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-fallback-al3sc/validation.json",
+      "profile": "fallback",
+      "phase": "al3sc",
+      "passed": 4
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-host-al3sc/validation.json",
+      "profile": "host",
+      "phase": "al3sc",
+      "passed": 4
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-kokkos-al3sc/validation.json",
+      "profile": "kokkos",
+      "phase": "al3sc",
+      "passed": 4
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-weave-al3sc/validation.json",
+      "profile": "weave",
+      "phase": "al3sc",
+      "passed": 6
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-weave-ctest/validation.json",
+      "profile": "weave",
+      "phase": "ctest",
+      "passed": 1
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-weave-global/validation.json",
+      "profile": "weave",
+      "phase": "global",
+      "passed": 1
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-weave-history/validation.json",
+      "profile": "weave",
+      "phase": "history",
+      "passed": 2
+    },
+    {
+      "path": "/home/zqc/work/Metad-toy-unified-20261028/build/validation-20261028/final-weave-probe/validation.json",
+      "profile": "weave",
+      "phase": "probe",
+      "passed": 5
+    }
+  ],
+  "ctest_passed": 34,
+  "cli_passed": 52,
+  "global_fd_passed": 14,
+  "backend_comparisons": [
+    {
+      "case": "raw",
+      "profile": "fallback",
+      "passed": true,
+      "max_error": 1.6792123247455493e-15
+    },
+    {
+      "case": "raw",
+      "profile": "kokkos",
+      "passed": true,
+      "max_error": 1.5681900222830336e-15
+    },
+    {
+      "case": "raw",
+      "profile": "host",
+      "passed": true,
+      "max_error": 3.885780586188048e-15
+    },
+    {
+      "case": "gated",
+      "profile": "fallback",
+      "passed": true,
+      "max_error": 1.734723475976807e-15
+    },
+    {
+      "case": "gated",
+      "profile": "kokkos",
+      "passed": true,
+      "max_error": 1.790234627208065e-15
+    },
+    {
+      "case": "gated",
+      "profile": "host",
+      "passed": true,
+      "max_error": 3.885780586188048e-15
+    },
+    {
+      "case": "empty",
+      "profile": "fallback",
+      "passed": true,
+      "max_error": 2.8976820942716586e-14
+    },
+    {
+      "case": "empty",
+      "profile": "kokkos",
+      "passed": true,
+      "max_error": 1.887379141862766e-15
+    },
+    {
+      "case": "empty",
+      "profile": "host",
+      "passed": true,
+      "max_error": 2.8754776337791554e-14
+    }
+  ],
+  "al3sc_fd_bounds": [
+    {
+      "step": 1e-05,
+      "max_force_error": 5.463962480167436e-13,
+      "max_force_scaled": 0.00014438473644969534,
+      "max_virial_error": 2.575072804728712e-12,
+      "max_virial_scaled": 8.928970076172753e-05
+    },
+    {
+      "step": 3e-06,
+      "max_force_error": 1.0378179842200283e-12,
+      "max_force_scaled": 0.00025055492574177046,
+      "max_virial_error": 1.8460931635916507e-12,
+      "max_virial_scaled": 8.702343655403299e-05
+    },
+    {
+      "step": 1e-05,
+      "max_force_error": 5.336842113254445e-13,
+      "max_force_scaled": 0.000185757113721008,
+      "max_virial_error": 2.6502651527364474e-12,
+      "max_virial_scaled": 8.80845585713908e-05
+    },
+    {
+      "step": 3e-06,
+      "max_force_error": 1.6800357424142341e-12,
+      "max_force_scaled": 0.0004756968572601174,
+      "max_virial_error": 2.295073907396944e-12,
+      "max_virial_scaled": 6.995909903185775e-05
+    }
+  ],
+  "scope_notes": [
+    "CUDA+Kokkos+Weave locally tested on SM89/LAMMPS22Jul2025; 2024 compatibility not rerun",
+    "GPUMD runtime/adapter CTest covered; full GPUMD executable trajectories not rerun",
+    "No online shared deposition/SUM, FES convergence or large-scale performance claim",
+    "An initial NPT harness run discarded thermostat restart state; corrected before final validation"
+  ]
+}

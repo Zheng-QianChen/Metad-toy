@@ -9,6 +9,10 @@
 #include "zqc_cv_parse.h"
 using namespace MetaD_zqc;
 namespace {
+__global__ void physical_force_from_gradient(const double* gradient, double* force, size_t count) {
+    const size_t i = size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    if (i < count) force[i] = -gradient[i];
+}
 template<class T> void resize_host(std::vector<T>& storage, T*& alias, size_t count) {
     storage.resize(std::max<size_t>(count,1));
     alias=storage.data();
@@ -389,10 +393,6 @@ void MetaD_zqc::STEIN_QL<L>::apply_adjoint(ArrayView<const double> leaf_adjoint)
         const auto status = cudaGetLastError();
         if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
     }
-    if (atom_count) {
-        d_dcvdx.download_to(h_dcvdx, size_t(atom_count)*3, my_env->execution.get());
-        d_a_virial.download_to(h_a_virial, size_t(atom_count)*9, my_env->execution.get());
-    }
     commit_coordinate_adjoint();
 }
 
@@ -490,13 +490,20 @@ void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(
 }
 
 // 引擎提交物理力，compute 仍可读取正号坐标梯度。提交时由适配器归并 ghost。
+// 梯度在 GPU 取负为力后直接提交 Cuda View，适配器返回后源缓冲可立即复用。
 template<int L> void STEIN_QL<L>::commit_coordinate_adjoint() {
     output_gradient_ready=false;
     const size_t total=engine.total_atom_count();
-    force_storage.resize(total*3);
-    for(size_t entry=0;entry<total*3;++entry) force_storage[entry]=-h_dcvdx[entry];
-    engine.commit_force_virial({force_storage.data(),total,3,3,1,total*3,MemorySpace::Host},
-        {{h_a_virial,total,9,9,1,total*9,MemorySpace::Host},VirialRepresentation::Full9});
+    d_physical_force.grow_to(total*3, __FILE__, __LINE__);
+    if (total)
+        physical_force_from_gradient<<<(total*3+255)/256,256,0,my_env->execution.get()>>>(
+            d_dcvdx.ptr, d_physical_force.ptr, total*3);
+    const auto status = cudaGetLastError();
+    if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
+    auto force = d_physical_force.view(total, 3);
+    auto virial = d_a_virial.view(total, 9);
+    force.readiness = virial.readiness = device_readiness();
+    engine.commit_force_virial(force, {virial, VirialRepresentation::Full9});
 }
 template<int L> ArrayView<const double> STEIN_QL<L>::peratom_values(const std::string& property) {
     const size_t total=engine.total_atom_count();
@@ -508,6 +515,7 @@ template<int L> ArrayView<const double> STEIN_QL<L>::peratom_values(const std::s
     if(component<0) throw std::invalid_argument("STEINH: unknown per-atom property "+property);
     if(!h_dcvdx) throw std::logic_error("STEINH: coordinate gradient is not ready");
     if(!output_gradient_ready) {
+        if (total) d_dcvdx.download_to(h_dcvdx, total*3, my_env->execution.get());
         output_gradient=gradient_storage;
         engine.communicate_reverse(*this);
         output_gradient_ready=true;

@@ -36,7 +36,7 @@ def main():
     comm.Barrier()
     os.chdir(args.output)
     configuration=(args.fixture/"in.lammps").read_text()
-    configuration="\n".join(f"plugin load {args.plugin}" if line.startswith("plugin load ") else line
+    configuration="\n".join(f"plugin load {args.plugin}" if line.startswith("plugin load ") and Path(shlex.split(line)[2]).name == "fix_crystallize_plugin.so" else line
                             for line in configuration.splitlines())+"\n"
     if args.single_center:
         configuration=configuration.replace("group Sc type 2","group Sc id 1")
@@ -65,13 +65,13 @@ def main():
         cases=[]
         for full9 in (0,1):
             for soa in (0,1):
-                for cuda_memory in (0,1):
+                for cuda_memory in (0,1,2):
                     error=ctypes.c_double()
                     if probe.force_batch_check(simulation.lmp,args.fix.encode(),full9,soa,
                                                cuda_memory,ctypes.byref(error)):
                         raise RuntimeError(probe.force_batch_error().decode())
                     cases.append(dict(components=9 if full9 else 6,layout="SoA" if soa else "AoS",
-                                      memory="Cuda" if cuda_memory else "Host",max_error=error.value))
+                                      memory=("Host","Cuda","Mixed")[cuda_memory],max_error=error.value))
         # Direct probe restores MD arrays; a fresh graph evaluation must again form one clean batch.
         before=stats()
         simulation.command("run 0")
@@ -86,7 +86,7 @@ def main():
             result=dict(passed=True,ranks=comm.size,results=all_results,
                         plugin_sha256=hashlib.sha256(args.plugin.read_bytes()).hexdigest())
             (args.output/"result.json").write_text(json.dumps(result,indent=2)+"\n")
-            print(f"PASS: {comm.size} ranks; Graph {difference}; 8 batch layouts/lifecycles",flush=True)
+            print(f"PASS: {comm.size} ranks; Graph {difference}; 12 batch layouts/lifecycles",flush=True)
     finally:
         simulation.close()
 if __name__=="__main__":

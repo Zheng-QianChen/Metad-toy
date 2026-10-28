@@ -110,6 +110,14 @@
       "cacheVariables": {
         "ZQC_LAMMPS_KOKKOS": "ON"
       }
+    },
+    {
+      "name": "lammps-weave",
+      "inherits": "lammps-kokkos",
+      "displayName": "LAMMPS Kokkos with Weave device force batching",
+      "cacheVariables": {
+        "ZQC_LAMMPS_WEAVE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -163,6 +171,13 @@
     {
       "name": "lammps-kokkos",
       "configurePreset": "lammps-kokkos",
+      "targets": [
+        "fix_crystallize_plugin"
+      ]
+    },
+    {
+      "name": "lammps-weave",
+      "configurePreset": "lammps-weave",
       "targets": [
         "fix_crystallize_plugin"
       ]

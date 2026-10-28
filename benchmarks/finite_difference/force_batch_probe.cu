@@ -126,6 +126,11 @@ extern "C" int force_batch_check(void* pointer, const char* name, int full9, int
             }
         }
         GpuBuffer<double> device_forces,device_virials;
+        struct Stream {
+            cudaStream_t value=nullptr;
+            Stream() { require(cudaStreamCreateWithFlags(&value,cudaStreamNonBlocking)==cudaSuccess,"create producer stream"); }
+            ~Stream() { cudaStreamDestroy(value); }
+        } producer;
         if(cuda_memory) {
             device_forces.grow_to(forces.size(),__FILE__,__LINE__);
             device_virials.grow_to(virials.size(),__FILE__,__LINE__);
@@ -138,6 +143,12 @@ extern "C" int force_batch_check(void* pointer, const char* name, int full9, int
         VirialView virial_view{{cuda_memory?device_virials.ptr:virials.data(),total,components,
             soa?1:components,soa?slots:1,virials.size(),memory},
             full9?VirialRepresentation::Full9:VirialRepresentation::Symmetric6};
+        if(cuda_memory) {
+            device_forces.record_write(producer.value);
+            device_virials.record_write(producer.value);
+            force_view.readiness=device_forces.readiness();
+            virial_view.values.readiness=device_virials.readiness();
+        }
 
         const auto before_empty=engine.sync_stats();
         engine.begin_force_virial_batch();
@@ -161,7 +172,13 @@ extern "C" int force_batch_check(void* pointer, const char* name, int full9, int
         auto invalid=virial_view;
         invalid.values.item_count=total+1;
         rejects([&]{ engine.commit_force_virial(force_view,invalid); });
-        engine.commit_force_virial(force_view,virial_view);
+        if(cuda_memory==2) {
+            auto host_force=force_view;
+            auto host_virial=virial_view;
+            host_force.data=forces.data();host_force.memory=MemorySpace::Host;host_force.readiness={};
+            host_virial.values.data=virials.data();host_virial.values.memory=MemorySpace::Host;host_virial.values.readiness={};
+            engine.commit_force_virial(host_force,host_virial);
+        } else engine.commit_force_virial(force_view,virial_view);
         engine.commit_force_virial(force_view,virial_view);
         const double single_force[3]={2,3,5};
         const double single_virial[9]={7,11,13,17,19,23,29,31,37};
@@ -174,12 +191,10 @@ extern "C" int force_batch_check(void* pointer, const char* name, int full9, int
         unchanged();
         // 源数据允许在 finish 前复用，批次必须已经取得独立贡献。
         if(cuda_memory) {
-            auto actual_forces=forces,actual_virials=virials;
-            device_forces.download_to(actual_forces.data(),actual_forces.size());
-            device_virials.download_to(actual_virials.data(),actual_virials.size());
-            require(actual_forces==forces && actual_virials==virials,"source/padding modified");
-            device_forces.clear_async();
-            device_virials.clear_async();
+            // No default-stream download/fence here: an independent producer can
+            // overwrite its source immediately when commit returns.
+            device_forces.clear_async(producer.value);
+            device_virials.clear_async(producer.value);
         } else {
             std::fill(forces.begin(),forces.end(),0);
             std::fill(virials.begin(),virials.end(),0);

@@ -53,6 +53,11 @@ public:
     void sum(double*, size_t) override;
     void minimum_image(double[3]) const override;
     int reverse_communication_width() const override;
+    // Graph 合批生命周期：Host 累加与可选 Weave 设备累加共用同一 begin/finish/cancel，
+    // 禁止嵌套第二套批次。configure 在 Graph backward 前声明本步 virial 需求。
+    // finish 后若设备已写入全局 virial，force_virial_batch_device_complete() 为真，Fix 勿再 v_tally。
+    void configure_force_virial_batch(bool global_virial, bool atom_virial);
+    bool force_virial_batch_device_complete() const;
     // 公共 Host 缓冲按 localid 保存 [total,3] 力和 [total,6] virial。
     // finish 将所有 CV 的 ghost 贡献合并回传，再一次性累加 owned 输出。
     void begin_force_virial_batch() override;

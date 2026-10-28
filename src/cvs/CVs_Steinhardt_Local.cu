@@ -134,11 +134,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::evaluate_coordinate_adjoint() {
     d_dcvdx_rjk_prefix.grow_to(size_t(my_loc_env->num_of_all_IJ_atoms)*2*(L+1), __FILE__, __LINE__);
     d_dcvdx_rjk_prefix.clear_async(my_env->execution.get());
     call_steinhardt_Local_backward_kernel();
-    if (atom_count) {
-        d_dcvdx.download_to(h_dcvdx, size_t(atom_count)*3, my_env->execution.get());
-        d_a_virial.download_to(h_a_virial, size_t(atom_count)*9, my_env->execution.get());
-    }
-
 }
 
 // CV 基类保留标量回调槽；Local Q 的规约和值开关由 Graph 构建。

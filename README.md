@@ -19,14 +19,14 @@
 
 ### 前提条件
 
-* 支持 `plugin load` 的共享库版 LAMMPS（本轮验证：29 Aug 2024）
+* 支持 `plugin load` 的共享库版 LAMMPS（历史验证：29 Aug 2024；2026-10-28 整合验证：22 Jul 2025）
 * CMake 3.21+（使用构建预设时）
 * CUDA Toolkit (用于 `.cu` 源码编译)
 * MPICH 或 OpenMPI
 
 ### 编译步骤
 
-构建现已按 view、Graph、CV、LAMMPS 适配器和测试分层，独立目标与预设见 [分层构建指南](cmake/README.md)。当前 CV 的 view 迁移仍在进行，完整插件需在迁移整合后重新验证。
+构建已按 view、Graph、CV、LAMMPS 适配器和测试分层，独立目标与预设见 [分层构建指南](cmake/README.md)。2026-10-28 统一了主工作区与 Weave/Kokkos 联合实现；版本来源、推荐构建和当前验证边界见 [版本整合记录](docs/VERSION_CONSOLIDATION_20261028.zh.md) 与 [本轮验收](docs/INTEGRATION_VALIDATION_20261028.zh.md)。不要凭旧 build 目录中的插件判断当前源码状态。
 
 1. **准备依赖**：安装 CUDA Toolkit（含 NVRTC）、xxd，以及与 LAMMPS 一致的 MPI。Graph 使用 third_party/fmt 中随项目分发的头文件和许可证。下面的基础构建关闭可选 ML CV。
 

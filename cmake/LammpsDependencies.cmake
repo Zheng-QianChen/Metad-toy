@@ -13,6 +13,9 @@ include("${CMAKE_CURRENT_LIST_DIR}/LammpsTrimCompatibility.cmake")
 find_library(LAMMPS_LIB NAMES lammps HINTS "${LAMMPS_LIB_DIR}" REQUIRED)
 find_package(MPI REQUIRED COMPONENTS CXX)
 option(ZQC_LAMMPS_KOKKOS "Borrow CUDA arrays from a matching Kokkos-enabled LAMMPS" OFF)
+if(ZQC_LAMMPS_WEAVE AND NOT ZQC_LAMMPS_KOKKOS)
+    message(FATAL_ERROR "ZQC_LAMMPS_WEAVE requires ZQC_LAMMPS_KOKKOS=ON")
+endif()
 if(ZQC_LAMMPS_KOKKOS)
     # 必须使用该 liblammps 实际构建的 Kokkos 配置（包含布局/精度/后端 ABI）。
     # 桥接使用原生 CUDA 语言编译，Host 文件继续使用用户指定的 C++ 编译器。

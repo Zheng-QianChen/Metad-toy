@@ -21,6 +21,8 @@ parser.add_argument("--plugin",type=Path,required=True)
 parser.add_argument("--assets",type=Path,required=True)
 parser.add_argument("--output",type=Path,required=True)
 parser.add_argument("--lammps-args",default="")
+parser.add_argument("--weave-plugin",type=Path,help="Load matching Weave communicator before creating the box")
+parser.add_argument("--raw-product",action="store_true",help="Use LocalQL6*CSS without an outer switch")
 parser.add_argument("--restart",type=Path)
 parser.add_argument("--single",action="store_true",help="Only atom 1 contributes, exercising empty local families")
 parser.add_argument("--skip-fd",action="store_true")
@@ -50,7 +52,8 @@ if comm.rank==0:
             "".join(f"{i} {2 if (i-1)%4==0 else 1} {x:.17g} {y:.17g} {z:.17g}\n"
                     for i,(x,y,z) in zip(ids,xyz)))
 comm.Barrier()
-input_configuration=f"""units metal
+weave_setup=(f"plugin load {args.weave_plugin.resolve()}\nweave/batch_comm\n" if args.weave_plugin else "")
+input_configuration=weave_setup+f"""units metal
 atom_style atomic
 newton on
 atom_modify map array sort 5 0.0
@@ -71,13 +74,14 @@ thermo_style custom step pe
 thermo_modify norm no format float %.17g
 run 0
 """
+descriptor="q*c" if args.raw_product else "q*c*fermi(q*c,0.35,15)"
 bias_configuration=f"""fix bias all metad EXECUTOR GRAPH SHARED_FROZEN {table} family PACE 0 &
  CAL NAME SW_r6 SW_FUNC FERMI r_0 3.50 alpha -20 &
  CAL NAME SW_css SW_FUNC FERMI r_0 3.30 alpha -20 &
  CAL NAME LQ6 STEINH L 6 Sc cutoff_eps_r 1e-12 SW_FUNC_r SW_r6 &
  CAL NAME JOINT CSS Sc CHANNEL 2 SW_css 0 0.45 cutoff_eps 1e-12 &
  SYMBOL q LQ6.RAW SYMBOL c JOINT.RAW &
- CV_dim 1 DIM_EXPR 1 "q*c*fermi(q*c,0.35,15)"
+ CV_dim 1 DIM_EXPR 1 "{descriptor}"
 compute pa all metad/atom bias LQ6.stein_q JOINT.css
 compute bp all pressure NULL fix
 compute stress all stress/atom NULL fix
@@ -101,7 +105,7 @@ def state():
     rows=gather(True)
     selected=rows[:,0]==1 if args.single else rows[:,1]==2
     product=rows[selected,8]*rows[selected,9]
-    coordinate=product/(1+np.exp(-15*(product-.35)))
+    coordinate=product if args.raw_product else product/(1+np.exp(-15*(product-.35)))
     energy=float(simulation.extract_fix("bias",0,0))
     mean=float(simulation.extract_fix("bias",0,1,nrow=0))
     expected=float(np.mean(.4*(coordinate-.35)**2))

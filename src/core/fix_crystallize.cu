@@ -548,6 +548,9 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
   // -----calculate cv_compute and add cv_history-----
   try {
   engine_adapter->begin_evaluation();
+  // Graph 合批在 backward 内 begin/finish；此处只声明本步 virial 策略，避免嵌套第二套批次。
+  static_cast<MetaD_zqc::LammpsEngineAdapter&>(*engine_adapter)
+      .configure_force_virial_batch(vflag_global, vflag_atom);
   if (graph_execution) graph_execution->prepare();
   for (auto* cv : output_cvs)
     if (graph_execution && !graph_execution->uses(cv)) cv->prepare_graph_evaluation();
@@ -605,8 +608,11 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
     error->one(FLERR, "MetaD backward: {}", e.what());
   }
 
-  // 各个cv内部已经进行了累计，所以在这里只需要直接加上就可以了。
-  if (vflag_global || vflag_atom) {
+  // 设备路径若已归约并写入全局 virial，禁止再 v_tally，否则重复记账。
+  const bool device_virial_complete =
+      static_cast<MetaD_zqc::LammpsEngineAdapter&>(*engine_adapter)
+          .force_virial_batch_device_complete();
+  if (!device_virial_complete && (vflag_global || vflag_atom)) {
     for (int i = 0; i < atom->nlocal; i++) {
       v_tally(i, &a_virial[6*i]);
     }

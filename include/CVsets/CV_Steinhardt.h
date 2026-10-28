@@ -86,7 +86,8 @@ protected:
     double *stein_q = nullptr, *h_stein_qlm = nullptr, *h_dcvdx = nullptr, *h_a_virial = nullptr;
     GpuBuffer<double> d_stein_ql, d_stein_qlm, d_stein_Ylm;
     // 坐标梯度 [localid][3]；完整 virial [localid][9]，xx yy zz xy xz yz yx zx zy。
-    GpuBuffer<double> d_dcvdx, d_a_virial;
+    // d_physical_force 在设备上将梯度取负为物理力，避免常规 D2H。
+    GpuBuffer<double> d_dcvdx, d_a_virial, d_physical_force;
     // Graph 梯度按 owned 中心提取，forward 通信后补齐另一端的值、球谐和梯度。
     GpuBuffer<double> d_center_adjoint, d_atom_adjoint;
     std::vector<double> h_center_adjoint, h_atom_adjoint, force_storage;

@@ -111,6 +111,8 @@ thermo_modify norm no format float %.17g
 run 0
 """
     configuration = configuration.replace(' &CAL ', ' &\n    CAL ')
+    if args.weave_plugin:
+        configuration = f'plugin load "{args.weave_plugin}"\nweave/batch_comm\n' + configuration
     if rank==0: (directory/'in.lammps').write_text(configuration)
     simulation = lammps(cmdargs=['-screen','none','-log',str(directory/'log.lammps'),*shlex.split(args.lammps_args)],comm=comm)
     simulation.commands_string(configuration)
@@ -245,6 +247,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--plugin',type=Path,default=None)
+    parser.add_argument('--weave-plugin',type=Path,help='Matching optional Weave communicator')
     parser.add_argument('--probe',type=Path)
     parser.add_argument('--mpi',type=Path,default=None)
     parser.add_argument('--lammps-src',type=Path,default=None)
@@ -257,6 +260,7 @@ def main():
     parser.add_argument('--worker',action='store_true')
     parser.add_argument('--case',default='q3')
     args=parser.parse_args();args.output=args.output.resolve();args.plugin=plugin_path(args.plugin)
+    if args.weave_plugin: args.weave_plugin=args.weave_plugin.resolve()
     if args.worker: return worker(args)
     if min(args.np)<1: parser.error('--np requires positive ranks')
     try:
@@ -275,6 +279,7 @@ def main():
             command=[str(args.mpi),*shlex.split(args.mpi_args),'-np',str(ranks),sys.executable,str(Path(__file__).resolve()),
                      '--worker','--case',case,'--output',str(directory),'--plugin',str(args.plugin),'--probe',str(args.probe),
                      '--lammps-args='+args.lammps_args, '--steps',*map(str,args.steps)]
+            if args.weave_plugin: command += ['--weave-plugin',str(args.weave_plugin)]
             with (directory/'screen.txt').open('w') as output:
                 try: process=subprocess.run(command,stdout=output,stderr=subprocess.STDOUT,timeout=240)
                 except subprocess.TimeoutExpired: process=None

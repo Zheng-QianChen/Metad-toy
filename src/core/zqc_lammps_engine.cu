@@ -154,6 +154,10 @@ struct LammpsEngineAdapter::Impl {
     std::vector<double> force_staging, virial_staging;
     bool force_batch_active = false;
     bool force_batch_has_contributions = false, force_batch_needs_reverse = false;
+    bool force_batch_host_contributions = false;
+    bool batch_global_virial = false, batch_atom_virial = false;
+    bool device_virial_complete = false;
+    std::vector<double> device_atom_virial;
     struct Neighbors {
         NeighborRequest request;
         int native_handle = -1;
@@ -203,6 +207,37 @@ struct LammpsEngineAdapter::Impl {
         }
         ++stats.force_virial_flushes;
     }
+    void clear_force_batch_flags() noexcept {
+        force_batch_active = false;
+        force_batch_has_contributions = force_batch_needs_reverse = false;
+        force_batch_host_contributions = false;
+    }
+#ifdef ZQC_LAMMPS_KOKKOS
+    bool try_open_device_batch(size_t total) {
+        if (kokkos->force_batch_active()) return true;
+        return kokkos->begin_force_batch(total, batch_global_virial || batch_atom_virial);
+    }
+    void finish_device_batch(bool needs_reverse) {
+        double global_virial[6] = {};
+        device_atom_virial.clear();
+        kokkos->finish_force_batch(lmp->atom->nlocal, needs_reverse,
+            batch_global_virial, batch_atom_virial, global_virial, device_atom_virial);
+        if (batch_atom_virial) {
+            const int owned = lmp->atom->nlocal;
+            for (int entry = 0; entry < 6*owned; ++entry)
+                fix->a_virial[entry] += device_atom_virial[size_t(entry)];
+            device_virial_complete = false;
+        } else if (batch_global_virial) {
+            for (int component = 0; component < 6; ++component)
+                fix->virial[component] += global_virial[component];
+            device_virial_complete = true;
+        } else {
+            device_virial_complete = false;
+        }
+        ++stats.force_virial_flushes;
+        if (needs_reverse) ++stats.force_reverse_calls;
+    }
+#endif
 };
 
 LammpsEngineAdapter::LammpsEngineAdapter(LAMMPS_NS::LAMMPS* lmp,
@@ -636,35 +671,82 @@ void LammpsEngineAdapter::sum(double* values, size_t count) {
                                impl_->lmp->world) != MPI_SUCCESS)
         throw std::runtime_error("LAMMPS adapter: MPI sum failed");
 }
+namespace {
+// 兼容 29Aug2024 的 minimum_image(double*) 与 22Jul2025 的 minimum_image(FLERR,double*)。
+template<class Domain>
+auto call_minimum_image(Domain* domain, double* displacement, int)
+    -> decltype(domain->minimum_image(displacement), void()) {
+    domain->minimum_image(displacement);
+}
+template<class Domain>
+auto call_minimum_image(Domain* domain, double* displacement, long)
+    -> decltype(domain->minimum_image(FLERR, displacement), void()) {
+    domain->minimum_image(FLERR, displacement);
+}
+}
 void LammpsEngineAdapter::minimum_image(double displacement[3]) const {
-    impl_->lmp->domain->minimum_image(displacement);
+    call_minimum_image(impl_->lmp->domain, displacement, 0);
 }
 int LammpsEngineAdapter::reverse_communication_width() const {
     return impl_->lists.empty() ? 0 : 9;
+}
+void LammpsEngineAdapter::configure_force_virial_batch(bool global_virial, bool atom_virial) {
+    impl_->batch_global_virial = global_virial;
+    impl_->batch_atom_virial = atom_virial;
+    impl_->device_virial_complete = false;
+}
+bool LammpsEngineAdapter::force_virial_batch_device_complete() const {
+    return impl_->device_virial_complete;
 }
 void LammpsEngineAdapter::begin_force_virial_batch() {
     auto& state = *impl_;
     state.require_evaluation();
     if (state.force_batch_active)
         throw std::logic_error("LAMMPS adapter: nested force/virial batch");
+#ifdef ZQC_LAMMPS_KOKKOS
+    if (state.kokkos->force_batch_active())
+        throw std::logic_error("LAMMPS adapter: nested device force/virial batch");
+#endif
     const size_t total = total_atom_count();
     state.output.forces.assign(total*3, 0.0);
     state.output.virials.assign(total*6, 0.0);
     state.force_batch_has_contributions = state.force_batch_needs_reverse = false;
+    state.force_batch_host_contributions = false;
+    state.device_virial_complete = false;
+    // 设备批次延后到首个纯 Cuda 提交再打开，owned-only Host 批次可跳过 Weave reverse。
     state.force_batch_active = true;
 }
 void LammpsEngineAdapter::finish_force_virial_batch() {
     auto& state = *impl_;
     if (!state.force_batch_active)
         throw std::logic_error("LAMMPS adapter: no force/virial batch to finish");
+    // 结束路径必须关闭 open batch：成功 flush 或中途异常都走清理。
+    struct Guard {
+        LammpsEngineAdapter* self;
+        ~Guard() { self->cancel_force_virial_batch(); }
+    } guard{this};
+    if (!state.force_batch_has_contributions) return;
+#ifdef ZQC_LAMMPS_KOKKOS
+    // Every rank selects the same backend, including ranks with no owned
+    // DISTANCE endpoints. Host contributions are added to the device batch;
+    // switching just one rank to Host reverse would mismatch MPI messages.
+    if (state.try_open_device_batch(total_atom_count())) {
+        if (state.force_batch_host_contributions)
+            state.kokkos->accumulate_host_force_virial(state.output.forces.data(),
+                state.output.virials.data(), total_atom_count());
+        state.finish_device_batch(state.force_batch_needs_reverse);
+        return;
+    }
+#endif
     // 包括本 rank 没有中心的情况：批量提交仍置 needs_reverse，保证各 rank 通信顺序一致。
-    if (state.force_batch_has_contributions)
-        state.flush_force_virial(state.force_batch_needs_reverse);
-    cancel_force_virial_batch();
+    state.flush_force_virial(state.force_batch_needs_reverse);
+    state.device_virial_complete = false;
 }
 void LammpsEngineAdapter::cancel_force_virial_batch() noexcept {
-    impl_->force_batch_active = false;
-    impl_->force_batch_has_contributions = impl_->force_batch_needs_reverse = false;
+#ifdef ZQC_LAMMPS_KOKKOS
+    if (impl_->kokkos) impl_->kokkos->cancel_force_batch();
+#endif
+    impl_->clear_force_batch_flags();
 }
 void LammpsEngineAdapter::commit_force_virial(ArrayView<const double> forces, VirialView virials) {
     auto& state = *impl_;
@@ -678,14 +760,40 @@ void LammpsEngineAdapter::commit_force_virial(ArrayView<const double> forces, Vi
     // Full9 保持原 stride，只选取前六列；此操作是投影，不对转置项取平均。
     auto lammps_virials = virials.values;
     lammps_virials.component_count = 6;
+    const bool cuda_pair = forces.memory == MemorySpace::Cuda &&
+                           lammps_virials.memory == MemorySpace::Cuda;
     if (state.force_batch_active) {
+#ifdef ZQC_LAMMPS_KOKKOS
+        if (cuda_pair && state.try_open_device_batch(total)) {
+            state.kokkos->accumulate_force_virial(forces, lammps_virials);
+            state.force_batch_has_contributions = state.force_batch_needs_reverse = true;
+            ++state.stats.force_virial_submissions;
+            return;
+        }
+#endif
         accumulate_output(forces, state.output.forces, state.force_staging, state.transfer.get());
         accumulate_output(lammps_virials, state.output.virials, state.virial_staging, state.transfer.get());
         state.force_batch_has_contributions = state.force_batch_needs_reverse = true;
+        state.force_batch_host_contributions = true;
     } else {
+#ifdef ZQC_LAMMPS_KOKKOS
+        // 批次外的纯 Cuda 提交：一次性设备合批，语义同单 CV Graph 批次。
+        if (cuda_pair && state.try_open_device_batch(total)) {
+            try {
+                state.kokkos->accumulate_force_virial(forces, lammps_virials);
+                state.finish_device_batch(true);
+            } catch (...) {
+                state.kokkos->cancel_force_batch();
+                throw;
+            }
+            ++state.stats.force_virial_submissions;
+            return;
+        }
+#endif
         download(forces, state.output.forces, state.transfer.get());
         download(lammps_virials, state.output.virials, state.transfer.get());
         state.flush_force_virial(true);
+        state.device_virial_complete = false;
     }
     ++state.stats.force_virial_submissions;
 }
@@ -702,6 +810,8 @@ void LammpsEngineAdapter::add_owned_force_virial(int local, const double force[3
         for (int component = 0; component < 6; ++component)
             impl_->output.virials[6*local+component] += virial.values(0,component);
         impl_->force_batch_has_contributions = true;
+        impl_->force_batch_host_contributions = true;
+        // 纯 owned 不置 needs_reverse；若先前设备提交已置位则保持。
         return;
     }
 #ifdef ZQC_LAMMPS_KOKKOS
