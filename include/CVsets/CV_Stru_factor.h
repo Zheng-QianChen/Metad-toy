@@ -194,6 +194,8 @@ public:
     StruFactorData data;                    // 持有压缩中心、邻居段和几何的设备缓冲。
     // 共享本组装配表；取 local_ids() 前 group_count 项为中心。装配表由 Graph 侧持有。
     std::shared_ptr<const CVAssembly> atom_assembly;
+    std::shared_ptr<const CVAssembly> checked_assembly;
+    std::uint64_t checked_neighbor_generation = 0;
     int d_block_size = 128, GPU_number = 0, block_num = 0; // 每 block 线程数、设备编号、中心 kernel 的 block 数。
     size_t N = 0;                           // 补齐到 block 的线程数：d_block_size*block_num。
     int neighbor_handle = -1; // 通用 NeighborManager 的请求句柄。

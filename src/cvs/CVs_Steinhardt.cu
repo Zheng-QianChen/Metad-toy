@@ -189,6 +189,7 @@ Steinhardt_env::Steinhardt_env(CVContext& context, SteinhardtRequest request)
     neighbors.cutoff=cutoff_r;
     neighbors.centers=LOC_flag ? all_atoms : group_id;
     neighbors.ghost_centers=LOC_flag;
+    neighbors.host_csr=!LOC_flag;
     neigh_id=engine.neighbors().request(neighbors);
 }
 
@@ -196,9 +197,14 @@ void Steinhardt_env::refresh_centers() {
     const auto members=engine.selection_members(group_id);
     members.local_ids.wait_host();
     const int total=engine.total_atom_count();
+    centers_changed=!members.generation || members.generation!=center_generation ||
+        group_count!=members.owned_count || center_storage.size()!=size_t(total);
     group_count=members.owned_count;
-    resize_host(center_storage,h_group_indices,total);
-    for(int center=0;center<group_count;++center) h_group_indices[center]=members.local_ids(center);
+    if (centers_changed) {
+        resize_host(center_storage,h_group_indices,total);
+        for(int center=0;center<group_count;++center) h_group_indices[center]=members.local_ids(center);
+        center_generation=members.generation;
+    }
     positions=engine.positions(MemorySpace::Cuda);
     positions.validate();
     positions.wait_on(execution.get());

@@ -6,6 +6,7 @@
 #include "atom_masks.h"
 #include "atom_kokkos.h"
 #include "kokkos.h"
+#include "neigh_list_kokkos.h"
 #include "comm.h"
 #ifdef ZQC_LAMMPS_WEAVE
 #include "weave_metad.h"
@@ -165,6 +166,20 @@ ArrayView<const int> LammpsKokkosBridge::types(size_t count) {
     auto values = impl_->atom->k_type.view<LMPDeviceType>();
     return {values.data(), count, 1, values.stride_0(), 1,
             values.span(), MemorySpace::Cuda, impl_->ready()};
+}
+KokkosNeighborView LammpsKokkosBridge::full_neighbors(LAMMPS_NS::NeighList* source, bool ghosts) {
+    auto* list = dynamic_cast<LAMMPS_NS::NeighListKokkos<LMPDeviceType>*>(source);
+    const size_t count = impl_->atom->nlocal + (ghosts ? impl_->atom->nghost : 0);
+    if (!list || list->inum != impl_->atom->nlocal ||
+        (ghosts && list->gnum != impl_->atom->nghost) ||
+        list->d_numneigh.extent(0) < count || list->d_neighbors.extent(0) < count)
+        throw std::runtime_error("MetaD-toy: incomplete Kokkos full neighbor list");
+    const auto ready = impl_->ready();
+    return {{list->d_numneigh.data(), count, 1, list->d_numneigh.stride_0(), 1,
+             list->d_numneigh.span(), MemorySpace::Cuda, ready},
+            {list->d_neighbors.data(), count, list->d_neighbors.extent(1),
+             list->d_neighbors.stride_0(), list->d_neighbors.stride_1(),
+             list->d_neighbors.span(), MemorySpace::Cuda, ready}};
 }
 void LammpsKokkosBridge::add_forces(const double* values, size_t count) {
     if (!count) return;

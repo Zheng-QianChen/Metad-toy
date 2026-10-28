@@ -181,6 +181,7 @@ MetaD_zqc::Stru_fact_env::Stru_fact_env(CVContext& context, SelectionId selectio
     NeighborRequest request;
     request.cutoff = cutoff_r;
     request.centers = selection;
+    request.host_csr = false;
     neighbor_handle = engine.neighbors().request(request);
 }
 
@@ -209,9 +210,14 @@ void MetaD_zqc::Stru_fact_env::refresh_centers() {
             atom_assembly->nghost() != engine.total_atom_count()-engine.owned_atom_count() ||
             atom_assembly->group_count() != data.group_count)
             throw std::logic_error("Stru_factor: neighbor centers differ from Leaf assembly");
-        for (int center=0;center<data.group_count;++center)
-            if(candidates.host_centers(center)!=atom_assembly->local_ids()[center])
-                throw std::logic_error("Stru_factor: neighbor center order differs from Leaf assembly");
+        if (!candidates.topology_generation || checked_neighbor_generation!=candidates.topology_generation ||
+            checked_assembly!=atom_assembly) {
+            for (int center=0;center<data.group_count;++center)
+                if(candidates.host_centers(center)!=atom_assembly->local_ids()[center])
+                    throw std::logic_error("Stru_factor: neighbor center order differs from Leaf assembly");
+            checked_neighbor_generation=candidates.topology_generation;
+            checked_assembly=atom_assembly;
+        }
     }
     block_num = (data.group_count + d_block_size - 1) / d_block_size;
     N = static_cast<size_t>(d_block_size) * block_num;

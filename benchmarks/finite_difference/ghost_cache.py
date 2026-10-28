@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -105,7 +106,10 @@ fix moveK K move variable v_displacementK NULL NULL v_velocityK NULL NULL
             else:
                 configuration += 'fix integrate all nve\nfix deformbox all deform 2 x erate -0.2 y erate 0.1 xy erate 0.1 remap x\n'
         if comm.rank == 0: (directory/'input.lmp').write_text(configuration+'run 0\n')
-        simulation = lammps(cmdargs=['-screen','none','-log',str(directory/'log.lammps')],comm=comm)
+        simulation = lammps(cmdargs=['-screen','none','-log',str(directory/'log.lammps'),*shlex.split(args.lammps_args)],comm=comm)
+        if args.weave_plugin:
+            simulation.command(f'plugin load "{args.weave_plugin}"')
+            simulation.command('weave/batch_comm')
         try:
             simulation.commands_string(configuration)
             selection = simulation.available_ids('group').index('moving')
@@ -118,7 +122,7 @@ fix moveK K move variable v_displacementK NULL NULL v_velocityK NULL NULL
             simulation.command('run 0')
 
             def counts():
-                values = (ctypes.c_ulonglong*4)()
+                values = (ctypes.c_ulonglong*5)()
                 require(probe.ghost_cache_stats(simulation.lmp,values)==0, probe.ghost_cache_error().decode())
                 return list(values)
 
@@ -145,7 +149,11 @@ fix moveK K move variable v_displacementK NULL NULL v_velocityK NULL NULL
                 return dict(label=label,maximum_absolute_errors=differences)
 
             initial = counts();initial_volume=simulation.get_thermo('vol')
-            require(comm.allreduce(initial[1],op=MPI.SUM)>0, 'fixture missed ghost fallback')
+            device_neighbors = comm.allreduce(initial[4],op=MPI.SUM)>0
+            if device_neighbors:
+                require(initial[1]==0 and initial[2]==0, 'device fixture used Host ghost repair or CSR upload')
+            else:
+                require(comm.allreduce(initial[1],op=MPI.SUM)>0, 'fixture missed ghost fallback')
             require(np.max(np.abs(state()['forces']))>1e-9, 'zero force fixture')
             checked_edges = verify();samples=[];late_edges_before=None;late_edges_after=None
             for step in range(1,41 if crossing else (82 if case == 'triclinic' else 81)):
@@ -167,6 +175,8 @@ fix moveK K move variable v_displacementK NULL NULL v_velocityK NULL NULL
                         if step==10:late_edges_before=edges
                         if step==30:late_edges_after=edges
                 current = counts()
+                if device_neighbors:
+                    require(current[1]==0 and current[2]==0, 'device trajectory fell back to Host neighbors')
                 if crossing:
                     require(current[3]==initial[3], 'crossing fixture unexpectedly rebuilt host neighbors')
                     if step not in (1,10):
@@ -207,6 +217,8 @@ def main():
     parser.add_argument('--mpi',type=Path);parser.add_argument('--mpicxx',type=Path)
     parser.add_argument('--lammps-src',type=Path);parser.add_argument('--nvcc',type=Path)
     parser.add_argument('--probe',type=Path);parser.add_argument('--worker',action='store_true')
+    parser.add_argument('--lammps-args',default='')
+    parser.add_argument('--weave-plugin',type=Path)
     args=parser.parse_args();args.output=args.output.resolve();args.plugin=plugin_path(args.plugin)
     if args.worker:return worker(args)
     launcher,compiler=mpi_tools(args.plugin,args.mpi,args.mpicxx)
@@ -223,6 +235,8 @@ def main():
         directory=args.output/f'np{ranks}';directory.mkdir()
         command=[str(launcher),'-np',str(ranks),sys.executable,str(Path(__file__).resolve()),'--worker',
                  '--plugin',str(args.plugin),'--output',str(directory),'--probe',str(args.probe),'--cases',*args.cases]
+        command.append('--lammps-args='+args.lammps_args)
+        if args.weave_plugin: command.extend(['--weave-plugin',str(args.weave_plugin)])
         with (directory/'screen.txt').open('w') as output:
             subprocess.run(command,env=environment,stdout=output,stderr=subprocess.STDOUT,timeout=300,check=True)
         records.extend(json.loads((directory/'results.json').read_text()))

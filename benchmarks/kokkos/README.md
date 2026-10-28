@@ -45,8 +45,11 @@ GPU-aware MPI 和多 GPU 性能需要在目标环境另行验证。
   消费该 View 的 CV 流通过等待钩子排入依赖。
 - group/type/tag/molecule：Host 侧用于组、ID 和邻居筛选，读取前通过 DualView 同步。
   DISTANCE 按 ID 查找端点时使用 Host 坐标。
-- 邻居：请求 LAMMPS 的 Host Full/Half 候选表，按拓扑和组 generation 缓存 CSR，
-  上传后交给 CUDA CV kernel。LocalQL 的 ghost 行补齐逻辑继续使用。
+- 邻居：CSS/StruFactor 与 LocalQL 声明 `host_csr=false`，请求 Kokkos device Full
+  或 Full/ghost 表，在设备上筛选、扫描并生成 CSR。LocalQL 的两层 halo 仍为
+  `2*R+skin`；Kokkos ghost 行使用同一自定义 `R+skin`，无需 CPU 补行。
+  全局 Q、Half 及需要 Host CSR 的消费者继续走兼容路径；普通 LAMMPS 保留 ghost 补行。
+  中心选择集的 Host 快照用于 Leaf 装配，按拓扑/组 generation 更新；设备表转换只回读一个总数。
 - 力：CV 输出 owned+ghost 增量，Host MPI reverse 合并后将 owned 增量加到 Kokkos
   Device 力数组；完成后标记 F_MASK 的 Device 副本为最新。现有 pair 力被保留。
 - virial：MPI 包仍为 3 项力和 6 项 LAMMPS virial；Fix 在 Host 完成全局/逐原子 tally。
@@ -54,8 +57,18 @@ GPU-aware MPI 和多 GPU 性能需要在目标环境另行验证。
 - Graph codegen 的 kernel 参数仍是连续数组；非连续 Leaf 输入使用暂存。
   Kokkos 坐标借用并不改变这一 ABI。
 
-当前主机邻居筛选、MPI 打包和 owned 力回写仍包含必要的数据搬运。
+LocalQL 的 compressed-to-dense CSR 转换、I/J/K 标记在设备完成，每轮仅回读
+I/J 中心数和有效 pair 数。CSS 的中心顺序检查按邻居 generation/装配对象缓存。
+距离、开关权重和有效邻居仍随每轮坐标更新，不缓存旧几何。
+
+Host 元数据、兼容 CV、诊断输出和未启用 Weave 的通信仍包含数据搬运。
 “坐标上传计数为 0”只表示 CV 直接借用了 Kokkos 坐标，不能据此推断整条链零拷贝。
+
+设备邻居验证可运行 `steinhardt_graph/run.py --kind L` 与
+`finite_difference/ghost_cache.py`，两者接受 `--lammps-args`；Weave 构建还需
+`--weave-plugin /path/to/weavebatchplugin.so`。ghost 探针在诊断时下载设备 CSR，
+逐边检查当前几何的两跳覆盖，并检查 `device_neighbor_rebuilds>0`、
+`ghost_row_rebuilds==0`、`neighbor_uploads==0`。这些诊断下载不属于生产求值路径。
 
 ## 旧版 LAMMPS trim 修复
 

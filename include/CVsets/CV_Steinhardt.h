@@ -40,6 +40,8 @@ protected:
     int ref_count = 0;
     bool LOC_flag = false, init_flag = false, graph_geometry_dirty = true;
     std::uint64_t geometry_evaluation = ~std::uint64_t(0), cached_neigh_generation = 0;
+    std::uint64_t center_generation = 0;
+    bool centers_changed = true;
     std::shared_ptr<const CVAssembly> atom_assembly;
     SwitchFunction* my_r_SWfunc = nullptr;
     double cutoff_r, cutoff_eps_r;
@@ -138,8 +140,6 @@ public:
 class STEIN_LocalQL_env : public Steinhardt_env {
     template<int L> friend class STEIN_LocalQL;
 protected:
-    std::vector<int> calculation_index_storage;
-    int* h_calc_tag = nullptr;
     GpuBuffer<int> d_calc_tag, d_LQ_mask, d_pure_J_write_offset;
     int num_of_all_IJ_atoms = 0;
 public:

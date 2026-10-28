@@ -22,6 +22,34 @@
 
 namespace MetaD_zqc {
 namespace {
+#ifdef ZQC_LAMMPS_KOKKOS
+__global__ void count_device_neighbors(int rows, const int* centers, KokkosNeighborView native,
+                                       ArrayView<const int> flags, unsigned long long* counts) {
+    const int row = blockIdx.x*blockDim.x+threadIdx.x;
+    if (row >= rows) return;
+    const int center = centers[row];
+    unsigned long long count = 0;
+    for (int k = 0; k < native.counts(center); ++k) {
+        const int neighbor = native.neighbors(center,k) & NEIGHMASK;
+        if (!flags.data || flags(neighbor)) ++count;
+    }
+    counts[row] = count;
+}
+__global__ void pack_device_neighbors(int rows, const int* centers, KokkosNeighborView native,
+                                      ArrayView<const int> flags, const unsigned long long* prefix,
+                                      int* offsets, int* neighbors) {
+    const int row = blockIdx.x*blockDim.x+threadIdx.x;
+    if (row > rows) return;
+    offsets[row] = static_cast<int>(prefix[row]);
+    if (row == rows) return;
+    const int center = centers[row];
+    int write = offsets[row];
+    for (int k = 0; k < native.counts(center); ++k) {
+        const int neighbor = native.neighbors(center,k) & NEIGHMASK;
+        if (!flags.data || flags(neighbor)) neighbors[write++] = neighbor;
+    }
+}
+#endif
 void check_cuda(cudaError_t status) {
     if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
 }
@@ -162,6 +190,8 @@ struct LammpsEngineAdapter::Impl {
         NeighborRequest request;
         int native_handle = -1;
         bool native_half = false; // 相同选择集可直接请求宿主的 Newton-on half 表。
+        bool native_device = false;
+        size_t device_neighbor_count = 0;
         std::uint64_t evaluation = 0;
         std::uint64_t topology_generation = 0;
         std::uint64_t topology_epoch = 0, center_generation = 0, neighbor_generation = 0;
@@ -172,6 +202,9 @@ struct LammpsEngineAdapter::Impl {
         std::vector<int> ghost_offsets, ghost_neighbors;
         std::vector<int> centers, offsets, neighbors;
         GpuBuffer<int> device_centers, device_offsets, device_neighbors;
+#ifdef ZQC_LAMMPS_KOKKOS
+        GpuBuffer<unsigned long long> device_counts, device_prefix;
+#endif
     };
     // unique_ptr 保证追加请求不会移动 GpuBuffer 所有者。
     std::vector<std::unique_ptr<Neighbors>> lists;
@@ -449,6 +482,10 @@ int LammpsEngineAdapter::register_neighbors(const NeighborRequest& request) {
     native.newton = list->native_half ? 1 : 0; // Half 的唯一归属独立于宿主 pair 的 newton 设置。
     native.ghost = request.ghost_centers ? 1 : 0; native.use_cutoff = 1;
     native.cutoff = NeighHub::canonicalize_cutoff(request.cutoff);
+#ifdef ZQC_LAMMPS_KOKKOS
+    list->native_device = state.kokkos->active() && !request.host_csr && request.kind == NeighborKind::Full;
+    native.kokkos_device = list->native_device ? 1 : 0;
+#endif
     state.lmp->comm->cutghostuser = std::max(state.lmp->comm->cutghostuser,
         std::nextafter((request.ghost_centers ? 2.0 : 1.0)*std::max(request.cutoff,native.cutoff)+state.lmp->neighbor->skin,
                        std::numeric_limits<double>::infinity()));
@@ -478,6 +515,56 @@ NeighborListView LammpsEngineAdapter::prepare_neighbors(int handle) {
         const auto neighbor_generation = selection_generation(list.request.neighbors);
         const bool dependencies_changed = list.topology_epoch != state.topology_epoch ||
             list.center_generation != center_generation || list.neighbor_generation != neighbor_generation;
+#ifdef ZQC_LAMMPS_KOKKOS
+        if (dependencies_changed && list.native_device) {
+            state.fix->neigh_hub.ensure(list.native_handle);
+            const auto native = state.kokkos->full_neighbors(
+                state.fix->neigh_hub.list(list.native_handle), list.request.ghost_centers);
+            // Kokkos full/ghost uses the custom R+skin for owned AND ghost rows.
+            // No cutneighghostsq repair or Host coordinate/neighbor mirror is needed.
+            const bool all_centers = list.request.centers == all_atoms || list.request.centers == 0;
+            const int mask = state.selection_mask(list.request.centers);
+            const int limit = list.request.ghost_centers ? total : owned;
+            list.centers.clear();
+            for (int center = 0; center < limit; ++center)
+                if (center >= owned || all_centers || (state.lmp->atom->mask[center] & mask))
+                    list.centers.push_back(center);
+            ArrayView<const int> flags;
+            if (list.request.neighbors != all_atoms && list.request.neighbors != 0)
+                flags = selection_flags(list.request.neighbors, MemorySpace::Cuda);
+            const int rows = static_cast<int>(list.centers.size());
+            const auto stream = state.transfer.get();
+            native.counts.wait_on(stream); native.neighbors.wait_on(stream); flags.wait_on(stream);
+            upload(list.device_centers, list.centers, stream);
+            list.device_counts.grow_to(rows, __FILE__, __LINE__);
+            list.device_prefix.grow_to(size_t(rows)+1, __FILE__, __LINE__);
+            if (rows) {
+                count_device_neighbors<<<(rows+255)/256,256,0,stream>>>(rows,list.device_centers.ptr,
+                    native,flags,list.device_counts.ptr);
+                check_cuda(cudaGetLastError());
+                list.device_counts.record_write(stream);
+            }
+            list.device_counts.scan_to(list.device_prefix,rows,stream);
+            unsigned long long count = 0;
+            check_cuda(cudaMemcpyAsync(&count,list.device_prefix.ptr+rows,sizeof(count),cudaMemcpyDeviceToHost,stream));
+            state.transfer.synchronize();
+            if (count > static_cast<unsigned long long>(INT_MAX))
+                throw std::length_error("LAMMPS adapter: device neighbor offsets exceed int range");
+            list.device_neighbor_count = static_cast<size_t>(count);
+            list.device_offsets.grow_to(size_t(rows)+1,__FILE__,__LINE__);
+            list.device_neighbors.grow_to(list.device_neighbor_count,__FILE__,__LINE__);
+            pack_device_neighbors<<<(rows+256)/256,256,0,stream>>>(rows,list.device_centers.ptr,
+                native,flags,list.device_prefix.ptr,list.device_offsets.ptr,list.device_neighbors.ptr);
+            check_cuda(cudaGetLastError());
+            list.device_offsets.record_write(stream); list.device_neighbors.record_write(stream);
+            ++state.stats.neighbor_rebuilds;
+            ++state.stats.device_neighbor_rebuilds;
+            ++list.topology_generation;
+            list.topology_epoch = state.topology_epoch;
+            list.center_generation = center_generation;
+            list.neighbor_generation = neighbor_generation;
+        } else
+#endif
         if (dependencies_changed) {
 #ifdef ZQC_LAMMPS_KOKKOS
             // Host 候选筛选/ghost 补行仅在拓扑或组成员变化时读取坐标。
@@ -630,8 +717,8 @@ NeighborListView LammpsEngineAdapter::prepare_neighbors(int handle) {
     }
     return {{list.centers.data(), list.centers.size(), 1, 1, 1, list.centers.size(), MemorySpace::Host},
             device_vector(list.device_centers, list.centers.size()),
-            device_vector(list.device_offsets, list.offsets.size()),
-            device_vector(list.device_neighbors, list.neighbors.size()), owned, total,
+            device_vector(list.device_offsets, list.native_device ? list.centers.size()+1 : list.offsets.size()),
+            device_vector(list.device_neighbors, list.native_device ? list.device_neighbor_count : list.neighbors.size()), owned, total,
             state.evaluation, list.topology_generation, NeighborCoordinates::PeriodicImages,
             {list.offsets.data(), list.offsets.size(), 1, 1, 1, list.offsets.size(), MemorySpace::Host},
             {list.neighbors.data(), list.neighbors.size(), 1, 1, 1, list.neighbors.size(), MemorySpace::Host},

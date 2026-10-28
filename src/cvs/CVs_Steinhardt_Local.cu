@@ -9,6 +9,23 @@
 #include "zqc_cv_parse.h"
 using namespace MetaD_zqc;
 namespace {
+__global__ void initialize_localql_tags(int count, const int* centers, int* tags) {
+    const int row=blockIdx.x*blockDim.x+threadIdx.x;
+    if (row<count) tags[centers[row]]=row;
+}
+__global__ void localql_row_counts(int rows, ArrayView<const int> centers,
+                                   ArrayView<const int> offsets, int* counts) {
+    const int row=blockIdx.x*blockDim.x+threadIdx.x;
+    if (row<rows) counts[centers(row)]=offsets(row+1)-offsets(row);
+}
+__global__ void localql_copy_rows(int rows, ArrayView<const int> centers,
+                                 ArrayView<const int> offsets, ArrayView<const int> neighbors,
+                                 const int* dense_offsets, int* dense_neighbors) {
+    const int row=blockIdx.x*blockDim.x+threadIdx.x;
+    if (row>=rows) return;
+    int write=dense_offsets[centers(row)];
+    for (int k=offsets(row);k<offsets(row+1);++k) dense_neighbors[write++]=neighbors(k);
+}
 template<class T> void resize_host(std::vector<T>& storage, T*& alias, size_t count) {
     storage.resize(std::max<size_t>(count,1));
     alias=storage.data();
@@ -24,13 +41,15 @@ STEIN_LocalQL_env::STEIN_LocalQL_env(CVContext& context,SteinhardtRequest reques
 void STEIN_LocalQL_env::refresh_centers() {
     Steinhardt_env::refresh_centers();
     const int total=engine.total_atom_count();
-    resize_host(calculation_index_storage,h_calc_tag,total);
-    std::fill(calculation_index_storage.begin(),calculation_index_storage.end(),-1);
-    for(int center=0;center<group_count;++center) h_calc_tag[h_group_indices[center]]=center;
     d_group_indices.grow_to(std::max(total,1),__FILE__,__LINE__);
-    d_group_indices.upload_from(h_group_indices,group_count, execution.get());
+    if (centers_changed) d_group_indices.upload_from(h_group_indices,group_count, execution.get());
     d_calc_tag.grow_to(std::max(total,1),__FILE__,__LINE__);
-    d_calc_tag.upload_from(h_calc_tag,total, execution.get());
+    execution_check(cudaMemsetAsync(d_calc_tag.ptr,0xff,size_t(total)*sizeof(int),execution.get()));
+    if (group_count) {
+        initialize_localql_tags<<<(group_count+255)/256,256,0,execution.get()>>>(
+            group_count,d_group_indices.ptr,d_calc_tag.ptr);
+        CUDA_LAUNCH_CHECK();
+    }
 }
 template<int L> void STEIN_LocalQL<L>::compute_Q_peratoms() {
     if(my_loc_env->graph_geometry_dirty || my_loc_env->geometry_evaluation!=engine.evaluation_id()) {
@@ -42,29 +61,32 @@ template<int L> void STEIN_LocalQL<L>::compute_Q_peratoms() {
 void STEIN_LocalQL_env::get_env() {
     const int atom_count=engine.total_atom_count(), storage_count=std::max(atom_count,1);
     const auto candidates=engine.neighbors().prepare(neigh_id);
-    candidates.host_centers.wait_host(); candidates.host_offsets.wait_host(); candidates.host_neighbors.wait_host();
+    candidates.centers.wait_on(execution.get()); candidates.offsets.wait_on(execution.get());
+    candidates.neighbors.wait_on(execution.get());
+    candidates.centers.validate(); candidates.offsets.validate(); candidates.neighbors.validate();
     ERR_COND(candidates.coordinates!=NeighborCoordinates::PeriodicImages,
              "Local Q requires image-resolved neighbor coordinates");
     if(!init_flag || cached_neigh_generation!=candidates.topology_generation) {
-        std::vector<int> row_by_atom(atom_count,-1);
-        for(size_t row=0;row<candidates.host_centers.item_count;++row)
-            row_by_atom.at(candidates.host_centers(row))=int(row);
-        resize_host(candidate_offset_storage,h_group_numneigh,atom_count+1);
-        candidate_neighbor_storage.clear();h_group_numneigh[0]=0;
-        for(int atom=0;atom<atom_count;++atom) {
-            const int row=row_by_atom[atom];
-            if(row>=0) for(int entry=candidates.host_offsets(row);entry<candidates.host_offsets(row+1);++entry)
-                candidate_neighbor_storage.push_back(candidates.host_neighbors(entry));
-            h_group_numneigh[atom+1]=int(candidate_neighbor_storage.size());
-        }
-        h_firstneigh_ptrs=candidate_neighbor_storage.data();
+        ERR_COND(candidates.centers.memory!=MemorySpace::Cuda || candidates.offsets.memory!=MemorySpace::Cuda ||
+                 candidates.neighbors.memory!=MemorySpace::Cuda || candidates.offsets.item_count!=candidates.centers.item_count+1 ||
+                 candidates.neighbors.item_count>size_t(INT_MAX),"Local Q requires device CSR candidates");
+        // Convert compressed rows to localid-indexed rows entirely on the device.
+        // The mask is temporary row-count storage until geometric I/J/K marking below.
+        d_LQ_mask.grow_to(storage_count,__FILE__,__LINE__);
+        d_LQ_mask.clear_async(execution.get());
+        const int rows=static_cast<int>(candidates.centers.item_count);
+        if (rows) localql_row_counts<<<(rows+255)/256,256,0,execution.get()>>>(
+            rows,candidates.centers,candidates.offsets,d_LQ_mask.ptr);
+        CUDA_LAUNCH_CHECK();
         d_group_numneigh.grow_to(atom_count+1,__FILE__,__LINE__);
-        d_group_numneigh.upload_from(h_group_numneigh,atom_count+1, execution.get());
-        d_firstneigh_ptrs.grow_to(std::max<size_t>(candidate_neighbor_storage.size(),1),__FILE__,__LINE__);
-        d_firstneigh_ptrs.upload_from(h_firstneigh_ptrs,candidate_neighbor_storage.size(), execution.get());
+        d_LQ_mask.scan_to(d_group_numneigh,atom_count,execution.get());
+        d_firstneigh_ptrs.grow_to(std::max<size_t>(candidates.neighbors.item_count,1),__FILE__,__LINE__);
+        if (rows) localql_copy_rows<<<(rows+255)/256,256,0,execution.get()>>>(
+            rows,candidates.centers,candidates.offsets,candidates.neighbors,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr);
+        CUDA_LAUNCH_CHECK();
         cached_neigh_generation=candidates.topology_generation;init_flag=true;
     }
-    const int candidate_pairs=h_group_numneigh[atom_count];
+    const int candidate_pairs=static_cast<int>(candidates.neighbors.item_count);
     // 每轮重建 I/J 标记和有效邻居，避免同一步重新求值时沿用旧几何。
     d_LQ_mask.grow_to(storage_count, __FILE__, __LINE__);
     d_neigh_in_cutoff_r.grow_to(storage_count, __FILE__, __LINE__);
@@ -82,7 +104,7 @@ void STEIN_LocalQL_env::get_env() {
         CUDA_LAUNCH_CHECK();
     }
     int extra_neighbors = 0;
-    d_pure_J_write_offset.upload_from(&extra_neighbors, 1, execution.get());
+    d_pure_J_write_offset.clear_async(execution.get());
     if (group_count) {
         const int atom_blocks = (atom_count + d_block_size - 1) / d_block_size;
         get_environment_Steinhardt_LocalQ_promote_pure_K<<<atom_blocks,d_block_size,0,execution.get()>>>(
@@ -103,11 +125,12 @@ void STEIN_LocalQL_env::get_env() {
     // calctag 前缀和给每个 I/J 的球谐方向缓存分配连续段。
     d_calculated_firstneigh_ptrs.grow_to(num_of_all_IJ_atoms+1, __FILE__, __LINE__);
     d_calculated_firstneigh_ptrs.clear_async(execution.get());
-    resize_host(active_offset_storage,h_calculated_firstneigh_ptrs,num_of_all_IJ_atoms+1);
     if (num_of_all_IJ_atoms)
         d_neigh_in_cutoff_r.scan_to(d_calculated_firstneigh_ptrs, num_of_all_IJ_atoms, execution.get());
-    d_calculated_firstneigh_ptrs.download_to(h_calculated_firstneigh_ptrs, num_of_all_IJ_atoms+1, execution.get());
-    num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[num_of_all_IJ_atoms];
+    // Only the terminal count is needed for harmonic-buffer allocation, not the CSR.
+    execution_check(cudaMemcpyAsync(&num_of_all_calc_fullpair,
+        d_calculated_firstneigh_ptrs.ptr+num_of_all_IJ_atoms,sizeof(int),cudaMemcpyDeviceToHost,execution.get()));
+    execution.synchronize();
     geometry_evaluation = engine.evaluation_id();
 }
 

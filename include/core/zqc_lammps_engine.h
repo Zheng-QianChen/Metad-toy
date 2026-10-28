@@ -16,6 +16,7 @@ public:
         std::uint64_t position_uploads = 0, type_uploads = 0, id_rebuilds = 0;
         std::uint64_t selection_scans = 0, selection_flag_uploads = 0;
         std::uint64_t neighbor_rebuilds = 0, neighbor_uploads = 0;
+        std::uint64_t device_neighbor_rebuilds = 0;
         // 实际执行 ghost 空间搜索的次数；动态组重新筛选 CSR 单独计入 neighbor_rebuilds。
         std::uint64_t ghost_row_rebuilds = 0;
         // 仅统计输出力/virial：批量 CV 提交、统一回写和 reverse 流程的次数。

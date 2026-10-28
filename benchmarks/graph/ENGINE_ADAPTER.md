@@ -378,6 +378,13 @@ ctest --preset graph-tests -R '^zqc_(cv_assembly|stream_contract)$' \
 
 ## Local Q ghost 候选缓存（2026-10-23）
 
+2026-10-28 补充：本节的 `cutneighghostsq` 补行适用于普通 Host 邻居表。
+CSS/StruFactor、LocalQL 现在可用 `NeighborRequest::host_csr=false` 放弃 Host
+offsets/neighbors 镜像；`host_centers` 仍须与设备 centers 同序。LAMMPS Kokkos
+后端为这些 Full 请求直接消费设备邻居表，在设备上生成 CSR；其 ghost 行使用
+同一自定义 cutoff，因此不执行下面的 Host 空间搜索。未支持设备路径的后端仍可
+同时提供两份 CSR。请求去重包含 `host_csr`，避免让需要 Host 数组的消费者取得空镜像。
+
 LAMMPS stable_29Aug2024 的自定义 cutoff 会扩大请求的 owned 行；ghost 行的
 `cutneighghostsq` 仍由 pair 的设置决定。因此 CV 半径大于 pair ghost 半径时，
 适配器按需补齐 Local Q 的二跳 ghost 邻域。此前这项空间搜索每轮执行；

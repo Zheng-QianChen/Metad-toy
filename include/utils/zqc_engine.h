@@ -40,6 +40,9 @@ struct NeighborRequest {
     SelectionId neighbors = all_atoms;
     NeighborKind kind = NeighborKind::Full;
     bool ghost_centers = false;
+    // Device consumers can waive the Host CSR mirror. host_centers remains available
+    // for Leaf assembly; providers without a device path may still return both copies.
+    bool host_csr = true;
     void validate() const {
         if (!(cutoff > 0) || !std::isfinite(cutoff*cutoff) || centers < -1 || neighbors < -1 ||
             (kind != NeighborKind::Full && kind != NeighborKind::Half))
@@ -50,7 +53,7 @@ struct NeighborRequest {
     }
     bool operator==(const NeighborRequest& other) const {
         return cutoff == other.cutoff && centers == other.centers && neighbors == other.neighbors &&
-               kind == other.kind && ghost_centers == other.ghost_centers;
+               kind == other.kind && ghost_centers == other.ghost_centers && host_csr == other.host_csr;
     }
 };
 
@@ -64,7 +67,7 @@ struct NeighborListView {
     std::uint64_t evaluation_id = 0;
     std::uint64_t topology_generation = 0;
     NeighborCoordinates coordinates = NeighborCoordinates::PeriodicImages;
-    // 与设备 CSR 同序的 Host 视图，供候选索引装配；数据归 provider 所有。
+    // 与设备 CSR 同序的 Host 视图；host_csr=false 时可为空。数据归 provider 所有。
     ArrayView<const LocalAtomIndex> host_offsets, host_neighbors;
     NeighborKind kind = NeighborKind::Full;
     NeighborPairOwnership pair_ownership = NeighborPairOwnership::DirectedByCenter;

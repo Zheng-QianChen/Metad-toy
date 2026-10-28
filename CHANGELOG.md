@@ -1,5 +1,11 @@
 # 更新日志
 
+## 未发布 — 2026-10-28 CSS / LocalQL 设备邻居准备
+
+- CSS/StruFactor 与 LocalQL 直接请求 Kokkos device full/ghost 邻居表，在 GPU 筛选、扫描并生成 CSR；保留 Host/全局 Q/Half 兼容路径。
+- LocalQL 将 CSR 行重排和中心标记移至 GPU，只回读 I/J 中心数、有效 pair 数；CSS 中心顺序检查按拓扑/装配版本复用。
+- 两层 halo、周期镜像 localid、动态组和每轮几何更新语义保持一致。新增设备邻居计数，扩展 ghost 缓存与 LocalQL 回归入口以支持 Kokkos/Weave。
+
 ## 未发布 — 2026-10-28 CV 压缩与 FES 验证
 
 - 新增光滑 90%→10% 概率压缩对照，输出解析平坦势、共同沉积偏势与原坐标二维 FES 图。

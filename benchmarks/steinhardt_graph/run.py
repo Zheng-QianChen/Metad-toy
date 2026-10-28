@@ -44,7 +44,10 @@ def worker(args):
             + "\nMasses\n\n1 1\n2 1\n3 1\n\nAtoms # atomic\n\n"
             + ''.join(f"{i} {t} {x:.17g} {y:.17g} {z:.17g}\n" for i,t,(x,y,z) in zip(atom_ids,types,positions)))
     comm.Barrier()
-    simulation = lammps(cmdargs=['-screen','none','-log',str(directory/'log.lammps')], comm=comm)
+    simulation = lammps(cmdargs=['-screen','none','-log',str(directory/'log.lammps'),*shlex.split(args.lammps_args)], comm=comm)
+    if args.weave_plugin:
+        simulation.command(f'plugin load "{args.weave_plugin}"')
+        simulation.command('weave/batch_comm')
     groups = ['tiny','type2','all'] if args.case == 'groups' else ['all']*3
     radial = args.case in ('radial','excluded')
     kinds = ['Q','L','L'] if args.kind == 'mixed' else [args.kind]*3
@@ -247,6 +250,8 @@ def main():
     parser.add_argument('--plugin',type=Path,default=None)
     parser.add_argument('--mpi',type=Path,default=None)
     parser.add_argument('--mpi-args',default='')
+    parser.add_argument('--lammps-args',default='')
+    parser.add_argument('--weave-plugin',type=Path)
     parser.add_argument('--np',type=int,nargs='+',default=[1,2,4])
     parser.add_argument('--cases',nargs='+',default=CASES,choices=CASES)
     parser.add_argument('--worker',action='store_true')
@@ -270,6 +275,8 @@ def main():
                 command=[str(args.mpi),*shlex.split(args.mpi_args),'-np',str(ranks),sys.executable,str(Path(__file__).resolve()),
                          '--worker','--kind',args.kind,'--case',case,'--executor',executor,'--output',str(directory),'--plugin',str(args.plugin)]
                 if ranks==1 and case in ['nonlinear','groups','radial','excluded']: command.append('--finite-difference')
+                command.append('--lammps-args='+args.lammps_args)
+                if args.weave_plugin: command.extend(['--weave-plugin',str(args.weave_plugin)])
                 with (directory/'screen.txt').open('w') as output:
                     result=subprocess.run(command,stdout=output,stderr=subprocess.STDOUT,timeout=180)
                 if result.returncode: raise RuntimeError(str(directory)+'\n'+(directory/'screen.txt').read_text(encoding='utf-8')[-5000:])
@@ -288,6 +295,8 @@ def main():
         directory=args.output/interface;directory.mkdir()
         command=[str(args.mpi),*shlex.split(args.mpi_args),'-np','1',sys.executable,str(Path(__file__).resolve()),
                  '--worker','--kind',args.kind,'--case','mean','--obsolete-interface',interface,'--output',str(directory),'--plugin',str(args.plugin)]
+        command.append('--lammps-args='+args.lammps_args)
+        if args.weave_plugin: command.extend(['--weave-plugin',str(args.weave_plugin)])
         with (directory/'screen.txt').open('w') as output:
             result=subprocess.run(command,stdout=output,stderr=subprocess.STDOUT,timeout=60)
         output=(directory/'screen.txt').read_text(encoding='utf-8')

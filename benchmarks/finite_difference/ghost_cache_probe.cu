@@ -24,6 +24,7 @@ extern "C" int ghost_cache_register(void* pointer, double cutoff, int selection)
         MetaD_zqc::NeighborRequest request;
         request.cutoff = cutoff; request.ghost_centers = true;
         request.centers = request.neighbors = selection;
+        request.host_csr = false;
         return ghost_engine(static_cast<LAMMPS_NS::LAMMPS*>(pointer)).register_neighbors(request);
     } catch (const std::exception& error) { ghost_error = error.what(); return -1; }
 }
@@ -33,6 +34,7 @@ extern "C" int ghost_cache_stats(void* pointer, unsigned long long* output) {
         const auto stats = ghost_engine(simulation).sync_stats();
         output[0] = stats.neighbor_rebuilds; output[1] = stats.ghost_row_rebuilds;
         output[2] = stats.neighbor_uploads; output[3] = simulation->neighbor->lastcall;
+        output[4] = stats.device_neighbor_rebuilds;
         return 0;
     } catch (const std::exception& error) { ghost_error = error.what(); return 1; }
 }
@@ -41,15 +43,26 @@ extern "C" int ghost_cache_verify(void* pointer, int handle, double radius, int 
     try {
         auto* simulation = static_cast<LAMMPS_NS::LAMMPS*>(pointer);
         const auto view = ghost_engine(simulation).prepare_neighbors(handle);
+        const auto coordinates = ghost_engine(simulation).positions(MetaD_zqc::MemorySpace::Host);
+        coordinates.wait_host();
         auto* atom = simulation->atom;
         const int total = atom->nlocal + atom->nghost;
         const int group_mask = selection < 0 ? -1 : simulation->group->bitmask[selection];
         std::vector<std::vector<int>> rows(total);
+        // Diagnostic downloads only: production LocalQL never requests these mirrors.
+        std::vector<int> offsets(view.offsets.item_count), neighbors(view.neighbors.item_count);
+        view.offsets.wait_host(); view.neighbors.wait_host();
+        auto copy = [](int* dst, const int* src, size_t count) {
+            if (count && cudaMemcpy(dst,src,count*sizeof(int),cudaMemcpyDeviceToHost)!=cudaSuccess)
+                throw std::runtime_error("probe device CSR download failed");
+        };
+        copy(offsets.data(),view.offsets.data,offsets.size());
+        copy(neighbors.data(),view.neighbors.data,neighbors.size());
         std::vector<unsigned char> required_ghost(total, 0), listed(total, 0);
         for (size_t row = 0; row < view.host_centers.item_count; ++row) {
             const int center = view.host_centers(row); listed[center] = 1;
-            for (int entry = view.host_offsets(row); entry < view.host_offsets(row+1); ++entry)
-                rows[center].push_back(view.host_neighbors(entry));
+            for (int entry = offsets[row]; entry < offsets[row+1]; ++entry)
+                rows[center].push_back(neighbors[entry]);
             std::sort(rows[center].begin(), rows[center].end());
         }
         std::fill_n(output, 3, 0);
@@ -59,7 +72,7 @@ extern "C" int ghost_cache_verify(void* pointer, int handle, double radius, int 
                 if (neighbor == center || (selection >= 0 && !(atom->mask[neighbor]&group_mask))) continue;
                 double distance_sq = 0;
                 for (int axis = 0; axis < 3; ++axis) {
-                    const double difference = atom->x[center][axis]-atom->x[neighbor][axis];
+                    const double difference = coordinates(center,axis)-coordinates(neighbor,axis);
                     distance_sq += difference*difference;
                 }
                 if (distance_sq > radius*radius) continue;
