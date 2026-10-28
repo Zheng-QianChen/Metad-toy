@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+[NeighHub] register id=1 key=1_0_0_0_1_0_0_0_0_0_0_0_0_0_0_0_0_0_1_4881551056 occasional=0 ghost=1 cut=4.88155 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] register id=2 key=1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_1_4681551056 occasional=0 ghost=0 cut=4.68155 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] rerequest_all: 2 id(s)
+[NeighHub] rerequest_all: 2 id(s)
+[NeighHub] rerequest_all: 2 id(s)
+[NeighHub] rerequest_all: 2 id(s)
+[NeighHub] rerequest_all: 2 id(s)
+PASS Al3Sc shared frozen: energy reference, FD step sizes=0, MEAM steps=3, selection refresh
+========= ERROR SUMMARY: 0 errors

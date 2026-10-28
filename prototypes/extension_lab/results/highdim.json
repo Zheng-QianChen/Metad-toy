@@ -1,0 +1,47 @@
+{
+  "status": "pass",
+  "dimensions": [
+    {
+      "dimension": 2,
+      "hills": 64,
+      "gradient_max_error": 8.668876727568886e-11,
+      "single_evaluation_seconds": 0.00016304798191413283,
+      "numeric_hill_storage_bytes": 1536,
+      "dense_100_bins_per_axis_cells": "10000"
+    },
+    {
+      "dimension": 8,
+      "hills": 64,
+      "gradient_max_error": 1.357505219345967e-10,
+      "single_evaluation_seconds": 0.00015834602527320385,
+      "numeric_hill_storage_bytes": 4608,
+      "dense_100_bins_per_axis_cells": "10000000000000000"
+    },
+    {
+      "dimension": 32,
+      "hills": 64,
+      "gradient_max_error": 2.9831742631714064e-10,
+      "single_evaluation_seconds": 0.0001748519716784358,
+      "numeric_hill_storage_bytes": 16896,
+      "dense_100_bins_per_axis_cells": "10000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "dimension": 128,
+      "hills": 64,
+      "gradient_max_error": 2.82911392229801e-10,
+      "single_evaluation_seconds": 0.00030217302264645696,
+      "numeric_hill_storage_bytes": 66048,
+      "dense_100_bins_per_axis_cells": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "periodic_seam_continuous": true,
+  "full_covariance_gradient_max_error": 2.149189159972309e-11,
+  "pb_gradient_max_error": 1.3136804144497916e-11,
+  "restart_exact": true,
+  "frozen_bias_samples": 277411,
+  "joint_fes_valid_bins": 245,
+  "joint_fes_rmse_kbt": 0.03582405314372125,
+  "covariance_max_error": 0.0013703614617879278,
+  "independent_marginals_rmse_kbt": 0.5502133338081849,
+  "reweighting_scope": "equilibrium samples under a frozen bias"
+}

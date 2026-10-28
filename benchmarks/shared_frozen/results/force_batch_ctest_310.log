@@ -1,0 +1,16 @@
+Internal ctest changing into directory: /home/saitang/work/MetadToy-force-batch-20261027/build
+Test project /home/saitang/work/MetadToy-force-batch-20261027/build
+    Start  3: zqc_engine_contract
+1/2 Test  #3: zqc_engine_contract ..............   Passed    0.01 sec
+    Start 31: zqc_shared_frozen
+2/2 Test #31: zqc_shared_frozen ................   Passed    0.29 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+cuda                 =   0.29 sec*proc (1 test)
+finite-difference    =   0.29 sec*proc (1 test)
+host                 =   0.01 sec*proc (1 test)
+sampling             =   0.29 sec*proc (1 test)
+
+Total Test time (real) =   0.30 sec

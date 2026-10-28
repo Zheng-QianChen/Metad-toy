@@ -1,0 +1,564 @@
+{
+  "passed": true,
+  "finite_difference_cases": 69,
+  "finite_difference_cross": [
+    {
+      "case": "q3",
+      "ranks": 1,
+      "errors": {
+        "rows": 6.071532165918825e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 4.163336342344337e-17
+      }
+    },
+    {
+      "case": "q3",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.0408340855860843e-17,
+        "values": 0.0,
+        "energy": 1.3877787807814457e-17,
+        "virial": 9.71445146547012e-17
+      }
+    },
+    {
+      "case": "q4",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.903127820947816e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.9081958235744878e-17
+      }
+    },
+    {
+      "case": "q4",
+      "ranks": 2,
+      "errors": {
+        "rows": 4.336808689942018e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.0816681711721685e-17
+      }
+    },
+    {
+      "case": "q6",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.2526065174565133e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.42861286636753e-17
+      }
+    },
+    {
+      "case": "q6",
+      "ranks": 2,
+      "errors": {
+        "rows": 2.8189256484623115e-18,
+        "values": 1.1102230246251565e-16,
+        "energy": 0.0,
+        "virial": 2.42861286636753e-17
+      }
+    },
+    {
+      "case": "l3",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.6020852139652106e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.3877787807814457e-17
+      }
+    },
+    {
+      "case": "l3",
+      "ranks": 2,
+      "errors": {
+        "rows": 3.469446951953614e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.3877787807814457e-17
+      }
+    },
+    {
+      "case": "l4",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.439454888092385e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.7755575615628914e-17
+      }
+    },
+    {
+      "case": "l4",
+      "ranks": 2,
+      "errors": {
+        "rows": 3.0357660829594124e-18,
+        "values": 2.7755575615628914e-17,
+        "energy": 2.7755575615628914e-17,
+        "virial": 2.949029909160572e-17
+      }
+    },
+    {
+      "case": "l6",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.469446951953614e-17,
+        "values": 0.0,
+        "energy": 8.326672684688674e-17,
+        "virial": 1.6479873021779667e-16
+      }
+    },
+    {
+      "case": "l6",
+      "ranks": 2,
+      "errors": {
+        "rows": 3.426078865054194e-17,
+        "values": 0.0,
+        "energy": 8.326672684688674e-17,
+        "virial": 1.700029006457271e-16
+      }
+    },
+    {
+      "case": "structure",
+      "ranks": 1,
+      "errors": {
+        "rows": 1.3877787807814457e-17,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 8.881784197001252e-16
+      }
+    },
+    {
+      "case": "structure",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.3877787807814457e-17,
+        "values": 2.220446049250313e-16,
+        "energy": 0.0,
+        "virial": 8.881784197001252e-16
+      }
+    },
+    {
+      "case": "chemical",
+      "ranks": 1,
+      "errors": {
+        "rows": 6.938893903907228e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.7755575615628914e-17
+      }
+    },
+    {
+      "case": "chemical",
+      "ranks": 2,
+      "errors": {
+        "rows": 6.938893903907228e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 5.551115123125783e-17
+      }
+    },
+    {
+      "case": "chemical_gaussian",
+      "ranks": 1,
+      "errors": {
+        "rows": 4.458239333260394e-16,
+        "values": 2.220446049250313e-16,
+        "energy": 2.1510571102112408e-15,
+        "virial": 2.0261570199409107e-15
+      }
+    },
+    {
+      "case": "chemical_gaussian",
+      "ranks": 2,
+      "errors": {
+        "rows": 4.458239333260394e-16,
+        "values": 2.220446049250313e-16,
+        "energy": 2.1510571102112408e-15,
+        "virial": 2.040034807748725e-15
+      }
+    },
+    {
+      "case": "weighted",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.7755575615628914e-17,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.1102230246251565e-16
+      }
+    },
+    {
+      "case": "weighted",
+      "ranks": 2,
+      "errors": {
+        "rows": 2.7755575615628914e-17,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.220446049250313e-16
+      }
+    },
+    {
+      "case": "weighted_gaussian",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.7755575615628914e-17,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 8.881784197001252e-16
+      }
+    },
+    {
+      "case": "weighted_gaussian",
+      "ranks": 2,
+      "errors": {
+        "rows": 4.773959005888173e-15,
+        "values": 0.0,
+        "energy": 4.3021142204224816e-16,
+        "virial": 7.549516567451064e-14
+      }
+    },
+    {
+      "case": "css_binary",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.469446951953614e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.1102230246251565e-16
+      }
+    },
+    {
+      "case": "css_binary",
+      "ranks": 2,
+      "errors": {
+        "rows": 3.469446951953614e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 3.3306690738754696e-16
+      }
+    },
+    {
+      "case": "css_ternary",
+      "ranks": 1,
+      "errors": {
+        "rows": 1.734723475976807e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 3.469446951953614e-18
+      }
+    },
+    {
+      "case": "css_ternary",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.734723475976807e-17,
+        "values": 0.0,
+        "energy": 4.163336342344337e-17,
+        "virial": 2.7755575615628914e-15
+      }
+    },
+    {
+      "case": "ql_linear",
+      "ranks": 1,
+      "errors": {
+        "rows": 6.938893903907228e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 2.7755575615628914e-17
+      }
+    },
+    {
+      "case": "ql_linear",
+      "ranks": 2,
+      "errors": {
+        "rows": 7.806255641895632e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 4.163336342344337e-17
+      }
+    },
+    {
+      "case": "chemical_linear",
+      "ranks": 1,
+      "errors": {
+        "rows": 1.942890293094024e-16,
+        "values": 2.220446049250313e-16,
+        "energy": 1.249000902703301e-16,
+        "virial": 5.773159728050814e-15
+      }
+    },
+    {
+      "case": "chemical_linear",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.942890293094024e-16,
+        "values": 2.220446049250313e-16,
+        "energy": 1.249000902703301e-16,
+        "virial": 5.773159728050814e-15
+      }
+    },
+    {
+      "case": "all_linear",
+      "ranks": 1,
+      "errors": {
+        "rows": 4.5102810375396984e-17,
+        "values": 1.1102230246251565e-16,
+        "energy": 6.938893903907228e-17,
+        "virial": 1.5543122344752192e-15
+      }
+    },
+    {
+      "case": "all_linear",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.8735013540549517e-16,
+        "values": 1.1102230246251565e-16,
+        "energy": 6.938893903907228e-17,
+        "virial": 6.439293542825908e-15
+      }
+    },
+    {
+      "case": "mixed_groups",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.469446951953614e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.3877787807814457e-17
+      }
+    },
+    {
+      "case": "mixed_groups",
+      "ranks": 2,
+      "errors": {
+        "rows": 3.469446951953614e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.3877787807814457e-17
+      }
+    },
+    {
+      "case": "nonlinear_graph",
+      "ranks": 1,
+      "errors": {
+        "rows": 3.903127820947816e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 5.551115123125783e-17
+      }
+    },
+    {
+      "case": "nonlinear_graph",
+      "ranks": 2,
+      "errors": {
+        "rows": 4.336808689942018e-18,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 1.1102230246251565e-16
+      }
+    },
+    {
+      "case": "distance",
+      "ranks": 1,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance",
+      "ranks": 2,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_linear",
+      "ranks": 1,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_linear",
+      "ranks": 2,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_graph",
+      "ranks": 1,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_graph",
+      "ranks": 2,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_graph_linear",
+      "ranks": 1,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_graph_linear",
+      "ranks": 2,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      }
+    },
+    {
+      "case": "distance_mixed",
+      "ranks": 1,
+      "errors": {
+        "rows": 5.551115123125783e-17,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 5.551115123125783e-17
+      }
+    },
+    {
+      "case": "distance_mixed",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.1102230246251565e-16,
+        "values": 8.881784197001252e-16,
+        "energy": 0.0,
+        "virial": 5.551115123125783e-17
+      }
+    }
+  ],
+  "trajectory_cross": [
+    {
+      "directory": "lifecycle5-host-np1",
+      "ranks": 1,
+      "errors": {
+        "rows": 0.0,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 0.0
+      },
+      "position_uploads": 205,
+      "migrated": false
+    },
+    {
+      "directory": "lifecycle5-host-np2",
+      "ranks": 2,
+      "errors": {
+        "rows": 1.1102230246251565e-16,
+        "values": 0.0,
+        "energy": 0.0,
+        "virial": 5.329070518200751e-15
+      },
+      "position_uploads": 205,
+      "migrated": true
+    },
+    {
+      "directory": "lifecycle5-full-np1",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.6020852139652106e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 8.881784197001252e-15
+      },
+      "position_uploads": 0,
+      "migrated": false
+    },
+    {
+      "directory": "lifecycle5-full-np2",
+      "ranks": 2,
+      "errors": {
+        "rows": 2.6020852139652106e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 7.771561172376096e-15
+      },
+      "position_uploads": 0,
+      "migrated": true
+    },
+    {
+      "directory": "lifecycle5-half-np1",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.6853519408120974e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 7.327471962526033e-15
+      },
+      "position_uploads": 0,
+      "migrated": false
+    },
+    {
+      "directory": "lifecycle5-half-np2",
+      "ranks": 2,
+      "errors": {
+        "rows": 2.6853519408120974e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 7.216449660063518e-15
+      },
+      "position_uploads": 0,
+      "migrated": true
+    },
+    {
+      "directory": "lifecycle5-half-off-np1",
+      "ranks": 1,
+      "errors": {
+        "rows": 2.6055546609171643e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 7.771561172376096e-15
+      },
+      "position_uploads": 0,
+      "migrated": false
+    },
+    {
+      "directory": "lifecycle5-half-off-np2",
+      "ranks": 2,
+      "errors": {
+        "rows": 2.6124935548210715e-15,
+        "values": 8.326672684688674e-17,
+        "energy": 0.0,
+        "virial": 7.771561172376096e-15
+      },
+      "position_uploads": 0,
+      "migrated": true
+    }
+  ]
+}

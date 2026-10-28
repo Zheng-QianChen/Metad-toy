@@ -1,0 +1,27 @@
+{
+  "hashes": {
+    "before": "697a00c24b2dbc08394696a769ac881b906af63ac0fbaf8fa18160cb1133d7c7",
+    "after": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd",
+    "lammps": "eed9eafe2d1c4050eac23d4b5ceaee74c58b69ee0300792ff0b1a3b4628603c5",
+    "table": "da480bce08df316ee7605aec28f24d8c0b2bc5be8b47bbba87b40500a36f1f41"
+  },
+  "arguments": {
+    "lammps": "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+    "mpiexec": "/usr/lib64/mpich/bin/mpiexec.hydra",
+    "before": "/home/saitang/work/MetadToy-shared-frozen-20261027/build/fix_crystallize_plugin.so",
+    "after": "/home/saitang/work/MetadToy-force-batch-20261027/build/fix_crystallize_plugin.so",
+    "assets": "/home/saitang/work/MetadToy-shared-frozen-20261027/assets",
+    "table": "/home/saitang/work/MetadToy-shared-frozen-20261027/production4-host/shared.table",
+    "output": "/home/saitang/work/MetadToy-force-batch-20261027/performance",
+    "repeats": 3
+  },
+  "gpu_before": [
+    "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 34, 2520 MHz, 39.53 W",
+    ""
+  ],
+  "method": "Same performance.py NPT inputs, shuffled A/B; 50 warmup; 300 steps np1 / 200 steps np2",
+  "gpu_after": [
+    "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 28 %, 146 MiB, 42, 2520 MHz, 72.73 W",
+    ""
+  ]
+}

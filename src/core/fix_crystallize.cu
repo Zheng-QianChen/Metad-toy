@@ -13,6 +13,7 @@
 #include "domain.h"
 #include "memory.h"
 #include "error.h"
+#include "exceptions.h"
 #include "force.h"
 #include "group.h"
 #include "neighbor.h"
@@ -21,11 +22,15 @@
 #include "compute.h"
 
 #include "fix_crystallize.h"
+#include "zqc_lammps_engine.h"
+#include "CV_Stru_factor.h"
 #include "compute_MetaDToy.h"
 #include "zqc_debug.h"
 #include "zqc_DimSet.h"
 #include "zqc_cv_graph.cuh"
-#include "zqc_gaussian.h"
+#include "zqc_gpu_buffer.cuh"
+#include "zqc_bias.h"
+#include "zqc_shared_bias.cuh"
 #include "zqc_mlcvs.h"
 #include "zqc_switch_function.h"
 
@@ -53,6 +58,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     }
     MPI_Barrier(world);
     f_check = fopen("metad_debug_logging.txt","a");
+    engine_adapter = std::make_unique<MetaD_zqc::LammpsEngineAdapter>(
+        lmp, this, MetaD_zqc::make_lammps_logger(lmp, f_check));
     LOG("MPI_COMM_WORLD size: %d", comm->nprocs);
     pthread_t tid = pthread_self();
     LOG("Process Rank: %d | Total Processes: %d | Thread ID: %lu",
@@ -67,26 +74,26 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     cv_configs = new MetaD_zqc::MetaDimensionManager();
     double *cv_bound = nullptr;
     int *nbin = nullptr;
-    int Gaussian_Hill_type = 0;
-    double sigma, height0, biasf, KB, current_temp;
+    int Gaussian_Hill_type = -1; // AUTO：维数由配置完成后决定。
+    double sigma, height0, biasf, current_temp;
     sigma     = 0.05;
     height0   = 0.1;
     biasf     = 10.0;
-    KB        = 0.025852;
     current_temp = 300.0;
     int continue_from_file=false;
     int WellT_bool=false;
     bool use_graph = false;
+    std::vector<double> axis_sigmas, axis_periods;
+    std::string hills_path = "HILLS";
+    std::string shared_table_path, shared_group;
+    bool pace_explicit = false;
+    unsigned history_workers=1;
+    bool pb_sum_normalization=false;
+    auto pb_kernel=MetaD_zqc::PBKernel::Plumed210;
+    bool expression_only_dimensions = false;
     std::vector<MetaD_zqc::CVGraphSymbol> symbol_configs;
     std::vector<std::string> dim_expressions;
 
-    // Gaussian_Hill_type={
-    // 0: 均匀网格
-    // 1: 稀疏网格
-    // 2: KDTree
-    // }
-    // Check dim configuration:
-    // bool *has_dim_configured = nullptr;
     virial_global_flag = 1;
     virial_peratom_flag = 1;
     while (i < narg) {
@@ -110,7 +117,12 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                      "EXECUTOR requires LEGACY or GRAPH");
             use_graph = strcmp(arg[i+1], "GRAPH") == 0;
             i += 2;
+        } else if (strcmp(arg[i], "SHARED_FROZEN") == 0) {
+            ERR_COND(i+2>=narg || !shared_table_path.empty(),
+                     "SHARED_FROZEN requires one table file and one center group");
+            shared_table_path=arg[i+1]; shared_group=arg[i+2]; i+=3;
         } else if (strcmp(arg[i], "PACE") == 0) {
+            pace_explicit = true;
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             pace = utils::inumeric(FLERR, arg[i+1], false, lmp);
             i += 2;
@@ -140,7 +152,11 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             DEBUG_LOG("In CV_dim settings");
             ERR_COND(i + 1 >= narg, "Error: PACE command requires 1 argument: integer timesteps.");
             cv_dim = utils::inumeric(FLERR, arg[i+1], false, lmp);
+            ERR_COND(cv_dim<=0 || cv_dim>std::numeric_limits<int>::max()/2,
+                     "CV_dim must be positive and fit the dimension buffers");
+            ERR_COND(cv_bound!=nullptr, "CV_dim must be specified once");
             memory->create(nbin, cv_dim, "metad:nbin_size");
+            std::fill_n(nbin,cv_dim,0);
             memory->create(cv_bound, cv_dim*2, "metad:GaussianHill:cv_bound");
 
             dim_expressions.resize(cv_dim);
@@ -164,7 +180,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                LOG("Creating switch function %s", cal_name.c_str());
             }
             // SW_FUNC 也将由 CAL 指定
-            sw_registry[cal_name] = MetaD_zqc::SwitchFunction::create(lmp, this, f_check, narg, arg, i);
+            sw_registry[cal_name] = MetaD_zqc::SwitchFunction::create(narg, arg, i, engine_adapter->logger());
           } else {
             if (cal_registry.find(cal_name) != cal_registry.end()) {
               error->all(FLERR, "Error: CAL name '%s' is duplicated.", cal_name.c_str());
@@ -172,7 +188,8 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                LOG("Creating switch function %s", cal_name.c_str());
             }
             // 通过工厂方法创建 CV 对象，并注册到 cal_registry 中
-            auto new_cv = MetaD_zqc::CVFactory::create(type, lmp, this, f_check, narg, arg, i);
+            MetaD_zqc::CVContext context{*engine_adapter, sw_registry, engine_adapter->logger(), f_check};
+            auto new_cv = MetaD_zqc::CVFactory::create(type, context, narg, arg, i);
             if (new_cv == nullptr) {
               error->all(FLERR, "Metad-toy Error: Unknown or unregistered object type '%s' specified in CAL '%s'. "
                                 "Please register it in CVFactory or check your input script.",
@@ -194,7 +211,7 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
                 target_func = target.substr(dot_pos + 1);
             } else {
                 target_name = target;
-                target_func = "value"; 
+                target_func = "value";
             }
             DEBUG_LOG("VAL=%s, METHODS=%s",target_name.c_str(),target_func.c_str());
             // add_symbol(const std::string& name, CV* ptr, const std::string& func_name);
@@ -219,15 +236,60 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             // 【标记该维度已配置，后续检查是否所有维度都配置了表达式
             // has_dim_configured[dim_idx] = true;
             i += 6;
+        } else if (strcmp(arg[i], "HILLS_WORKERS") == 0) {
+            ERR_COND(i+1>=narg,"HILLS_WORKERS requires 1-16");
+            const int workers=utils::inumeric(FLERR,arg[i+1],false,lmp);
+            ERR_COND(workers<1 || workers>16,"HILLS_WORKERS requires 1-16");
+            history_workers=static_cast<unsigned>(workers);i+=2;
+        } else if (strcmp(arg[i], "PB_KERNEL") == 0) {
+            ERR_COND(i+1>=narg,"PB_KERNEL requires PLUMED_2_10 or SMOOTH_GAUSSIAN");
+            const std::string kernel=arg[i+1];
+            ERR_COND(kernel!="PLUMED_2_10" && kernel!="SMOOTH_GAUSSIAN","Unknown PB_KERNEL");
+            pb_kernel=kernel=="PLUMED_2_10" ? MetaD_zqc::PBKernel::Plumed210 : MetaD_zqc::PBKernel::SmoothGaussian;
+            i+=2;
+        } else if (strcmp(arg[i], "PB_NORMALIZATION") == 0) {
+            ERR_COND(i+1>=narg,"PB_NORMALIZATION requires SUM or MEAN");
+            const std::string mode=arg[i+1];
+            ERR_COND(mode!="SUM" && mode!="MEAN","PB_NORMALIZATION requires SUM or MEAN");
+            pb_sum_normalization=(mode=="SUM");i+=2;
+        } else if (strcmp(arg[i], "DIM_EXPR") == 0) {
+            ERR_COND(i+2>=narg, "DIM_EXPR requires index and expression");
+            const int dimension=utils::inumeric(FLERR,arg[i+1],false,lmp)-1;
+            ERR_COND(!cv_bound || dimension<0 || dimension>=cv_dim,
+                     "DIM_EXPR requires CV_dim first and a valid index");
+            dim_expressions[dimension]=arg[i+2];
+            expression_only_dimensions=true;
+            i+=3;
+        } else if (strcmp(arg[i], "BIAS") == 0) {
+            ERR_COND(i+1>=narg, "BIAS requires AUTO, GRID, SPARSE_GRID, HILLS or PBMETAD");
+            const std::string mode=arg[i+1];
+            if (mode=="AUTO") Gaussian_Hill_type=-1;
+            else if (mode=="GRID") Gaussian_Hill_type=0;
+            else if (mode=="SPARSE_GRID") Gaussian_Hill_type=1;
+            else if (mode=="HILLS") Gaussian_Hill_type=2;
+            else if (mode=="PBMETAD") Gaussian_Hill_type=3;
+            else error->all(FLERR,"Unknown BIAS backend: {}",mode);
+            i+=2;
+        } else if (strcmp(arg[i], "SIGMAS") == 0 || strcmp(arg[i], "PERIODS") == 0) {
+            ERR_COND(!cv_bound || cv_dim>=narg-i, "SIGMAS/PERIODS require CV_dim followed by one value per dimension");
+            auto& values=strcmp(arg[i],"SIGMAS")==0 ? axis_sigmas : axis_periods;
+            values.resize(cv_dim);
+            for (int dimension=0; dimension<cv_dim; ++dimension)
+                values[dimension]=utils::numeric(FLERR,arg[i+1+dimension],false,lmp);
+            i+=1+cv_dim;
+        } else if (strcmp(arg[i], "HILLS_FILE") == 0) {
+            ERR_COND(i+1>=narg, "HILLS_FILE requires a path");
+            hills_path=arg[i+1];i+=2;
         } else if (strcmp(arg[i], "Gaussian_Hill_type") == 0) {
-            ERR_COND(i + 1 >= narg, "Error: Gaussian_Hill_type command requires 1 argument: 0(均匀网格) or 1(稀疏网格) or 2(KDTree).");
-            Gaussian_Hill_type = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
+            ERR_COND(i + 1 >= narg, "Gaussian_Hill_type requires 0(GRID), 1(SPARSE_GRID), 2(HILLS), or 3(PBMETAD)");
+            Gaussian_Hill_type = utils::inumeric(FLERR, arg[i+1], false, lmp);
             i += 2;
         } else if (strcmp(arg[i], "METAD_RESTART") == 0) {
             ERR_COND(i + 1 >= narg, "Error: METAD_RESTART command requires 1 argument: 0 or 1.");
             continue_from_file = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
             i += 2;
         } else if (strcmp(arg[i], "WT") == 0) {
+            ERR_COND(i+1>=narg, "WT requires 0 or 1");
             WellT_bool = (utils::inumeric(FLERR, arg[i+1], false, lmp) != 0);
             i += 2;
         } else {
@@ -235,12 +297,44 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
             break;
         }
     }
+    if (!shared_table_path.empty()) {
+        ERR_COND(!use_graph || cv_dim!=1, "SHARED_FROZEN requires EXECUTOR GRAPH and CV_dim 1");
+        ERR_COND((pace_explicit && pace!=0) || WellT_bool || continue_from_file,
+                 "SHARED_FROZEN uses an immutable table: PACE must be 0, WT and METAD_RESTART must be 0");
+        pace=0;
+        Gaussian_Hill_type=2; // 标量 Gaussian 配置在此模式下不建立，DIM_EXPR 无需网格边界。
+    }
+    const bool automatic_bias=Gaussian_Hill_type==-1;
+    if (automatic_bias) Gaussian_Hill_type=cv_dim>3 ? 3 : 0;
+    ERR_COND(Gaussian_Hill_type<0 || Gaussian_Hill_type>3, "Unknown bias backend");
+    ERR_COND(pace<0, "PACE must be nonnegative; zero freezes deposition");
+    ERR_COND(!std::isfinite(sigma) || sigma<=0 || !std::isfinite(height0) || height0<=0,
+             "GAUSSIAN sigma and height must be finite and positive");
+    ERR_COND(!std::isfinite(current_temp) || current_temp<=0, "TEMP must be finite and positive");
+    ERR_COND(!std::isfinite(biasf) || (WellT_bool && biasf<=1), "WT bias factor must exceed one");
+    if (Gaussian_Hill_type<2) {
+        ERR_COND(expression_only_dimensions,
+                 "Grid bias requires DIM with bounds and bins");
+        ERR_COND(cv_dim>3 || !cv_bound || !nbin, "Grid bias requires 1-3 configured DIM axes");
+        for (int dimension=0; dimension<cv_dim; ++dimension)
+            ERR_COND(nbin[dimension]<4 || !std::isfinite(cv_bound[2*dimension]) ||
+                     !std::isfinite(cv_bound[2*dimension+1]) ||
+                     cv_bound[2*dimension+1]<=cv_bound[2*dimension], "Grid DIM requires finite increasing bounds and at least four bins");
+    }
     // 完整读入后才构图，EXECUTOR 的位置不影响 SYMBOL/DIM 的含义。
     ERR_COND(dim_expressions.size() != static_cast<size_t>(cv_dim), "Missing CV_dim/DIM configuration");
     for (const auto& expr : dim_expressions) ERR_COND(expr.empty(), "Every DIM requires an expression");
     try {
         if (use_graph) {
-            graph_execution = std::make_unique<MetaD_zqc::CVGraphExecution>(lmp, symbol_configs, dim_expressions);
+            std::vector<MetaD_zqc::SelectionId> output_selections;
+            if (!shared_table_path.empty()) {
+                shared_frozen_selection=engine_adapter->selection_id(shared_group);
+                output_selections.push_back(shared_frozen_selection);
+                shared_frozen_bias=std::make_unique<MetaD_zqc::FrozenSharedBias>(
+                    shared_table_path,engine_adapter->sum_reducer());
+            }
+            graph_execution = std::make_unique<MetaD_zqc::CVGraphExecution>(
+                *engine_adapter, symbol_configs, dim_expressions, output_selections);
         } else {
             for (const auto& symbol : symbol_configs)
                 cv_configs->add_symbol(symbol.name.c_str(), symbol.cv, symbol.method.c_str());
@@ -263,57 +357,51 @@ FixMetadynamics::FixMetadynamics(LAMMPS *lmp, int narg, char **arg)
     //     }
     // }
 
-    // 定义Gaussian
-    if (Gaussian_Hill_type==0){
-      // p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<cv_dim>(lmp, f_check,
-      //                       cv_dim, sigma, height0, biasf,
-      //                       WellT_bool, cv_bound, nbin);
-      if (cv_dim == 1) {
-        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<1>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-      } else if (cv_dim == 2) {
-        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<2>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-      } else if (cv_dim == 3) {
-        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<3>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-      } else {
-        error->all(FLERR, "Only 1D-3D are supported for optimized grid.");
-      }
-    } else if (Gaussian_Hill_type==1){
-      if (cv_dim == 1) {
-        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<1>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-      } else if (cv_dim == 2) {
-        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<2>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-      } else if (cv_dim == 3) {
-        p_gaussian = new MetaD_zqc::GH_t1_sparseHash<3>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
-    } else if (Gaussian_Hill_type==2){
-        p_gaussian = new MetaD_zqc::GH_t0_uniformGrid<1>(lmp, f_check,
-                            cv_dim, sigma, height0, biasf,
-                            continue_from_file, WellT_bool, cv_bound, nbin);
+    MetaD_zqc::BiasSettings bias_settings;
+    const MetaD_zqc::BiasBackend backends[]={MetaD_zqc::BiasBackend::Grid,MetaD_zqc::BiasBackend::SparseGrid,
+                                           MetaD_zqc::BiasBackend::Hills,MetaD_zqc::BiasBackend::PBMetaD};
+    bias_settings.backend=backends[Gaussian_Hill_type];
+    bias_settings.hills.initial_height=height0;
+    bias_settings.hills.thermal_energy=force->boltz*current_temp;
+    bias_settings.hills.bias_factor=biasf;
+    bias_settings.hills.well_tempered=WellT_bool;
+    bias_settings.pace=pace;
+    bias_settings.restart=continue_from_file;
+    bias_settings.history_path=hills_path;
+    bias_settings.history_workers=history_workers;
+    bias_settings.pb_sum_normalization=pb_sum_normalization;
+    bias_settings.pb_kernel=pb_kernel;
+    for (int dimension=0;dimension<cv_dim;++dimension) {
+        const double width=axis_sigmas.empty() ? sigma : axis_sigmas[dimension];
+        const double period=axis_periods.empty() ? 0.0 : axis_periods[dimension];
+        bias_settings.hills.axes.push_back({width,period});
+        if (Gaussian_Hill_type<2)
+            bias_settings.grid_axes.push_back({cv_bound[2*dimension],cv_bound[2*dimension+1],width,nbin[dimension],period});
     }
+    memory->destroy(cv_bound);memory->destroy(nbin);
+    MetaD_zqc::BiasHost bias_host;
+    bias_host.root=comm->me==0;
+    bias_host.broadcast=[this](double* values,std::size_t count) {
+        MPI_Bcast(values,static_cast<int>(count),MPI_DOUBLE,0,world);
+    };
+    bias_host.log=[this](const std::string& message) {
+        for (FILE* output:{screen,logfile}) if (output) {
+            fprintf(output,"%s\n",message.c_str());fflush(output);
+        }
+    };
+    if (!shared_frozen_bias)
+        p_gaussian=new MetaD_zqc::BiasSession(std::move(bias_settings),std::move(bias_host));
+    if (shared_frozen_bias && comm->me==0) for (FILE* output:{screen,logfile}) if (output) {
+        fprintf(output,"[MetaD] bias=SHARED_FROZEN aggregation=MEAN group=%s table=%s fingerprint=%s\n",
+                shared_group.c_str(),shared_table_path.c_str(),shared_frozen_bias->fingerprint().c_str());
+        fflush(output);
     }
-    // p_gaussian->dim = cv_dim;
-    // p_gaussian->sigma = sigma;
-    // p_gaussian->height0 = height0;
-    // p_gaussian->biasf = biasf;
-    // p_gaussian->KB = lmp->force->boltz;
-    // p_gaussian->WellT_bool = WellT_bool;
-    // p_gaussian->cv_bound = cv_bound;
-    // WT 公式用 p_gaussian->current_temp；TEMP 关键字必须写进去
-    p_gaussian->current_temp = current_temp;
-    // p_gaussian->rehash_thresh = sparse_rehash_thresh;
-    
-    
+    if (p_gaussian && comm->me==0) for (FILE* output:{screen,logfile}) if (output) {
+        fprintf(output,"[MetaD] bias=%s dimensions=%d selection=%s\n",
+                MetaD_zqc::BiasSession::name(p_gaussian->backend()),cv_dim,automatic_bias ? "AUTO" : "explicit");
+        fflush(output);
+    }
+
     // 输出文件
     first_run = true;
     LOG("Fix init end.");
@@ -355,12 +443,14 @@ FixMetadynamics::~FixMetadynamics() {
       delete pair.second; // 这里会调用 CV 及其派生类的析构函数
   }
   cal_registry.clear(); // 清空 map 容器
+  MetaD_zqc::Stru_fact_env::clear_pool(engine_adapter.get());
+  engine_adapter.reset();
   // 2. 释放 cv_configs
   if (cv_configs) {
       delete cv_configs;
       cv_configs = nullptr;
   }
-  // 3. 释放高斯网格（拥有 cv_bound/nbin 等）
+  // 偏置 session 拥有历史、网格与文件流。
   if (p_gaussian) {
       delete p_gaussian;
       p_gaussian = nullptr;
@@ -380,10 +470,19 @@ FixMetadynamics::~FixMetadynamics() {
 }
 
 int FixMetadynamics::setmask() {
-  return FixConst::POST_FORCE;
+  return FixConst::POST_FORCE | FixConst::POST_NEIGHBOR | FixConst::MIN_POST_NEIGHBOR;
 }
 
-void FixMetadynamics::init() {
+void FixMetadynamics::setup_post_neighbor() { post_neighbor(); }
+void FixMetadynamics::min_post_neighbor() { post_neighbor(); }
+void FixMetadynamics::post_neighbor() {
+  static_cast<MetaD_zqc::LammpsEngineAdapter&>(*engine_adapter).invalidate_topology();
+}
+
+void FixMetadynamics::init() try {
+  post_neighbor();
+  output_cvs.swap(pending_output_cvs);
+  pending_output_cvs.clear();
   // if (!atom->tag) error->all(FLERR, "Requires atom style with per-atom positions");
   // Every System init (run / write_restart): LAMMPS drops NeighRequest; re-add then
   // drop cached ensure state. Do NOT Neighbor::build() / ago here (corrupts MEAM).
@@ -391,7 +490,7 @@ void FixMetadynamics::init() {
   neigh_hub.invalidate_all();
 
   if (first_run) {
-    p_gaussian->init_set_mode();
+    if (p_gaussian) p_gaussian->initialize(update->ntimestep);
     memory->create(cv_values, cv_dim, "metad:cv_values");
     memory->create(cv_history, cv_dim, "metad:cv_history");
     memory->create(dVdcvs, cv_dim, "metad:dVdcvs"); // 修正：dVdcv 应该是其梯度
@@ -400,23 +499,12 @@ void FixMetadynamics::init() {
         cv_history[k] = 0.0;
         dVdcvs[k] = 0.0;
     }
-    if (cv_dim == 1){
-      // double *cv_values[2]={0,0};
-      // cv_values[0] = cv_compute[0]->compute_cv();
-      cv_values[0] = 0.0;
-      first_run = false;}
-    if (cv_dim == 2){
-      // double *cv_values[2]={0,0};
-      // cv_values[0] = cv_compute[0]->compute_cv();
-      // cv_values[1] = cv_compute[1]->compute_cv();
-      cv_values[0] = 0.0;
-      cv_values[1] = 0.0;
-      first_run = false;}
-    // 续算
-
+    first_run = false;
   }
   // LAMMPS 随后在 Comm::init 中读取这些上限，准备通信缓冲。
   init_cv_communication();
+} catch (const std::exception& failure) {
+  error->one(FLERR, "MetaD initialization: {}", failure.what());
 }
 
 void FixMetadynamics::init_list(int id, NeighList *ptr)
@@ -437,9 +525,6 @@ void FixMetadynamics::post_force(int vflag) {
 
 void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
   DEBUG_LOG("evaluate_bias start");
-
-  // Occasional/perpetual Fix lists: ensure before any CV touches numneigh.
-  neigh_hub.ensure_all();
 
   // 为 virial 记账准备：只累加“本 fix 新加上的力”
   v_init(vflag);
@@ -462,17 +547,27 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
 
   // -----calculate cv_compute and add cv_history-----
   try {
+  engine_adapter->begin_evaluation();
   if (graph_execution) graph_execution->prepare();
+  for (auto* cv : output_cvs)
+    if (graph_execution && !graph_execution->uses(cv)) cv->prepare_graph_evaluation();
   for (auto const& pair : cal_registry) {
     const std::string& name = pair.first;
     MetaD_zqc::CV* obj = pair.second;
+    if (graph_execution && !graph_execution->uses(obj) && !output_cvs.count(obj)) continue;
     DEBUG_LOG("base_calc of %s is start", pair.first.c_str());
-    obj->base_calc(); 
+    obj->base_calc();
     DEBUG_LOG("base_calc of %s is end", pair.first.c_str());
   }
   if (graph_execution) {
     const auto values = graph_execution->forward();
-    std::copy(values.begin(), values.end(), cv_values);
+    if (shared_frozen_bias) {
+      if (!values.empty()) throw std::invalid_argument("SHARED_FROZEN DIM_EXPR must return a PerAtom field");
+    } else {
+      if (values.size()!=static_cast<size_t>(cv_dim))
+        throw std::invalid_argument("Global bias DIM expressions must return Global scalars");
+      std::copy(values.begin(), values.end(), cv_values);
+    }
   } else {
     cv_configs->compute_total_cv();
     for (int ii = 0; ii < cv_dim; ++ii) cv_values[ii] = cv_configs->compute_dim_cv(ii);
@@ -481,36 +576,28 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
     // 单 rank 的 CUDA/NVRTC 失败也要终止整个 communicator，避免其它 rank 卡在规约。
     error->one(FLERR, "MetaD forward: {}", e.what());
   }
-  for (int ii=0; ii<cv_dim; ii++){
-    if (advance_history) cv_history[ii] += cv_values[ii];
-    DEBUG_LOG("cv_compute[%d] = %g, cv_history[%d] = %g", ii, cv_values[ii], ii, cv_history[ii]);
-  }
-  // -----if pace, then add_hill-----
-  if (advance_history && (pace!=0) && (update->ntimestep % pace == 0)) {
-    for(int ii=0; ii<cv_dim; ii++){
-      // cv_history[ii] = cv_history[ii]/pace;
-      cv_history[ii] = cv_values[ii];
+  MetaD_zqc::FrozenSharedBias::Result shared_result;
+  // 冻结表的求值独立于 setup/积分节拍；输出能量与数组种子来自同一份固定表。
+  try {
+    if (shared_frozen_bias) {
+      shared_result=shared_frozen_bias->evaluate(graph_execution->per_atom_output(0),
+          graph_execution->selected_slots(shared_frozen_selection));
+      bias_energy=shared_result.energy;
+      cv_values[0]=shared_result.mean_coordinate;
+    } else {
+    if (advance_history) p_gaussian->advance(update->ntimestep,cv_values);
+    bias_energy=p_gaussian->evaluate(cv_values,dVdcvs);
     }
-    DEBUG_LOG("enter add_hill");
-    add_hill(cv_history);
-    DEBUG_LOG("coming out from add_hill");
-    for(int ii=0; ii<cv_dim; ii++){
-      cv_history[ii] = 0.0;
-    }
+  } catch (const std::exception& failure) {
+    error->one(FLERR,"MetaD bias: {}",failure.what());
   }
-  // calculate grad of grid
-  p_gaussian->get_dVdcv(cv_values, dVdcvs);
-  // 偏置势（与梯度同一套插值族）；仅 rank0 算再广播，与 get_dVdcv 一致
-  if (comm->me == 0) {
-    bias_energy = p_gaussian->get_bias_energy(cv_values);
-  }
-  MPI_Bcast(&bias_energy, 1, MPI_DOUBLE, 0, world);
 
   // DEBUG_LOG("cv_compute = %g, dVdcv = %.g",cv_values[0], dVdcvs[0]);
   // printf("cv_compute = %g, dVdcv = %.g\n",cv_values[0], dVdcvs[0]);
   try {
     if (graph_execution) {
-      graph_execution->backward(std::vector<double>(dVdcvs, dVdcvs + cv_dim));
+      if (shared_frozen_bias) graph_execution->backward({}, {shared_result.gradient});
+      else graph_execution->backward(std::vector<double>(dVdcvs, dVdcvs + cv_dim));
     } else {
       for (int ii = 0; ii < cv_dim; ++ii) cv_configs->distribute_dim_bias_force(ii, dVdcvs[ii]);
     }
@@ -525,17 +612,22 @@ void FixMetadynamics::evaluate_bias(int vflag, bool advance_history) {
     }
   }
 
+  // Compute-only CV 也可能仍在读取本步坐标；返回 MD 前结束这些借用。
+  for (auto* cv : output_cvs)
+    if (!graph_execution || !graph_execution->uses(cv)) cv->device_readiness().wait_host();
   DEBUG_LOG("evaluate_bias_end");
 }
 
 void FixMetadynamics::add_hill(double* cv_values){
-    p_gaussian->add_hill(cv_values);
+    if (!p_gaussian) throw std::logic_error("SHARED_FROZEN has no deposition");
+    p_gaussian->deposit_now(update->ntimestep,cv_values);
 }
 
 // 5. 网格梯度（中心差分）
 void FixMetadynamics::get_dVdcv(double *cv_values,
                                     double *dVdcvs) {
-  p_gaussian->get_dVdcv(cv_values, dVdcvs);
+  if (!p_gaussian) throw std::logic_error("SHARED_FROZEN requires a per-atom field");
+  p_gaussian->evaluate(cv_values,dVdcvs);
 }
 
 double FixMetadynamics::compute_scalar() {
@@ -551,7 +643,8 @@ double FixMetadynamics::compute_vector(int n) {
 }
 
 void FixMetadynamics::init_cv_communication() {
-    comm_forward = comm_reverse = 0;
+    comm_forward = 0;
+    comm_reverse = engine_adapter ? engine_adapter->reverse_communication_width() : 0;
     for (const auto& entry : cal_registry) {
         const auto& cv = *entry.second;
         const int forward = cv.get_comm_forward_width();
@@ -563,25 +656,25 @@ void FixMetadynamics::init_cv_communication() {
     }
 }
 
-void FixMetadynamics::communicate_forward(MetaD_zqc::CV& cv) {
-    communicate(cv, CommDirection::Forward);
+void FixMetadynamics::communicate_forward(MetaD_zqc::AtomCommunication& payload) {
+    communicate(payload, CommDirection::Forward);
 }
 
-void FixMetadynamics::communicate_reverse(MetaD_zqc::CV& cv) {
-    communicate(cv, CommDirection::Reverse);
+void FixMetadynamics::communicate_reverse(MetaD_zqc::AtomCommunication& payload) {
+    communicate(payload, CommDirection::Reverse);
 }
 
-void FixMetadynamics::communicate(MetaD_zqc::CV& cv, CommDirection direction) {
-    if (active_comm.cv)
+void FixMetadynamics::communicate(MetaD_zqc::AtomCommunication& payload, CommDirection direction) {
+    if (active_comm.payload)
         throw std::logic_error("MetaD: nested CV communication");
     const bool forward = direction == CommDirection::Forward;
-    const int width = forward ? cv.get_comm_forward_width() : cv.get_comm_reverse_width();
+    const int width = forward ? payload.get_comm_forward_width() : payload.get_comm_reverse_width();
     const int capacity = forward ? comm_forward : comm_reverse;
     if (width < 0 || width > capacity)
         throw std::logic_error("MetaD: CV communication width exceeds initialized capacity");
     if (width == 0) return;
 
-    active_comm = {&cv, width, direction};
+    active_comm = {&payload, width, direction};
     try {
         // size 指定本轮包宽；Fix::comm_* 保持初始化时的最大容量。
         if (forward) comm->forward_comm(this, width);
@@ -594,7 +687,7 @@ void FixMetadynamics::communicate(MetaD_zqc::CV& cv, CommDirection direction) {
 }
 
 int FixMetadynamics::comm_buffer_size(int n, CommDirection direction) const {
-    if (!active_comm.cv || active_comm.direction != direction || active_comm.width <= 0)
+    if (!active_comm.payload || active_comm.direction != direction || active_comm.width <= 0)
         throw std::logic_error("MetaD: communication callback has no matching active CV");
     if (n < 0 || n > std::numeric_limits<int>::max()/active_comm.width)
         throw std::overflow_error("MetaD: CV communication count exceeds MPI int range");
@@ -603,7 +696,7 @@ int FixMetadynamics::comm_buffer_size(int n, CommDirection direction) const {
 
 int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int, int*) {
     const int count = comm_buffer_size(n, CommDirection::Forward);
-    const int width = active_comm.cv->pack_comm_forward_ubuf(n, list, buf, 0, active_comm.width);
+    const int width = active_comm.payload->pack_comm_forward_ubuf(n, list, buf, 0, active_comm.width);
     if (width != active_comm.width)
         throw std::logic_error("MetaD: CV forward pack width mismatch");
     return count;
@@ -611,12 +704,12 @@ int FixMetadynamics::pack_forward_comm(int n, int *list, double *buf, int, int*)
 
 void FixMetadynamics::unpack_forward_comm(int n, int first, double *buf) {
     comm_buffer_size(n, CommDirection::Forward);
-    active_comm.cv->unpack_comm_forward_ubuf(n, first, buf, 0, active_comm.width);
+    active_comm.payload->unpack_comm_forward_ubuf(n, first, buf, 0, active_comm.width);
 }
 
 int FixMetadynamics::pack_reverse_comm(int n, int first, double *buf) {
     const int count = comm_buffer_size(n, CommDirection::Reverse);
-    const int width = active_comm.cv->pack_comm_reverse_ubuf(n, first, buf, 0, active_comm.width);
+    const int width = active_comm.payload->pack_comm_reverse_ubuf(n, first, buf, 0, active_comm.width);
     if (width != active_comm.width)
         throw std::logic_error("MetaD: CV reverse pack width mismatch");
     return count;
@@ -624,27 +717,57 @@ int FixMetadynamics::pack_reverse_comm(int n, int first, double *buf) {
 
 void FixMetadynamics::unpack_reverse_comm(int n, int *list, double *buf) {
     comm_buffer_size(n, CommDirection::Reverse);
-    active_comm.cv->unpack_comm_reverse_ubuf(n, list, buf, 0, active_comm.width);
+    active_comm.payload->unpack_comm_reverse_ubuf(n, list, buf, 0, active_comm.width);
 }
 
 void * FixMetadynamics::extract(const char *key, int &dim){
   std::string keystr(key);
+  // compute 在初始化时声明数据依赖；返回 CV 身份作为注册成功标志。
+  if (keystr.rfind("colvar_require:", 0) == 0) {
+    const std::string query = keystr.substr(15);
+    const auto found = cal_registry.find(query.substr(0, query.find('.')));
+    if (found == cal_registry.end()) return nullptr;
+    pending_output_cvs.insert(found->second);
+    dim = 0;
+    return found->second;
+  }
   // 处理每原子数据请求
   if (keystr.rfind("colvar_peratom:", 0) == 0) {
     std::string full_query = keystr.substr(15); // 拿到 "Q4.stein_q"
-    
+
     // 🔍 寻找点号位置进行切片
     size_t dot_pos = full_query.find('.');
     if (dot_pos == std::string::npos) return nullptr;
-    
+
     std::string cv_instance_name = full_query.substr(0, dot_pos); // "Q4"
     std::string prop_name = full_query.substr(dot_pos + 1);       // "stein_q"
-    
+
     // 从你 Fix 的自注册 Map 容器中路由找到 Q4 实例
     if (cal_registry.find(cv_instance_name) != cal_registry.end()) {
       dim = 1;
       // 调用该 CV 内部由属性名驱动的公共接口（或者让各个 CV 自己解析属性）
-      return cal_registry[cv_instance_name]->get_peratom_ptr(prop_name); 
+      try {
+        const auto values=cal_registry[cv_instance_name]->peratom_values(prop_name);
+        values.validate();
+        values.wait_host();
+        if(values.component_count!=1 || values.item_count<size_t(atom->nlocal))
+            throw std::invalid_argument("invalid per-atom scalar view: "+full_query);
+        // Fix 持有每个请求的连续 Host 暂存，供 compute 按 localid 读取。
+        // 分量视图可有 stride；CUDA 数组在这里统一下载，CV 保留原存储布局。
+        auto& output=peratom_output[full_query];
+        output.resize(std::max(atom->nlocal,1));
+        if(values.memory==MetaD_zqc::MemorySpace::Host) {
+            for(int localid=0;localid<atom->nlocal;++localid) output[localid]=values(localid);
+        } else if(atom->nlocal) {
+            const auto status=cudaMemcpy2D(output.data(),sizeof(double),values.data,
+                values.item_stride*sizeof(double),sizeof(double),atom->nlocal,cudaMemcpyDeviceToHost);
+            if(status!=cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
+        }
+        return output.data();
+      } catch(const std::exception& failure) {
+        error->one(FLERR,"MetaD per-atom output: {}",failure.what());
+      }
+      return nullptr;
     }
   }
   return nullptr;
@@ -653,17 +776,24 @@ void * FixMetadynamics::extract(const char *key, int &dim){
 MetaD_zqc::SwitchFunction* FixMetadynamics::get_switching_function(const std::string& name) const {
   auto it = sw_registry.find(name);
   if (it != sw_registry.end()) {
-    return it->second; 
+    return it->second;
   }
   return nullptr;
 }
 
-// 工厂函数：创建FixZeroForce对象
+// 构造期的缓冲区失败也由宿主处理，保持单 rank 失败时的终止语义。
 static Fix *fix_metad(LAMMPS *lmp, int narg, char **arg) {
-    return new FixMetadynamics(lmp, narg, arg);
+    try {
+        return new FixMetadynamics(lmp, narg, arg);
+    } catch (const LAMMPSException&) {
+        throw;
+    } catch (const std::exception& failure) {
+        lmp->error->one(FLERR, "MetaD construction: {}", failure.what());
+        throw;
+    }
 }
-static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg, FILE* f_check) {
-    return new ComputeMetaDToy(lmp, narg, arg, f_check);
+static Compute *compute_MetaD_toy(LAMMPS *lmp, int narg, char **arg) {
+    return new ComputeMetaDToy(lmp, narg, arg, nullptr);
 }
 
 // 插件注册函数（必须命名为 lammpsplugin_init）
@@ -680,6 +810,13 @@ extern "C" void lammpsplugin_init(void *lmp, void *handle, void *regfunc) {
     plugin.creator.v2 = (lammpsplugin_factory2 *)fix_metad; // v2工厂函数
     plugin.handle = handle;
     (*register_plugin)(&plugin, lmp);     // 注册插件
+#ifdef ZQC_LAMMPS_KOKKOS
+    // -sf kk 和显式 /kk/device 都进入同一适配器，运行时按宿主选择数组。
+    plugin.name = "metad/kk";
+    (*register_plugin)(&plugin, lmp);
+    plugin.name = "metad/kk/device";
+    (*register_plugin)(&plugin, lmp);
+#endif
 
     // 注册compute类型的插件
     plugin.style = "compute";             // 🚨 切换插件类型为 compute

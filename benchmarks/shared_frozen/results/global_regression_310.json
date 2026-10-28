@@ -1,0 +1,293 @@
+[
+  {
+    "case": "nonlinear_graph",
+    "ranks": 1,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "AVE(q3*l6)+linear(AVE(fermi(chemical,0.4,2)),0.3,0)+linear(AVE(css_ternary*structure),0.2,0)",
+      "linear(AVE(q3*l6),-0.4,0)+exp(linear(AVE(weighted),0.02,0))+linear(AVE(rational(l6,0.4,6,12)),0.2,0)"
+    ],
+    "coordinates_checked": 96,
+    "seed": [
+      0.4190692844165425,
+      -0.4189581474136183
+    ],
+    "values": [
+      0.23211259107270643,
+      1.0276590652895086
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ]
+    ],
+    "restore_error": 8.881784197001252e-16,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 3.745303221204532e-11,
+          "max_scaled_error": 0.0015242270586529204,
+          "rms_error": 1.412045703356095e-11,
+          "analytic_peak": 0.01559629703622324
+        },
+        "virial": {
+          "max_abs_error": 1.7513113181877316e-09,
+          "max_scaled_error": 0.0001807709118956263,
+          "rms_error": 1.0422692837946504e-09,
+          "analytic_peak": 0.3196005022457937
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 9.579170746551458e-11,
+          "max_scaled_error": 0.005501444071771727,
+          "rms_error": 3.420095753167198e-11,
+          "analytic_peak": 0.01559629703622324
+        },
+        "virial": {
+          "max_abs_error": 1.6161072480258554e-10,
+          "max_scaled_error": 2.4784023220269168e-05,
+          "rms_error": 9.346042576624213e-11,
+          "analytic_peak": 0.3196005022457937
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "nonlinear_graph",
+    "ranks": 2,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "AVE(q3*l6)+linear(AVE(fermi(chemical,0.4,2)),0.3,0)+linear(AVE(css_ternary*structure),0.2,0)",
+      "linear(AVE(q3*l6),-0.4,0)+exp(linear(AVE(weighted),0.02,0))+linear(AVE(rational(l6,0.4,6,12)),0.2,0)"
+    ],
+    "coordinates_checked": 24,
+    "seed": [
+      0.4190692844165425,
+      -0.4189581474136183
+    ],
+    "values": [
+      0.23211259107270643,
+      1.0276590652895086
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ],
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ]
+    ],
+    "restore_error": 8.881784197001252e-16,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 3.745303351308793e-11,
+          "max_scaled_error": 0.0008321628593041641,
+          "rms_error": 1.3376677867427489e-11,
+          "analytic_peak": 0.014554312382690426
+        },
+        "virial": {
+          "max_abs_error": 1.7513112626765803e-09,
+          "max_scaled_error": 0.00018077090616574763,
+          "rms_error": 1.0422692565502864e-09,
+          "analytic_peak": 0.31960050224579367
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 5.550248628749532e-11,
+          "max_scaled_error": 0.0009052199658579738,
+          "rms_error": 2.243607914803974e-11,
+          "analytic_peak": 0.014554312382690426
+        },
+        "virial": {
+          "max_abs_error": 1.3122258835096545e-10,
+          "max_scaled_error": 2.4784011657482795e-05,
+          "rms_error": 8.291157506258333e-11,
+          "analytic_peak": 0.31960050224579367
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_mixed",
+    "ranks": 1,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance*AVE(structure)+linear(distance,.2,0)"
+    ],
+    "coordinates_checked": 96,
+    "seed": [
+      0.5051715847200602
+    ],
+    "values": [
+      -2.43821454054412
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        -2.43821454054412
+      ]
+    ],
+    "restore_error": 3.552713678800501e-15,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 5.412381598457472e-09,
+          "max_scaled_error": 0.002191717721393767,
+          "rms_error": 7.124871766783111e-10,
+          "analytic_peak": 0.4507111722382605
+        },
+        "virial": {
+          "max_abs_error": 3.3989281385871095e-05,
+          "max_scaled_error": 0.13085183303803422,
+          "rms_error": 1.9847796666920846e-05,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 9.857115124134452e-11,
+          "max_scaled_error": 4.7575383099168414e-05,
+          "rms_error": 3.36098954781392e-11,
+          "analytic_peak": 0.8921942283986959
+        },
+        "cv_strain": {
+          "max_abs_error": 3.742142595797304e-08,
+          "max_scaled_error": 0.0002108174293121099,
+          "rms_error": 2.4709504059063536e-08,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 8.835968068332534e-10,
+          "max_scaled_error": 0.002218783559125566,
+          "rms_error": 1.912169230253313e-10,
+          "analytic_peak": 0.4507111722382605
+        },
+        "virial": {
+          "max_abs_error": 3.059381770142977e-06,
+          "max_scaled_error": 0.011777998717935962,
+          "rms_error": 1.7864386760003016e-06,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.6163040350569702e-10,
+          "max_scaled_error": 0.00018842585148406187,
+          "rms_error": 6.243874694733473e-11,
+          "analytic_peak": 0.8921942283986959
+        },
+        "cv_strain": {
+          "max_abs_error": 3.256163338960505e-09,
+          "max_scaled_error": 1.6922412463327278e-05,
+          "rms_error": 2.123678472036606e-09,
+          "analytic_peak": 17.133053708979617
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_mixed",
+    "ranks": 2,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance*AVE(structure)+linear(distance,.2,0)"
+    ],
+    "coordinates_checked": 24,
+    "seed": [
+      0.5051715847200602
+    ],
+    "values": [
+      -2.438214540544119
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        -2.438214540544119
+      ],
+      [
+        -2.438214540544119
+      ]
+    ],
+    "restore_error": 1.8318679906315083e-15,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 5.4123814874351694e-09,
+          "max_scaled_error": 0.002191717721393767,
+          "rms_error": 1.2985788170366281e-09,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.3989281385871095e-05,
+          "max_scaled_error": 0.13085183303803422,
+          "rms_error": 1.9847808742271813e-05,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.0942757810994408e-10,
+          "max_scaled_error": 0.00011930551192107092,
+          "rms_error": 4.175002922174278e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.742142595797304e-08,
+          "max_scaled_error": 0.00020822062107972452,
+          "rms_error": 2.468843825302513e-08,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 4.996445479577005e-10,
+          "max_scaled_error": 0.0021976671718194367,
+          "rms_error": 1.874316826080851e-10,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.059381770142977e-06,
+          "max_scaled_error": 0.011777998717935962,
+          "rms_error": 1.7864386267193185e-06,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.8989571026750696e-10,
+          "max_scaled_error": 0.00016603471680178074,
+          "rms_error": 7.933620550712348e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.2491858092953407e-09,
+          "max_scaled_error": 1.6922412463327278e-05,
+          "rms_error": 2.105558748312621e-09,
+          "analytic_peak": 17.133053708979617
+        }
+      }
+    ],
+    "exit_code": 0
+  }
+]

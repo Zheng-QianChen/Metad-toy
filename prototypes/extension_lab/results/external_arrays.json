@@ -1,0 +1,26 @@
+{
+  "status": "pass",
+  "cases": [
+    {
+      "status": "pass",
+      "nvrtc": "12.6",
+      "max_force_error": 7.10543e-15,
+      "containers": [
+        "GPUMD GPU_Vector",
+        "LAMMPS DAT::tdual_x_array/tdual_f_array"
+      ],
+      "layout_output": "Kokkos coordinate strides=3,1 force strides=3,1"
+    },
+    {
+      "status": "pass",
+      "nvrtc": "12.6",
+      "max_force_error": 7.10543e-15,
+      "containers": [
+        "GPUMD GPU_Vector",
+        "LAMMPS DAT::tdual_x_array/tdual_f_array"
+      ],
+      "layout_output": "Kokkos coordinate strides=1,17 force strides=3,1"
+    }
+  ],
+  "memcheck": true
+}

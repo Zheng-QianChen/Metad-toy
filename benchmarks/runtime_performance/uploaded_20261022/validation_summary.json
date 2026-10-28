@@ -1,0 +1,14 @@
+{
+  "samples": 120,
+  "initial_checks": 40,
+  "final_checks": 120,
+  "cross_condition_checks": 4,
+  "max_force_error": 5.421010862427522e-19,
+  "max_cv_energy_error": 0.0,
+  "max_pressure_error": 5.684341886080802e-14,
+  "max_periodic_coordinate_error": 0.0,
+  "loop_seconds": [
+    1.66581,
+    19.9641
+  ]
+}

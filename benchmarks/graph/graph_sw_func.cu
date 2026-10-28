@@ -59,11 +59,19 @@ long double reference(const Params& p,long double x) {
         case TANH_TYPE:return (1+std::tanh(static_cast<long double>(p.alpha)*(x-p.r_0)))/2;
         case RATIONAL: {
             const long double z=(x-p.d_0)/p.r_0;
-            // Factor 1-z to evaluate all positive-power polynomials at +/-1 too.
-            long double a=0,b=0,term=1;
-            for(int k=0;k<std::max(p.n,p.m);++k) {if(k<p.n)a+=term;if(k<p.m)b+=term;term*=z;}
-            if(z==-1 && p.n%2==0 && p.m%2==0)return static_cast<long double>(p.n)/p.m;
-            return a/b;
+            // 偶数幂先约去 1-z^2，使 z=-1 附近的有限差分也使用正项求和。
+            // 这对 long double 与 double 等精度的平台尤其重要。
+            const bool even_powers = p.n%2 == 0 && p.m%2 == 0;
+            const long double ratio = even_powers ? z*z : z;
+            const int numerator_terms = even_powers ? p.n/2 : p.n;
+            const int denominator_terms = even_powers ? p.m/2 : p.m;
+            long double numerator = 0, denominator = 0, term = 1;
+            for (int power = 0; power < std::max(numerator_terms, denominator_terms); ++power) {
+                if (power < numerator_terms) numerator += term;
+                if (power < denominator_terms) denominator += term;
+                term *= ratio;
+            }
+            return numerator/denominator;
         }
     }
     throw std::runtime_error("invalid oracle type");

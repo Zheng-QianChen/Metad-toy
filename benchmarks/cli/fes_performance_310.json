@@ -1,0 +1,150 @@
+{
+  "environment": {
+    "host": "excelsior",
+    "python": "3.10.6 | packaged by conda-forge | (main, Aug 22 2022, 20:35:26) [GCC 10.4.0]",
+    "numpy": "1.23.4",
+    "cpu": "Intel(R) Xeon(R) Platinum 8163 CPU @ 2.50GHz",
+    "threads": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1"
+    },
+    "timing": "fresh process wall time including imports, SHA256 and CSV/PNG; warmed caches"
+  },
+  "cases": {
+    "o2_wt_1d": {
+      "seconds": {
+        "baseline": [
+          10.148911386728287,
+          10.088200617581606,
+          10.171575702726841
+        ],
+        "optimized": [
+          5.7293133698403835,
+          5.665623918175697,
+          5.635776046663523
+        ]
+      },
+      "median_seconds": {
+        "baseline": 10.148911386728287,
+        "optimized": 5.665623918175697
+      },
+      "speedup": 1.7913139900038026,
+      "comparison": {
+        ".csv": 0.0,
+        ".weights.csv": 0.0,
+        "weight_ess_relative": 3.978982719322043e-13
+      }
+    },
+    "synthetic_wt_2d": {
+      "seconds": {
+        "baseline": [
+          1.3235737793147564,
+          1.3237435780465603,
+          1.368858452886343
+        ],
+        "optimized": [
+          1.056446772068739,
+          0.9985979273915291,
+          1.0437338314950466
+        ]
+      },
+      "median_seconds": {
+        "baseline": 1.3237435780465603,
+        "optimized": 1.0437338314950466
+      },
+      "speedup": 1.268276966887647,
+      "comparison": {
+        ".csv": 9.237055564881302e-14,
+        ".weights.csv": 2.220446049250313e-15,
+        "weight_ess_relative": 0.0
+      }
+    },
+    "synthetic_wt_3d": {
+      "seconds": {
+        "baseline": [
+          4.237742640078068,
+          4.188734617084265,
+          4.294825483113527
+        ],
+        "optimized": [
+          2.0747618563473225,
+          2.0169940032064915,
+          2.0708222091197968
+        ]
+      },
+      "median_seconds": {
+        "baseline": 4.237742640078068,
+        "optimized": 2.0708222091197968
+      },
+      "speedup": 2.046405829247563,
+      "comparison": {
+        ".csv": 4.263256414560601e-14,
+        ".weights.csv": 1.8041124150158794e-15,
+        "weight_ess_relative": 0.0
+      }
+    },
+    "o2_supplied_weights": {
+      "seconds": {
+        "baseline": [
+          7.1756538935005665,
+          7.11071140691638,
+          7.397294349968433
+        ],
+        "optimized": [
+          4.203559938818216,
+          4.22049818187952,
+          4.217268958687782
+        ]
+      },
+      "median_seconds": {
+        "baseline": 7.1756538935005665,
+        "optimized": 4.217268958687782
+      },
+      "speedup": 1.7014930666725359,
+      "comparison": {
+        ".csv": 0.0,
+        ".weights.csv": 0.0,
+        "weight_ess_relative": 4.227925605164811e-13
+      }
+    }
+  },
+  "progress": {
+    "off": [
+      5.746562700718641,
+      5.604530654847622,
+      5.709998283535242
+    ],
+    "on": [
+      5.624040704220533,
+      5.683050759136677,
+      5.596653565764427
+    ]
+  },
+  "source_sha256": {
+    "baseline": {
+      "__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+      "descriptors.py": "4b6595c15b759b662986a6e69c783a55e046fde64eec98945d8bb6a7173386a9",
+      "reweight.py": "75cd475df2d2016c26f49ad84449e695f74b3a2654e23d17457c615d89452315",
+      "analysis.py": "3375091f14ca11168c47d619344bd77a84309effa1ce6bdf93a8624db254c5ec",
+      "hills.py": "0d90cfb708a73c5f7e1b350ebeccd2d618f67d634d2abe94b51be3cae1bf138e",
+      "cli.py": "f70ce08c080f29641f060b557c7cd42e854e04e5073a18ded7ad0027de118f24",
+      "trajectory.py": "9212ddebce1eb44cd27af43f0491cff4c5257ab2595b28a65c144d00176e44ea",
+      "colvar.py": "04fb3e334fbce0e5ba7271645e10e93aa483ce5632807c0a74f6457319406385",
+      "dataset.py": "3c81412349e8f9a72e6cba9a9bf72b4c403cd742e1f25429b7021baadceb6f6c",
+      "__init__.py": "495727174deb3386778d205769332dcde41afa489a6dde7a4f0a103256598b25"
+    },
+    "optimized": {
+      "__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+      "descriptors.py": "4b6595c15b759b662986a6e69c783a55e046fde64eec98945d8bb6a7173386a9",
+      "reweight.py": "4fdb8c51a42adec1300561fb26b3e902bd9a556a938872536edd3bbc6ff2aff2",
+      "analysis.py": "3375091f14ca11168c47d619344bd77a84309effa1ce6bdf93a8624db254c5ec",
+      "progress.py": "2094cb704a552e3edd552511462fcc63326e54527c74660a8311636be0685527",
+      "hills.py": "0d90cfb708a73c5f7e1b350ebeccd2d618f67d634d2abe94b51be3cae1bf138e",
+      "cli.py": "98b8835c6bd99fd17c52409c13bfa91e1fb82329574976cfde418c64242725e7",
+      "trajectory.py": "9212ddebce1eb44cd27af43f0491cff4c5257ab2595b28a65c144d00176e44ea",
+      "colvar.py": "79d7af619b2782395f50d787a0435debac7dd9257eafef0c75fc8b04cd6d8711",
+      "dataset.py": "3c81412349e8f9a72e6cba9a9bf72b4c403cd742e1f25429b7021baadceb6f6c",
+      "__init__.py": "495727174deb3386778d205769332dcde41afa489a6dde7a4f0a103256598b25"
+    }
+  }
+}

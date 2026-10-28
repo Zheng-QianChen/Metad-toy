@@ -1,11 +1,12 @@
 #pragma once
 
-// 先引入缓冲区及其 LAMMPS 依赖，再声明图使用的 Domain 类型。
+// 图使用通用设备缓冲区与求和回调；诊断通过调用方提供的 Logger 回传。
+#include "zqc_array_view.h"
+#include "zqc_collective.h"
 #include "zqc_gpu_buffer.cuh"
 #include "zqc_switch_function_device.cuh"
 
 #include <cuda_runtime.h>
-#include <mpi.h>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -18,13 +19,13 @@ struct Graph;
 struct GraphExpr;
 struct Codegen;
 
-enum class Domain {
+enum class ValueDomain {
     PerAtom,  // 每个原子一份
     Global    // 整个系统一份
 };
 
 struct ValueDesc {
-    Domain domain;
+    ValueDomain domain;
     int components;  // 1：标量；3：三分量向量
 };
 
@@ -128,12 +129,13 @@ struct Graph {
     std::vector<const Node*> kernel_outputs;
     // 每个 GPU 输出所对应的规约节点，或直接的 PerAtom 输出。
     std::vector<const Node*> kernel_seeds;
-    MPI_Comm comm = MPI_COMM_NULL;
+    // 空回调表示单进程原地求和；跨进程由宿主注入 SumReducer（例如 engine.sum_reducer）。
+    MetaD_zqc::SumReducer sum_reducer;
     std::vector<const Node*> topo;
     std::string kernel_source;
 
-    explicit Graph(Symbols symbols_, Switches switches_ = {}, MPI_Comm comm_ = MPI_COMM_NULL);
-    explicit Graph(std::vector<Node*> outputs_, MPI_Comm comm_ = MPI_COMM_NULL);
+    explicit Graph(Symbols symbols_, Switches switches_ = {}, MetaD_zqc::SumReducer sum = {});
+    explicit Graph(std::vector<Node*> outputs_, MetaD_zqc::SumReducer sum = {});
 
     template<class T, class... Args>
     T* make_node(Args&&... args) {
@@ -169,29 +171,42 @@ void sync_kernel();
 using MetaD_zqc::GpuBuffer;
 
 struct Leaf : Node {
-    GpuBuffer<double> xbuf; // host 便利构造使用；借用外部输入时为空
-    GpuBuffer<double> abuf; // 未传入外部梯度时，由 Leaf 持有
+    GpuBuffer<double> xbuf; // host 便利构造 / 非连续视图暂存；借用外部输入时可能为空
+    GpuBuffer<double> abuf; // 未传入外部梯度，或非连续视图暂存时由 Leaf 持有
     double* g = nullptr;
+
+    // 借用任意 stride 的 CUDA/Host 视图。有效项数取自 values.item_count。
+    // 融合 kernel 需要连续设备指针：连续 CUDA 标量零拷贝；其余路径显式暂存。
+    Leaf(MetaD_zqc::ArrayView<const double> values, MetaD_zqc::ArrayView<double> gradients,
+         ValueDesc desc = {ValueDomain::PerAtom, 1});
 
     // 借用缓冲区，不复制、不释放外部显存。count 是有效元素数，不是 capacity。
     // 调用方保证外部 GpuBuffer 对象在 Leaf 使用期间始终存活。
     explicit Leaf(GpuBuffer<double>& values, int count,
-                  ValueDesc desc = {Domain::PerAtom, 1});
+                  ValueDesc desc = {ValueDomain::PerAtom, 1});
 
     // 可将梯度直接写入调用方提供的 GpuBuffer；Global 梯度由 backward() 上传。
     Leaf(GpuBuffer<double>& values, GpuBuffer<double>& gradients, int count,
-         ValueDesc desc = {Domain::PerAtom, 1});
+         ValueDesc desc = {ValueDomain::PerAtom, 1});
 
     // PerAtom 值上传至 GpuBuffer；Global 标量保存在 Host，不分配显存。
     explicit Leaf(const std::vector<double>& host,
-                  ValueDesc desc = {Domain::PerAtom, 1});
+                  ValueDesc desc = {ValueDomain::PerAtom, 1});
 
-    // 外部 grow_to 可能更换 ptr；启动 kernel、收集参数前刷新一次。
+    // 重新绑定输入/梯度视图；扩容、重排或更换底层数组后调用。
+    void bind(MetaD_zqc::ArrayView<const double> values, MetaD_zqc::ArrayView<double> gradients);
+    // 外部 GpuBuffer::grow_to 可能更换 ptr；启动 kernel 前刷新一次。
     // 有效元素数变化时需要重建/更新图；这里只处理相同 n 下的指针变化。
     void refresh_buffers();
+    // 清零当前梯度视图（或 Host 伴随），并重新校验绑定供 forward/backward 使用。
+    void clear();
 
     void forward() override;
     void backward() override;
+    // 融合执行器在自己的流上消费输入和写回梯度，等待所绑定 View 的生产者。
+    void forward_on(cudaStream_t stream);
+    void backward_on(cudaStream_t stream);
+    void wait_gradient_on(cudaStream_t stream) const { gradient_view_.wait_on(stream); }
 
     std::vector<const Node*> inputs() const override;
     std::string emit_expr(Codegen& cg) const override;
@@ -200,8 +215,15 @@ struct Leaf : Node {
 private:
     GpuBuffer<double>* input_buffer_ = nullptr;
     GpuBuffer<double>* gradient_buffer_ = nullptr;
+    MetaD_zqc::ArrayView<const double> input_view_{};
+    MetaD_zqc::ArrayView<double> gradient_view_{};
+    bool stages_values_ = false;
+    bool stages_gradients_ = false;
 
     static int checked_count(size_t count, ValueDesc desc);
+    void apply_bound_views();
+    void stage_values_to_device(cudaStream_t stream = 0);
+    void scatter_gradients_from_device(cudaStream_t stream = 0);
 };
 
 struct Mul : Node {
@@ -371,13 +393,14 @@ struct RationalSwitch : Node {
     static Node* create(Graph& graph, const GraphExpr& call);
 };
 
-// 输入是本 rank 拥有的有效元素，不包含 ghost。comm 由调用方持有。
+// 输入是本 rank 拥有的有效元素，不包含 ghost。
+// sum_reducer 空表示仅本地求和；跨进程由宿主提供单次打包 {sum,count} 规约。
 struct AVE : Node {
     Node* src;
-    MPI_Comm comm;
+    MetaD_zqc::SumReducer sum_reducer;
     long long global_count = 0;
 
-    explicit AVE(Node* src_, MPI_Comm comm_ = MPI_COMM_NULL);
+    explicit AVE(Node* src_, MetaD_zqc::SumReducer sum = {});
     void forward() override;
     void backward() override;
     void reduce_host(const double* values, int count) override;
@@ -393,25 +416,28 @@ protected:
     void reduce_sum_count(double local_sum, int local_count);
 };
 
-// 保留实验阶段的名称；两者采用同一个 Host/MPI 实现。
+// 保留实验阶段的名称；两者采用同一个 Host 规约实现。
 using MEAN = AVE;
 
-// 图执行器：编译并调度 GPU 融合段、Host 计算及 MPI 规约。
+// 图执行器：编译并调度 GPU 融合段、Host 计算及跨进程规约回调。
 // Graph 和输入节点必须比执行器活得更久；图结构固定，本地元素数可显式更新。
 class GraphExecution {
     public:
-        // 日志句柄由调用方持有；LAMMPS 仅 rank 0 传入 screen/logfile。
-        explicit GraphExecution(Graph& graph, FILE* screen = nullptr, FILE* logfile = nullptr);
+        // Logger 持有回调副本；捕获资源的生命周期由调用方管理。
+        explicit GraphExecution(Graph& graph, MetaD_zqc::Logger logger = {});
         // 外部更新 Leaf.n 和显存容量后调用；仅调整执行缓冲区，不重新 NVRTC 编译。
         void resize_inputs();
         ~GraphExecution();
         GraphExecution(const GraphExecution&) = delete;
         GraphExecution& operator=(const GraphExecution&) = delete;
 
-        // 返回所有 Global 输出；PerAtom -> Host 规约 -> Global 标量计算。
+        // 返回所有 Global 输出（按输出中的 Global 顺序）；PerAtom 用 per_atom_output 借用。
         std::vector<double> forward();
-        // 每个 rank 传入同一组全局输出种子，不再对这些种子做 MPI 求和。
-        void backward(const std::vector<double>& seeds);
+        // 每个 rank 传入同一组全局输出种子，不再对这些种子做跨进程求和。
+        void backward(const std::vector<double>& seeds,
+                      const std::vector<MetaD_zqc::ArrayView<const double>>& atom_seeds = {});
+        // output_index 按 Graph.outputs 编号；借用到下一次 forward/resize/析构。
+        MetaD_zqc::ArrayView<const double> per_atom_output(size_t output_index) const;
 
     private:
         struct Impl;

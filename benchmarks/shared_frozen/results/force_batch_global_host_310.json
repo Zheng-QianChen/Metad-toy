@@ -1,0 +1,728 @@
+[
+  {
+    "case": "nonlinear_graph",
+    "ranks": 1,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "AVE(q3*l6)+linear(AVE(fermi(chemical,0.4,2)),0.3,0)+linear(AVE(css_ternary*structure),0.2,0)",
+      "linear(AVE(q3*l6),-0.4,0)+exp(linear(AVE(weighted),0.02,0))+linear(AVE(rational(l6,0.4,6,12)),0.2,0)"
+    ],
+    "coordinates_checked": 96,
+    "seed": [
+      0.4190692844165425,
+      -0.4189581474136183
+    ],
+    "values": [
+      0.23211259107270643,
+      1.0276590652895086
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ]
+    ],
+    "restore_error": 8.881784197001252e-16,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 1.2394059459297502e-09,
+          "max_scaled_error": 0.046344578467613605,
+          "rms_error": 4.766604855890468e-10,
+          "analytic_peak": 0.015596297036223243
+        },
+        "virial": {
+          "max_abs_error": 1.7447814415483265e-07,
+          "max_scaled_error": 0.018009689594973913,
+          "rms_error": 1.0400944796505981e-07,
+          "analytic_peak": 0.3196005022457937
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 1.1343163214272423e-10,
+          "max_scaled_error": 0.004182658793778193,
+          "rms_error": 4.2773212137406756e-11,
+          "analytic_peak": 0.015596297036223243
+        },
+        "virial": {
+          "max_abs_error": 1.5702188826960395e-08,
+          "max_scaled_error": 0.0016207849304281563,
+          "rms_error": 9.361443207750936e-09,
+          "analytic_peak": 0.3196005022457937
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 3.7453033729928364e-11,
+          "max_scaled_error": 0.001524227146939437,
+          "rms_error": 1.4304603404184934e-11,
+          "analytic_peak": 0.015596297036223243
+        },
+        "virial": {
+          "max_abs_error": 1.7513113181877316e-09,
+          "max_scaled_error": 0.0001807709118956263,
+          "rms_error": 1.0429390663474915e-09,
+          "analytic_peak": 0.3196005022457937
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 9.579170442974849e-11,
+          "max_scaled_error": 0.00550144400702985,
+          "rms_error": 3.4307520177998403e-11,
+          "analytic_peak": 0.015596297036223243
+        },
+        "virial": {
+          "max_abs_error": 1.6161072480258554e-10,
+          "max_scaled_error": 2.4784023220269168e-05,
+          "rms_error": 9.346042588345319e-11,
+          "analytic_peak": 0.3196005022457937
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "nonlinear_graph",
+    "ranks": 2,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "AVE(q3*l6)+linear(AVE(fermi(chemical,0.4,2)),0.3,0)+linear(AVE(css_ternary*structure),0.2,0)",
+      "linear(AVE(q3*l6),-0.4,0)+exp(linear(AVE(weighted),0.02,0))+linear(AVE(rational(l6,0.4,6,12)),0.2,0)"
+    ],
+    "coordinates_checked": 24,
+    "seed": [
+      0.4190692844165425,
+      -0.4189581474136183
+    ],
+    "values": [
+      0.23211259107270643,
+      1.0276590652895086
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ],
+      [
+        0.23211259107270643,
+        1.0276590652895086
+      ]
+    ],
+    "restore_error": 8.881784197001252e-16,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 1.2394059476644737e-09,
+          "max_scaled_error": 0.025193463747835862,
+          "rms_error": 5.599517131433317e-10,
+          "analytic_peak": 0.014554312382690423
+        },
+        "virial": {
+          "max_abs_error": 1.7447814404381035e-07,
+          "max_scaled_error": 0.018009689583514163,
+          "rms_error": 1.0400944789922034e-07,
+          "analytic_peak": 0.3196005022457936
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 1.134316338774477e-10,
+          "max_scaled_error": 0.002437717500964629,
+          "rms_error": 5.1366076410966615e-11,
+          "analytic_peak": 0.014554312382690423
+        },
+        "virial": {
+          "max_abs_error": 1.5702188715938092e-08,
+          "max_scaled_error": 0.0016207849189683995,
+          "rms_error": 9.361443141909907e-09,
+          "analytic_peak": 0.3196005022457936
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 3.7453034163609233e-11,
+          "max_scaled_error": 0.0008321628737579911,
+          "rms_error": 1.4137645113411913e-11,
+          "analytic_peak": 0.014554312382690423
+        },
+        "virial": {
+          "max_abs_error": 1.751311207165429e-09,
+          "max_scaled_error": 0.00018077090043586895,
+          "rms_error": 1.0429390005064862e-09,
+          "analytic_peak": 0.3196005022457936
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 5.550248368541011e-11,
+          "max_scaled_error": 0.0009052198718378614,
+          "rms_error": 2.2436078747946584e-11,
+          "analytic_peak": 0.014554312382690423
+        },
+        "virial": {
+          "max_abs_error": 1.7099860416536217e-10,
+          "max_scaled_error": 2.4784017438875985e-05,
+          "rms_error": 1.1071094311887307e-10,
+          "analytic_peak": 0.3196005022457936
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_mixed",
+    "ranks": 1,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance*AVE(structure)+linear(distance,.2,0)"
+    ],
+    "coordinates_checked": 96,
+    "seed": [
+      0.5051715847200602
+    ],
+    "values": [
+      -2.43821454054412
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        -2.43821454054412
+      ]
+    ],
+    "restore_error": 2.0539125955565396e-15,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 5.453101606933686e-07,
+          "max_scaled_error": 0.06042737793795357,
+          "rms_error": 7.146920850559949e-08,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 0.0033989346012681665,
+          "max_scaled_error": 13.085208183813476,
+          "rms_error": 0.0019847821515935316,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 7.734439255724368e-09,
+          "max_scaled_error": 0.007912605596524333,
+          "rms_error": 3.0272138294497345e-09,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.7487238042643867e-06,
+          "max_scaled_error": 0.02097126053692438,
+          "rms_error": 2.4741381067726483e-06,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 4.9058486717434846e-08,
+          "max_scaled_error": 0.005436311170452323,
+          "rms_error": 6.431658088563793e-09,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 0.0003059036515704605,
+          "max_scaled_error": 1.177666955843969,
+          "rms_error": 0.00017863006539030733,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 7.015464598136845e-10,
+          "max_scaled_error": 0.0007158234895285318,
+          "rms_error": 2.7197246922836646e-10,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.373222714486701e-07,
+          "max_scaled_error": 0.0018866243527648483,
+          "rms_error": 2.2263466188809636e-07,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 5.4123814874351694e-09,
+          "max_scaled_error": 0.002191718521889474,
+          "rms_error": 7.135228807616472e-10,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.3989281385871095e-05,
+          "max_scaled_error": 0.13085183303803422,
+          "rms_error": 1.9847796666920873e-05,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 8.469028256463673e-11,
+          "max_scaled_error": 5.07520304726202e-05,
+          "rms_error": 3.388212449218018e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.742142595797304e-08,
+          "max_scaled_error": 0.00021081744229615098,
+          "rms_error": 2.4697993059982504e-08,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 8.835966958109509e-10,
+          "max_scaled_error": 0.002218783559125566,
+          "rms_error": 1.9365458774443238e-10,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.059381770142977e-06,
+          "max_scaled_error": 0.011777998717935962,
+          "rms_error": 1.786438609379986e-06,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.3578138613468127e-10,
+          "max_scaled_error": 0.00016603470754714535,
+          "rms_error": 6.011279876356938e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.2491858092953407e-09,
+          "max_scaled_error": 1.259441605473984e-05,
+          "rms_error": 2.1045361322877592e-09,
+          "analytic_peak": 17.133053708979617
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_mixed",
+    "ranks": 2,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance*AVE(structure)+linear(distance,.2,0)"
+    ],
+    "coordinates_checked": 24,
+    "seed": [
+      0.5051715847200602
+    ],
+    "values": [
+      -2.438214540544119
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      [
+        -2.438214540544119
+      ],
+      [
+        -2.438214540544119
+      ]
+    ],
+    "restore_error": 1.942890293094024e-15,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 5.453101606933686e-07,
+          "max_scaled_error": 0.06042737793795357,
+          "rms_error": 1.3047152734683404e-07,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 0.0033989346012681665,
+          "max_scaled_error": 13.085208183813476,
+          "rms_error": 0.001984782151593709,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 7.736659701773618e-09,
+          "max_scaled_error": 0.0044601855542668436,
+          "rms_error": 3.474587046462639e-09,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.74872380248803e-06,
+          "max_scaled_error": 0.020971260523940348,
+          "rms_error": 2.4741390347475566e-06,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 4.9058486717434846e-08,
+          "max_scaled_error": 0.005436311170452323,
+          "rms_error": 1.1741861052353997e-08,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 0.0003059036515704605,
+          "max_scaled_error": 1.177666955843969,
+          "rms_error": 0.00017863006135898402,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 6.941449914865672e-10,
+          "max_scaled_error": 0.0003832101511261621,
+          "rms_error": 3.1198479355155117e-10,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.3732226967231327e-07,
+          "max_scaled_error": 0.0018866243397808078,
+          "rms_error": 2.2263829748585463e-07,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 5.4123814874351694e-09,
+          "max_scaled_error": 0.002191718521889474,
+          "rms_error": 1.298578817321339e-09,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.3989281385871095e-05,
+          "max_scaled_error": 0.13085183303803422,
+          "rms_error": 1.9847796667098533e-05,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.0942755035436846e-10,
+          "max_scaled_error": 0.00011930564029315407,
+          "rms_error": 4.0053989208357234e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.74214241816162e-08,
+          "max_scaled_error": 0.0002108174293121099,
+          "rms_error": 2.4698379442938935e-08,
+          "analytic_peak": 17.133053708979617
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 8.835966958109509e-10,
+          "max_scaled_error": 0.002197666371323729,
+          "rms_error": 2.392900707700822e-10,
+          "analytic_peak": 0.4507111722382604
+        },
+        "virial": {
+          "max_abs_error": 3.059381770142977e-06,
+          "max_scaled_error": 0.011777998717935962,
+          "rms_error": 1.786438560276677e-06,
+          "analytic_peak": 8.655131893259139
+        },
+        "cv_gradient": {
+          "max_abs_error": 1.8989571026750696e-10,
+          "max_scaled_error": 0.00016603470754714535,
+          "rms_error": 7.87669021788707e-11,
+          "analytic_peak": 0.8921942283986957
+        },
+        "cv_strain": {
+          "max_abs_error": 3.2491858092953407e-09,
+          "max_scaled_error": 1.2594403070698683e-05,
+          "rms_error": 2.105197940931447e-09,
+          "analytic_peak": 17.133053708979617
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_graph",
+    "ranks": 1,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance"
+    ],
+    "coordinates_checked": 96,
+    "seed": [
+      0.5008339725963763
+    ],
+    "values": [
+      2.866122193295053
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      2.866122193295053
+    ],
+    "restore_error": 4.651834473179406e-14,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 2.521841771518929e-07,
+          "max_scaled_error": 0.034964454179732936,
+          "rms_error": 4.908896159844358e-08,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2074690299023203e-06,
+          "max_scaled_error": 0.09869820327853462,
+          "rms_error": 1.4196562256559807e-06,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 2.1956625406716057e-10,
+          "max_scaled_error": 1.5574193900697528e-05,
+          "rms_error": 4.396410343185645e-11,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.8501100651491242e-09,
+          "max_scaled_error": 3.9823673863171645e-05,
+          "rms_error": 1.238845119746552e-09,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 2.267262849686702e-08,
+          "max_scaled_error": 0.0031434806464298586,
+          "rms_error": 4.415041551120708e-09,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 1.98663176798064e-07,
+          "max_scaled_error": 0.008882434291022609,
+          "rms_error": 1.277632189614938e-07,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 2.2301605007157832e-11,
+          "max_scaled_error": 1.5294779655594211e-06,
+          "rms_error": 3.3248520790212593e-12,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.7071277724767242e-10,
+          "max_scaled_error": 3.793269013001935e-06,
+          "rms_error": 1.1091586659563961e-10,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 2.4686511723714943e-09,
+          "max_scaled_error": 0.00034226985125295454,
+          "rms_error": 4.932835335703542e-10,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2026231061289536e-08,
+          "max_scaled_error": 0.0009848153705890607,
+          "rms_error": 1.4186162011445297e-08,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 9.139577983319214e-12,
+          "max_scaled_error": 2.210068841342794e-05,
+          "rms_error": 1.7436533519346822e-12,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 2.4173357759949e-11,
+          "max_scaled_error": 9.785731223640937e-06,
+          "rms_error": 1.0927635084454922e-11,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 3.6108160645503817e-10,
+          "max_scaled_error": 0.004064570945235234,
+          "rms_error": 7.154622836459943e-11,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2119881482041137e-09,
+          "max_scaled_error": 0.0015178795116043264,
+          "rms_error": 1.3520064662756685e-09,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 5.131288449700122e-11,
+          "max_scaled_error": 0.0001435686413731013,
+          "rms_error": 7.93950143828118e-12,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.774002160448429e-10,
+          "max_scaled_error": 7.134212068429696e-05,
+          "rms_error": 8.82655467838816e-11,
+          "analytic_peak": 1.4819181202834553
+        }
+      }
+    ],
+    "exit_code": 0
+  },
+  {
+    "case": "distance_graph",
+    "ranks": 2,
+    "passed": true,
+    "executor": "GRAPH",
+    "expressions": [
+      "distance"
+    ],
+    "coordinates_checked": 24,
+    "seed": [
+      0.5008339725963763
+    ],
+    "values": [
+      2.866122193295053
+    ],
+    "reference_error": 0.0,
+    "rank_values": [
+      2.866122193295053,
+      2.866122193295053
+    ],
+    "restore_error": 4.651834473179406e-14,
+    "restore_passed": true,
+    "curves": [
+      {
+        "step": 0.0001,
+        "force": {
+          "max_abs_error": 2.521841771518929e-07,
+          "max_scaled_error": 0.034964454179732936,
+          "rms_error": 9.817792319688716e-08,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2074690299023203e-06,
+          "max_scaled_error": 0.09869820327853462,
+          "rms_error": 1.4196562256559807e-06,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 2.1956625406716057e-10,
+          "max_scaled_error": 1.5574193900697528e-05,
+          "rms_error": 8.79282068637129e-11,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.8501100651491242e-09,
+          "max_scaled_error": 3.9823673863171645e-05,
+          "rms_error": 1.238845119746552e-09,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 3e-05,
+        "force": {
+          "max_abs_error": 2.267262849686702e-08,
+          "max_scaled_error": 0.0031434806464298586,
+          "rms_error": 8.830083102241417e-09,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 1.98663176798064e-07,
+          "max_scaled_error": 0.008882434291022609,
+          "rms_error": 1.277632189614938e-07,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 2.2301605007157832e-11,
+          "max_scaled_error": 1.5294779655594211e-06,
+          "rms_error": 6.6497041580425186e-12,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.7071277724767242e-10,
+          "max_scaled_error": 3.793269013001935e-06,
+          "rms_error": 1.1091586659563961e-10,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 1e-05,
+        "force": {
+          "max_abs_error": 2.4686511723714943e-09,
+          "max_scaled_error": 0.00034226985125295454,
+          "rms_error": 9.865670671407084e-10,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2026231061289536e-08,
+          "max_scaled_error": 0.0009848153705890607,
+          "rms_error": 1.4186162011445297e-08,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 9.139577983319214e-12,
+          "max_scaled_error": 2.210068841342794e-05,
+          "rms_error": 3.4873067038693644e-12,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 2.4173357759949e-11,
+          "max_scaled_error": 9.785731223640937e-06,
+          "rms_error": 1.0927635084454922e-11,
+          "analytic_peak": 1.4819181202834553
+        }
+      },
+      {
+        "step": 3e-06,
+        "force": {
+          "max_abs_error": 3.6108160645503817e-10,
+          "max_scaled_error": 0.004064570945235234,
+          "rms_error": 1.4309245672919886e-10,
+          "analytic_peak": 0.3601293635466943
+        },
+        "virial": {
+          "max_abs_error": 2.2119881482041137e-09,
+          "max_scaled_error": 0.0015178795116043264,
+          "rms_error": 1.3520064662756685e-09,
+          "analytic_peak": 0.7421949392441175
+        },
+        "cv_gradient": {
+          "max_abs_error": 5.131288449700122e-11,
+          "max_scaled_error": 0.0001435686413731013,
+          "rms_error": 1.587900287656236e-11,
+          "analytic_peak": 0.7190593754647784
+        },
+        "cv_strain": {
+          "max_abs_error": 1.774002160448429e-10,
+          "max_scaled_error": 7.134212068429696e-05,
+          "rms_error": 8.82655467838816e-11,
+          "analytic_peak": 1.4819181202834553
+        }
+      }
+    ],
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,394 @@
+[
+  {
+    "variant": "current",
+    "case": "shared",
+    "cells": 4,
+    "ranks": 1,
+    "tag": "pilot",
+    "atoms": 256,
+    "steps": 200,
+    "loop_seconds": 0.139908,
+    "us_per_step": 699.54,
+    "process_wall_seconds": 1.6685266810236499,
+    "nvrtc_ms": 22.334886,
+    "load_ms": 0.328556,
+    "observables": [
+      -2.1939746336144377,
+      0.11489527744644334,
+      0.09776976240749789,
+      -126.70876597659135,
+      -127.87790176162522,
+      -127.63086343730258,
+      -0.13283636534569462,
+      1.52310378232847,
+      -0.01618689618905354
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 3.9922e-05,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.00035637,
+        "percent": 0.25
+      },
+      "Output": {
+        "seconds": 5.8544e-05,
+        "percent": 0.04
+      },
+      "Modify": {
+        "seconds": 0.1391,
+        "percent": 99.42
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/shared_4_np1_current_pilot",
+    "selected_steps": 4300
+  },
+  {
+    "variant": "current",
+    "case": "shared",
+    "cells": 4,
+    "ranks": 2,
+    "tag": "pilot",
+    "atoms": 256,
+    "steps": 200,
+    "loop_seconds": 0.30757,
+    "us_per_step": 1537.85,
+    "process_wall_seconds": 2.019159027026035,
+    "nvrtc_ms": 22.087883,
+    "load_ms": 0.320096,
+    "observables": [
+      -2.193974633614438,
+      0.11489527744644312,
+      0.09776976240749792,
+      -126.70876597660035,
+      -127.87790176163425,
+      -127.63086343731165,
+      -0.1328363653456913,
+      1.5231037823284777,
+      -0.016186896189051878
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 6.5464e-05,
+        "percent": 0.02
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.0018903,
+        "percent": 0.61
+      },
+      "Output": {
+        "seconds": 3.1757e-05,
+        "percent": 0.01
+      },
+      "Modify": {
+        "seconds": 0.30478,
+        "percent": 99.09
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/shared_4_np2_current_pilot",
+    "selected_steps": 2000
+  },
+  {
+    "variant": "current",
+    "case": "shared",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "pilot",
+    "atoms": 16384,
+    "steps": 200,
+    "loop_seconds": 0.431902,
+    "us_per_step": 2159.51,
+    "process_wall_seconds": 2.1192307129967958,
+    "nvrtc_ms": 21.473553,
+    "load_ms": 0.357639,
+    "observables": [
+      -2.1967172277275018,
+      0.11454406945544338,
+      0.0982536191563289,
+      -1.675185219338739,
+      -1.7073670728416677,
+      -1.7123538703065309,
+      0.01072453507831527,
+      0.0025073167015713252,
+      0.009196424267143122
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0001968,
+        "percent": 0.05
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.0049053,
+        "percent": 1.14
+      },
+      "Output": {
+        "seconds": 5.1171e-05,
+        "percent": 0.01
+      },
+      "Modify": {
+        "seconds": 0.41716,
+        "percent": 96.59
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/shared_16_np1_current_pilot",
+    "selected_steps": 1400
+  },
+  {
+    "variant": "current",
+    "case": "shared",
+    "cells": 16,
+    "ranks": 2,
+    "tag": "pilot",
+    "atoms": 16384,
+    "steps": 200,
+    "loop_seconds": 0.456684,
+    "us_per_step": 2283.42,
+    "process_wall_seconds": 2.270090898964554,
+    "nvrtc_ms": 23.528515,
+    "load_ms": 0.311688,
+    "observables": [
+      -2.1967172277275018,
+      0.11454406945544315,
+      0.09825361915632912,
+      -1.6751852193389134,
+      -1.7073670728418404,
+      -1.7123538703067005,
+      0.010724535078314704,
+      0.0025073167015712736,
+      0.009196424267142803
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00017257,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.0083546,
+        "percent": 1.83
+      },
+      "Output": {
+        "seconds": 5.0046e-05,
+        "percent": 0.01
+      },
+      "Modify": {
+        "seconds": 0.44038,
+        "percent": 96.43
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/shared_16_np2_current_pilot",
+    "selected_steps": 1400
+  },
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 4,
+    "ranks": 1,
+    "tag": "pilot",
+    "atoms": 256,
+    "steps": 200,
+    "loop_seconds": 0.745978,
+    "us_per_step": 3729.89,
+    "process_wall_seconds": 2.6204217220656574,
+    "nvrtc_ms": 25.094643,
+    "load_ms": 0.355376,
+    "observables": [
+      -2.083217986066697,
+      0.22924954690481741,
+      0.09773666963959347,
+      -166.38556594428718,
+      -170.5287366676755,
+      -170.4270277347276,
+      -0.09150131766329353,
+      1.7903334754899256,
+      -0.01863028531695717
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0001681,
+        "percent": 0.02
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.0012386,
+        "percent": 0.17
+      },
+      "Output": {
+        "seconds": 4.4313e-05,
+        "percent": 0.01
+      },
+      "Modify": {
+        "seconds": 0.74326,
+        "percent": 99.64
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/mixed_4_np1_current_pilot",
+    "selected_steps": 900
+  },
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 4,
+    "ranks": 2,
+    "tag": "pilot",
+    "atoms": 256,
+    "steps": 200,
+    "loop_seconds": 1.2946,
+    "us_per_step": 6473.0,
+    "process_wall_seconds": 3.4730781910475343,
+    "nvrtc_ms": 22.652448,
+    "load_ms": 0.315542,
+    "observables": [
+      -2.0832179860666975,
+      0.2292495469048172,
+      0.09773666963959358,
+      -166.385565944315,
+      -170.52873666770344,
+      -170.42702773475568,
+      -0.09150131766328876,
+      1.7903334754899274,
+      -0.018630285316949678
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00017595,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.005091,
+        "percent": 0.39
+      },
+      "Output": {
+        "seconds": 3.7203e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 1.2874,
+        "percent": 99.44
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/mixed_4_np2_current_pilot",
+    "selected_steps": 500
+  },
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "pilot",
+    "atoms": 16384,
+    "steps": 200,
+    "loop_seconds": 5.50916,
+    "us_per_step": 27545.8,
+    "process_wall_seconds": 10.089819669025019,
+    "nvrtc_ms": 24.1336,
+    "load_ms": 0.395908,
+    "observables": [
+      -2.0859493189549765,
+      0.228990927870805,
+      0.09823112272105734,
+      -2.1897874165716105,
+      -2.26759941748316,
+      -2.272155153163522,
+      0.01225075556498097,
+      0.0035210766704890308,
+      0.01349574605774658
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00037474,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.013571,
+        "percent": 0.25
+      },
+      "Output": {
+        "seconds": 4.8155e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 5.4792,
+        "percent": 99.46
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/mixed_16_np1_current_pilot",
+    "selected_steps": 300
+  },
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 16,
+    "ranks": 2,
+    "tag": "pilot",
+    "atoms": 16384,
+    "steps": 200,
+    "loop_seconds": 4.43375,
+    "us_per_step": 22168.75,
+    "process_wall_seconds": 8.386953209061176,
+    "nvrtc_ms": 26.64021,
+    "load_ms": 0.324606,
+    "observables": [
+      -2.0859493189549765,
+      0.22899092787080477,
+      0.09823112272105754,
+      -2.1897874165716043,
+      -2.2675994174831646,
+      -2.2721551531635162,
+      0.012250755564980438,
+      0.003521076670488884,
+      0.013495746057745875
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00033592,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.02115,
+        "percent": 0.48
+      },
+      "Output": {
+        "seconds": 4.0252e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 4.3976,
+        "percent": 99.18
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/comparison/mixed_16_np2_current_pilot",
+    "selected_steps": 300
+  }
+]

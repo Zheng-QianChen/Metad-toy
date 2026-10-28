@@ -1,0 +1,58 @@
+[
+  {
+    "dimension": 2,
+    "correlation": 0.65,
+    "samples": 80000,
+    "fes_method": "Gaussian weighted-moment fit; held-out RMSE; additive constant removed",
+    "fes_rmse_kbt": 0.007992097032162667,
+    "unweighted_fes_rmse_kbt": 0.24037244801598798,
+    "sampling_covariance_whitened_error": 0.0057622836997788035,
+    "effective_samples": 72915.94944871587,
+    "acceptance": 0.42459239130434784,
+    "hill_covariance_whitened_error": 0.012661185270423538,
+    "hill_acceptance": 0.8138020833333334,
+    "passed": true
+  },
+  {
+    "dimension": 8,
+    "correlation": 0.65,
+    "samples": 80000,
+    "fes_method": "Gaussian weighted-moment fit; held-out RMSE; additive constant removed",
+    "fes_rmse_kbt": 0.024127027799745963,
+    "unweighted_fes_rmse_kbt": 0.2083621079255769,
+    "sampling_covariance_whitened_error": 0.011217882205166558,
+    "effective_samples": 75088.50801704693,
+    "acceptance": 0.42459239130434784,
+    "hill_covariance_whitened_error": 0.01580375190019984,
+    "hill_acceptance": 0.6103515625,
+    "passed": true
+  },
+  {
+    "dimension": 32,
+    "correlation": 0.65,
+    "samples": 80000,
+    "fes_method": "Gaussian weighted-moment fit; held-out RMSE; additive constant removed",
+    "fes_rmse_kbt": 0.08584099576515195,
+    "unweighted_fes_rmse_kbt": 0.20638492161143548,
+    "sampling_covariance_whitened_error": 0.020400675111717895,
+    "effective_samples": 75712.26984775662,
+    "acceptance": 0.42459239130434784,
+    "hill_covariance_whitened_error": 0.03291992112925241,
+    "hill_acceptance": 0.43083639705882354,
+    "passed": true
+  },
+  {
+    "dimension": 128,
+    "correlation": 0.65,
+    "samples": 80000,
+    "fes_method": "Gaussian weighted-moment fit; held-out RMSE; additive constant removed",
+    "fes_rmse_kbt": 0.3287321174692733,
+    "unweighted_fes_rmse_kbt": 0.3732751613983834,
+    "sampling_covariance_whitened_error": 0.04103528860696434,
+    "effective_samples": 75856.94628951134,
+    "acceptance": 0.42459239130434784,
+    "hill_covariance_whitened_error": 0.06497539373185032,
+    "hill_acceptance": 0.18310546875,
+    "passed": true
+  }
+]

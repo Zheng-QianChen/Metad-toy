@@ -37,13 +37,12 @@ python benchmarks/run.py regression --build-dir build --np 1 2 4 \
 
 ```bash
 cmake -S . -B build/graph -DZQC_GRAPH_STANDALONE=ON \
-  -DLAMMPS_SOURCE_DIR=/path/lammps/src \
   -DCMAKE_CUDA_ARCHITECTURES=89 -DCMAKE_BUILD_TYPE=Release
 cmake --build build/graph -j4
 python3 benchmarks/run.py graph --graph-build-dir build/graph
 ```
 
-将 `89` 换为目标 GPU 架构。需要 CUDA Toolkit、xxd、MPI、LAMMPS/fmt 头文件；此模式不链接 LAMMPS 插件，也不要求 LAMMPS Python 模块。入口执行全部 19 项 CTest，内含固定的 1/2/4 rank 场景；`--np` 只用于 smoke/regression。需要指定工具时，可在 CMake 配置中设置 `MPI_CXX_COMPILER`、`MPIEXEC_EXECUTABLE`、`MPIEXEC_PREFLAGS`，入口支持 `--ctest /path/ctest`。
+将 `89` 换为目标 GPU 架构。需要 CUDA Toolkit、xxd；fmt 头文件随项目分发。默认 MPI 测试另需 MPI，`-DZQC_TEST_MPI=OFF` 可只保留单进程验证。此模式不查找 LAMMPS 头文件或库，也不要求 LAMMPS Python 模块。入口执行全部已配置的 CTest，默认包含固定的 1/2/4 rank 场景；`--np` 只用于 smoke/regression。需要指定工具时，可设置 `MPI_CXX_COMPILER`、`MPIEXEC_EXECUTABLE`、`MPIEXEC_PREFLAGS`，入口支持 `--ctest /path/ctest`。纯 C++ 接口验证可用 `cmake --preset host-tests`；完整目标列表见 [分层构建指南](../cmake/README.md)。
 
 ## 4. O₂：完整偏置采样与曲线重建
 
@@ -67,6 +66,43 @@ python benchmarks/run.py o2 --build-dir build --lammps lmp
 
 ## 历史性能实验与发布验证
 
+当前缓存/流改造的版本 A/B 和 Leaf 非连续暂存测量入口见
+[runtime_performance](runtime_performance/README.md)。它接收多个明确的插件路径，
+先做数值核对，再分开记录 NVRTC 初始化和稳定 timestep 的耗时。
+与上传提交 `2d9ac78` 的直接比较及 Local Q 回退定位见
+[上传版本复测](runtime_performance/UPLOADED_COMPARISON.md)。
+
 带日期的目录及 `cv_communication`、`weighted_chem_switch` 等保留开发过程的专项比较，部分要求历史插件、特定初态或显式本机路径。安装用户优先使用上面四个入口。历史计时受硬件、编译选项和版本影响，不作为跨机器安装通过标准。
 
 本轮发布检查见 [INSTALLATION_RESULTS.md](INSTALLATION_RESULTS.md)。所有新运行的原始数据默认写入被 Git 忽略的 build 目录；仓库只保留代码、文档和精选数值记录。
+
+## 高维偏势沉积
+
+[HILLS / PBMetaD 的输入、重启与验证](highdim/README.md) 提供任意维列表后端、
+逐维宽度/周期核，以及 4/8 维完整 LAMMPS 数值与重启测试。
+
+## GPUMD 接入验证
+
+[GPUMD DISTANCE / StruFactor + O₂ FES](gpumd/README.md) 提供可选 EnhancedSampling 桥接构建、
+数组/流与周期像近邻契约测试、StruFactor 力/virial 有限差分、与原生谐和偏置的交叉核对，以及真实 GPUMD 积分中的 Morse 盲重建。
+该入口独立于 LAMMPS，所有新运行结果写入单独的 build 目录。
+
+## Kokkos 兼容性
+
+[Kokkos 验证](kokkos/README.md)覆盖普通/CUDA 数值交叉、Full/Half 邻居请求、
+连续积分与原子迁移、力/virial/compute 输出，以及旧版 LAMMPS trim 回补。
+
+## 冻结共享原子偏势
+
+[Al3Sc 验证](shared_frozen/README.md)覆盖逐原子共享表、MEAN 聚合、GPU 数组种子、
+普通/Kokkos 与 MPI 数值交叉、重启重放及 LocalQ6×CSS 的力/virial 有限差分。
+
+## 共享偏势概率验证
+
+[shared_frozen/PROBABILITY.md](shared_frozen/PROBABILITY.md) 提供参考概率已知的耦合双阱测试，
+检查固定/学习后冻结的共享偏势重加权、统计误差与采样覆盖，并与生产 CUDA 求值及 CLI 交叉核对。
+
+## CV 压缩与 FES
+
+[shared_frozen/COMPRESSION.md](shared_frozen/COMPRESSION.md)包含平坦原势能的解析控制、
+相关双阱的共同沉积和原坐标 FES 图。对压缩导致的权重退化同时报告有效覆盖与未达标项。

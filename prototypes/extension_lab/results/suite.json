@@ -1,0 +1,81 @@
+{
+  "status": "pass",
+  "started_utc": "2026-10-16T17:44:33.963034+00:00",
+  "python": "3.12.7 | packaged by conda-forge | (main, Oct  4 2024, 16:05:46) [GCC 13.3.0]",
+  "modules": [
+    "arrays",
+    "sampling",
+    "ml",
+    "highdim"
+  ],
+  "commands": [
+    {
+      "name": "arrays_configure",
+      "returncode": 0,
+      "seconds": 8.901165662973654,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/arrays_configure.log"
+    },
+    {
+      "name": "arrays_build",
+      "returncode": 0,
+      "seconds": 0.050164050015155226,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/arrays_build.log"
+    },
+    {
+      "name": "array_bridge",
+      "returncode": 0,
+      "seconds": 0.3022816619486548,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/array_bridge.log"
+    },
+    {
+      "name": "array_bridge_memcheck",
+      "returncode": 0,
+      "seconds": 0.35320449399296194,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/array_bridge_memcheck.log"
+    },
+    {
+      "name": "array_bridge_layoutleft",
+      "returncode": 0,
+      "seconds": 0.28228036500513554,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/array_bridge_layoutleft.log"
+    },
+    {
+      "name": "array_bridge_layoutleft_memcheck",
+      "returncode": 0,
+      "seconds": 0.35450027795741335,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/array_bridge_layoutleft_memcheck.log"
+    },
+    {
+      "name": "sampling",
+      "returncode": 0,
+      "seconds": 1.6734743660199456,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/sampling.log"
+    },
+    {
+      "name": "replica_4x1",
+      "returncode": 0,
+      "seconds": 0.3633656529709697,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/replica_4x1.log"
+    },
+    {
+      "name": "replica_2x2",
+      "returncode": 0,
+      "seconds": 0.3453276390209794,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/replica_2x2.log"
+    },
+    {
+      "name": "ml_models",
+      "returncode": 0,
+      "seconds": 2.8501789839938283,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/ml_models.log"
+    },
+    {
+      "name": "highdim",
+      "returncode": 0,
+      "seconds": 0.7471383810043335,
+      "log": "/home/zqc/work/Metad-toy/build/extension_lab/logs/highdim.log"
+    }
+  ],
+  "unchanged_tracked_files": 299,
+  "finished_utc": "2026-10-16T17:44:50.207543+00:00"
+}

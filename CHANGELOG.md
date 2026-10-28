@@ -1,5 +1,66 @@
 # 更新日志
 
+## 未发布 — 2026-10-28 CV 压缩与 FES 验证
+
+- 新增光滑 90%→10% 概率压缩对照，输出解析平坦势、共同沉积偏势与原坐标二维 FES 图。
+- 增加独立 CPU 采样桥接和实际 CUDA 表/链式梯度核对，继续复用 HillBias、HILLS 及 CLI。
+- 在 310 记录初轮与同链延长结果：普通 CV 和解析形状 MEAN 达标；学习压缩 MEAN 的覆盖和强 SUM 的重加权仍未达标，完整保留失败证据。
+- 方法、复现与结果见 [CV 压缩测试](benchmarks/shared_frozen/COMPRESSION.md)。
+
+## 未发布 — 2026-10-28 共享偏势平衡概率验证
+
+- 新增耦合双阱统计原型：独立数值积分对照固定共享表和共同沉积后冻结的重加权分布。
+- 复用 HillBias/HILLS 与实际 CUDA FrozenSharedBias，检查表插值、偏势导数、重启一致性和现有 CLI。
+- 增加独立链误差、联合分布、权重 ESS、FES 覆盖门槛及错误重加权对照。
+- 310 初轮 12 组中 10 组达标；两组强 SUM 在同一链延长 8 倍后达到原判据，保留初轮失败记录。
+- 提供[复现说明](benchmarks/shared_frozen/PROBABILITY.md)和[实测结果](benchmarks/shared_frozen/PROBABILITY_RESULTS_310.md)。
+  结论限于冻结平衡采样；主程序的生产 CV/偏势算法未改动。
+
+## 未发布 — 2026-10-27 Graph 力与 virial 合并回传
+
+- Graph 反向新增力输出批次：各 CV 贡献累加后统一完成一次 ghost reverse 和一次 owned 回写；Kokkos 最终力只上传一次。
+- 统一收集 DISTANCE 的 owned 贡献，支持空中心 rank、取消和重复求值；批次外直接调用保留立即提交行为。
+- 新增真实适配器通信计数与布局回归，检查六/九分量、Host/CUDA、AoS/SoA 和源数组复用。
+- Al3Sc 普通/Kokkos 单双 rank 有限差分与新旧状态对照通过。说明与性能复测见 [310 记录](benchmarks/shared_frozen/FORCE_BATCH_310.md)。
+
+## 未发布 — 2026-10-27 冻结共享原子偏势原型
+
+- 增加 SHARED_FROZEN：一张一维固定表按中心组逐原子求值，再按全局 owned 数量取 MEAN；三次 Hermite 插值同时给出能量与导数。
+- Graph 执行器支持 PerAtom 输出和数组反向种子，可与 Global 输出共同反传；CVGraph 对外提供明确的 owned 槽位选择集。
+- 共享偏势层独立于 LAMMPS，使用 CUDA 查表/规约和 SumReducer；组外梯度为零，空 rank 参与全局规约，日志记录表内容指纹。
+- Al3Sc LocalQ6×CSS：6 个普通/Kokkos 有限差分配置通过；6912 原子短积分、选择集刷新、restart 重放通过；完整 CUDA 内存检查 0 错误。
+- 提供[输入与复现指南](benchmarks/shared_frozen/README.md)、解析测试表及[310 验证记录](benchmarks/shared_frozen/RESULTS_310.md)。此阶段使用冻结表验证接口与导数。
+
+## 未发布 — 2026-10-27 LAMMPS CUDA/Kokkos 接入
+
+- 增加可选 Kokkos 桥接和 lammps-kokkos 构建预设，注册 metad/kk 与 metad/kk/device，保留普通 LAMMPS 路径。
+- 坐标/类型借用 Kokkos Device View 并保留真实 stride；输入带 CUDA event 等待钩子，力在 reverse 后回写 Device 并更新 DualView 状态。邻居候选、Host MPI 和 virial tally 沿用适配器接口。
+- Kokkos 运行时由 liblammps 唯一持有，避免插件重复静态链接；固定原生 CUDA 构建边界，compute 支持 /kk Fix，并修正工厂函数 ABI。
+- 补齐普通坐标上传 View 的就绪事件，删除未使用的 source_location 头文件。
+- 为旧版 LAMMPS 的零 cutoff trim 缺陷提供源码检测和三文件回补。当前上游已修复，用户原有 LAMMPS 源码与库未修改。
+- 310 单卡 1/2 rank：69 个有限差分配置、8 组连续积分、324 项邻居契约检查通过；最终 CUDA memcheck 为 0 错误。详情见 [接入指南](benchmarks/kokkos/README.md)和[验证记录](benchmarks/kokkos/RESULTS_310.md)。
+
+## 未发布 — 2026-10-27 可安装的 metadtoy 命令
+
+- 增加标准 Python 包及 metadtoy 命令入口；依赖清单与源码 CLI 共用。
+- CMake 增加 cli 预设、metadtoy-cli 打包目标和 cli 安装组件；ZQC_CLI_ONLY 仅配置 Python 工具，ZQC_BUILD_CLI 可随现有构建启用，默认关闭。
+- 安装前缀下管理独立 Python 环境和分析依赖；启动命令无需激活环境，支持同版本开发代码更新。首次配置、构建和安装的步骤见 [CLI 安装指南](tools/README.md)。
+- 310 上 10 项安装检查通过，包含 FES/进度输出、路径空格、前缀覆盖、增量更新及 Host 库共存；本机 WSL 已实际安装并验证入口。详见 [安装记录](benchmarks/cli/INSTALLATION_310.md)。
+
+## 未发布 — 2026-10-26 FES 批处理与终端进度
+
+- COLVAR 增加有界批读取，保持 step 的 int64 精度；范围扫描、直方图及对数权重累计按批执行。
+- 离线 c(t) 在规则网格上复用逐轴高斯因子与缓冲区，相邻沉积之间复用 offset，保持原积分网格和沉积时序。
+- FES 命令新增 --progress auto/always/never、--sample-batch；交互终端默认显示阶段进度和预计剩余时间，进度事件可供后续 TUI 复用。
+- 310 上 52 项回归测试通过，包括分批等价、周期网格核、沉积步边界、大整数步号、stdout/stderr 分离及计算取消。新旧版本交替计时与数值对照见 [FES 性能记录](benchmarks/cli/FES_PERFORMANCE_310.md)。
+
+## 未发布 — 2026-10-26 轨迹重加权 FES
+
+- FES 默认采用逐帧重加权，使用 log_weight、rbias 或 (bias-c(t))/kBT。新增 fes reconstruct，旧 hills preview --quantity fes 使用同一默认方法；原渐近估计通过 --method hills 保留。
+- 为原生 1–3D 普通 WTMetaD 增加离线 c(t) 积分，按记录时序追加 hills，显式区分积分域与绘图域；PB/高维可读取已给出的校正权重。
+- 导出 FES CSV/PNG、来源与参数 JSON、逐帧权重 CSV；保存样本数和权重 ESS，空 bin 留空，缺少动态归一化时明确报错。
+- 310 上 45 项测试通过；已有 O2 轨迹的 180001 帧完成重建和 c(t) 网格加密检查。详见 [验证记录](benchmarks/cli/FES_RESULTS_310.md)。
+
 ## 2026-10-16 — Graph CV 与安装验证更新（experimental preview）
 
 本次整合下方 Q、Local Q、DISTANCE 的 Graph 接入及数值验证，继续作为实验性功能验证版发布。

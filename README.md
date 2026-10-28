@@ -20,19 +20,21 @@
 ### 前提条件
 
 * 支持 `plugin load` 的共享库版 LAMMPS（本轮验证：29 Aug 2024）
-* CMake 3.20+
+* CMake 3.21+（使用构建预设时）
 * CUDA Toolkit (用于 `.cu` 源码编译)
 * MPICH 或 OpenMPI
 
 ### 编译步骤
 
-1. **准备依赖**：安装 CUDA Toolkit（含 NVRTC）、xxd，以及与 LAMMPS 一致的 MPI。Graph 使用 LAMMPS 自带的 fmt 头文件。下面的基础构建关闭可选 ML CV。
+构建现已按 view、Graph、CV、LAMMPS 适配器和测试分层，独立目标与预设见 [分层构建指南](cmake/README.md)。当前 CV 的 view 迁移仍在进行，完整插件需在迁移整合后重新验证。
+
+1. **准备依赖**：安装 CUDA Toolkit（含 NVRTC）、xxd，以及与 LAMMPS 一致的 MPI。Graph 使用 third_party/fmt 中随项目分发的头文件和许可证。下面的基础构建关闭可选 ML CV。
 
 2. **构建插件**：根据安装位置修改路径，并将 `89` 换成目标 GPU 架构。
 ```bash
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release -DENABLE_DEBUG=OFF -DUSE_ML_CVS=OFF \
-  -DCMAKE_CUDA_ARCHITECTURES=89 -DCLEAN_HOST_COMPILER=/usr/bin/g++ \
+  -DCMAKE_CUDA_ARCHITECTURES=89 -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
   -DLAMMPS_SOURCE_DIR=/path/to/lammps/src \
   -DLAMMPS_LIB_DIR=/path/to/lammps/lib \
   -DMPI_HOME=/path/to/mpi
@@ -127,3 +129,36 @@ fix metad all metad EXECUTOR GRAPH GAUSSIAN 0.01 0.005 10.0 &
 ## 贡献与反馈
 
 问题与建议可通过 GitHub issue 或联系 ZQC：gz1999zqc@163.com。
+
+## 偏置层与高维沉积
+
+偏置核心可独立于 LAMMPS/CUDA 构建，支持 1–3D dense/sparse 网格和任意维 HILLS/PBMetaD。默认 AUTO 在 D>3 选择 PBMetaD，可显式选择后端。接口、输入与可运行测试见 [偏置层说明](benchmarks/highdim/README.md)，正确性和性能数据见 [验证记录](benchmarks/highdim/RESULTS.md)。
+
+## 离线命令行分析
+
+CLI 也可通过 CMake 安装为 `metadtoy` 命令：
+
+```bash
+cmake --preset cli -DPython3_EXECUTABLE=/path/to/python -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --build --preset cli
+cmake --install build/cli --component cli
+export PATH="$HOME/.local/bin:$PATH"
+metadtoy --help
+```
+
+安装会在前缀内管理独立的 Python 环境和分析依赖。随 MD 构建时，可增加
+`-DZQC_BUILD_CLI=ON`。Python 打包方式、离线安装及源码入口见 [CLI 使用说明](tools/README.md)。
+
+
+
+统一入口为 `python tools/metadtoy.py hills ...`，支持 HILLS 参数检查、沉积记录 CSV 导出、
+1D/2D 偏势或 WTMetaD 自由能估计的 CSV/PNG 预览，以及高维偏势的显式切片。
+原生 LAMMPS/GPUMD HILLS 共用读取层；PBMetaD 联合 FES 需要轨迹重加权，不能仅由 hills 恢复。
+默认 FES 使用逐帧重加权，可通过 `python tools/metadtoy.py fes reconstruct COLVAR ...` 调用；原 HILLS 渐近估计需 `--method hills`。支持原生 WT 的离线 c(t) 及已给校正权重，输出包含逐帧权重与 ESS。
+安装、示例和后续轨迹/训练接口规划见 [CLI 使用说明](tools/README.md)，数值对照见
+[CLI 验证](benchmarks/cli/README.md)。
+
+### LAMMPS CUDA/Kokkos
+
+可选使用 lammps-kokkos 预设；输入仍可写 fix metad，-sf kk 选择设备桥接。
+数组同步、构建依赖、旧版 LAMMPS 补丁及测试命令见 [Kokkos 接入指南](benchmarks/kokkos/README.md)。

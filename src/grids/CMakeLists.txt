@@ -1,13 +1,6 @@
-# src/cvs/CMakeLists.txt
-
-# 1. 收集当前目录下的所有源文件
-file(GLOB GRID_SOURCES "*.cu" "*.cpp")
-
-# 2. 将这些源文件追加到全局变量中
-# 注意：使用 才能让主目录的 CMakeLists.txt 看到更新后的变量
-set_property(GLOBAL APPEND PROPERTY PLUGIN_INCLUDES ${PLUGIN_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../include/core)
-set_property(GLOBAL APPEND PROPERTY PLUGIN_INCLUDES ${PLUGIN_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../include/utils)
-set_property(GLOBAL APPEND PROPERTY PLUGIN_SOURCES ${PLUGIN_SOURCES} ${GRID_SOURCES})
-
-# 3. 如果有特定的宏定义，也可以在这里添加
-message(STATUS "Package grid: Added ${GRID_SOURCES}")
+# 兼容表达式与 CV 工具桥接；偏势数值、历史和生命周期位于纯 C++ zqc_bias。
+add_library(zqc_sampling OBJECT DimSet.cu
+    ../utils/CVs_tools.cu)
+target_include_directories(zqc_sampling PRIVATE "${PROJECT_SOURCE_DIR}/third_party")
+target_link_libraries(zqc_sampling PRIVATE zqc_lammps_dependencies zqc_views
+    zqc_build_options zqc_bias CUDA::cudart)

@@ -1,0 +1,18 @@
+[
+  "/usr/local/cuda/bin/nvcc",
+  "-ccbin",
+  "/home/zqc/apps/deepmd/bin/mpicxx",
+  "-std=c++17",
+  "--shared",
+  "--cudart",
+  "shared",
+  "-arch=sm_89",
+  "-Xcompiler=-fPIC",
+  "/home/zqc/work/Metad-toy/benchmarks/finite_difference/engine_cache_probe.cu",
+  "-I/home/zqc/apps/lammps/lammps-stable_29Aug2024/src",
+  "-I/home/zqc/work/Metad-toy/include/core",
+  "-I/home/zqc/work/Metad-toy/include/utils",
+  "/home/zqc/work/Metad-toy/build/performance/current/fix_crystallize_plugin.so",
+  "-o",
+  "/home/zqc/work/Metad-toy/build/performance/neighbor_cache_probe/engine_cache_probe.so"
+]

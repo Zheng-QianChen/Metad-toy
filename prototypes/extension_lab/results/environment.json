@@ -1,0 +1,9 @@
+{
+  "production_commit": "2d9ac7801ed7f093d5e83312f707e2167a337595",
+  "baseline_tracked_files": 299,
+  "original_files_unchanged": true,
+  "gpumd_commit": "a0e55bc87390b93d009da37c798616982573bab2",
+  "lammps_source": "stable_29Aug2024",
+  "cuda_toolkit": "12.6",
+  "gpu": "NVIDIA GeForce RTX 4080 SUPER, 610.88"
+}

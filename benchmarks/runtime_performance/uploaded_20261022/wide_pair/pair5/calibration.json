@@ -1,0 +1,54 @@
+[
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "pilot",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 5.0,
+    "neighbor_builds": 0,
+    "steps": 200,
+    "loop_seconds": 2.22203,
+    "us_per_step": 11110.15,
+    "process_wall_seconds": 5.076712414971553,
+    "nvrtc_ms": 24.811957,
+    "load_ms": 0.309929,
+    "observables": [
+      -2.0859493189549765,
+      0.228990927870805,
+      0.09823112272105734,
+      -2.1897874165716105,
+      -2.267599417483164,
+      -2.2721551531635233,
+      0.012250755564980963,
+      0.003521076670489032,
+      0.013495746057746564
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0003629,
+        "percent": 0.02
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.013439,
+        "percent": 0.6
+      },
+      "Output": {
+        "seconds": 4.7567e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 2.193,
+        "percent": 98.69
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_wide_pair/mixed_16_np1_current_pilot",
+    "selected_steps": 300
+  }
+]

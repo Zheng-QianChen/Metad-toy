@@ -1,0 +1,783 @@
+{
+  "passed": true,
+  "finite_difference": {
+    "host-np1": [
+      {
+        "step": 1e-05,
+        "max_force_error": 4.39315257620438e-13,
+        "max_force_scaled": 0.0001421344014034326,
+        "max_virial_error": 2.8237395603182558e-12,
+        "max_virial_scaled": 9.385017662643686e-05
+      },
+      {
+        "step": 3e-06,
+        "max_force_error": 1.122532622410688e-12,
+        "max_force_scaled": 0.00042932289815181425,
+        "max_virial_error": 2.253045298071521e-12,
+        "max_virial_scaled": 0.00010535656531145832
+      }
+    ],
+    "host-np2": [
+      {
+        "step": 1e-05,
+        "max_force_error": 4.39315257620438e-13,
+        "max_force_scaled": 0.0001350710116806442,
+        "max_virial_error": 2.4767948651228944e-12,
+        "max_virial_scaled": 8.231907744814716e-05
+      },
+      {
+        "step": 3e-06,
+        "max_force_error": 1.682617004170224e-12,
+        "max_force_scaled": 0.00042934412890079256,
+        "max_virial_error": 2.5421546378384674e-12,
+        "max_virial_scaled": 0.00010177350519220716
+      }
+    ],
+    "kk-np1": [
+      {
+        "step": 1e-05,
+        "max_force_error": 3.6021186372776383e-13,
+        "max_force_scaled": 0.00012537735746004876,
+        "max_virial_error": 2.6502646648454697e-12,
+        "max_virial_scaled": 8.808454235578263e-05
+      },
+      {
+        "step": 3e-06,
+        "max_force_error": 1.2326806242413113e-12,
+        "max_force_scaled": 0.00040671459713828936,
+        "max_virial_error": 2.295074341077813e-12,
+        "max_virial_scaled": 6.995911225144196e-05
+      }
+    ],
+    "kk-np2": [
+      {
+        "step": 1e-05,
+        "max_force_error": 3.6015635257653257e-13,
+        "max_force_scaled": 0.0001253580359381179,
+        "max_virial_error": 2.476794051971265e-12,
+        "max_virial_scaled": 8.231905042213352e-05
+      },
+      {
+        "step": 3e-06,
+        "max_force_error": 1.6816178034480614e-12,
+        "max_force_scaled": 0.00040677399820372213,
+        "max_virial_error": 1.9639137050549843e-12,
+        "max_virial_scaled": 7.862400611758945e-05
+      }
+    ]
+  },
+  "before_after": {
+    "host-np1": {
+      "coordinates": 0.0,
+      "force": 2.220446049250313e-16,
+      "descriptors": 0.0,
+      "virial": 1.3552527156068805e-19,
+      "energy": 0.0
+    },
+    "host-np2": {
+      "coordinates": 2.775557561562891e-17,
+      "force": 2.498001805406602e-16,
+      "descriptors": 0.0,
+      "virial": 1.6263032587282567e-19,
+      "energy": 0.0
+    },
+    "kk-np1": {
+      "coordinates": 8.326672684688674e-17,
+      "force": 2.886579864025407e-15,
+      "descriptors": 0.0,
+      "virial": 4.336808689942018e-19,
+      "energy": 0.0
+    },
+    "kk-np2": {
+      "coordinates": 3.5527136788005005e-15,
+      "force": 1.1199374760906267e-14,
+      "descriptors": 1.1102230246251565e-16,
+      "virial": 2.6020852139652106e-18,
+      "energy": 0.0
+    }
+  },
+  "probes": {
+    "host-np1": {
+      "passed": true,
+      "ranks": 1,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    },
+    "host-np2": {
+      "passed": true,
+      "ranks": 2,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        },
+        {
+          "rank": 1,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    },
+    "kk-np1": {
+      "passed": true,
+      "ranks": 1,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    },
+    "kk-np2": {
+      "passed": true,
+      "ranks": 2,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        },
+        {
+          "rank": 1,
+          "owned_centers": null,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    },
+    "empty-host": {
+      "passed": true,
+      "ranks": 2,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": 1,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        },
+        {
+          "rank": 1,
+          "owned_centers": 0,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    },
+    "empty-kk": {
+      "passed": true,
+      "ranks": 2,
+      "results": [
+        {
+          "rank": 0,
+          "owned_centers": 1,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        },
+        {
+          "rank": 1,
+          "owned_centers": 0,
+          "graph_counts": [
+            2,
+            1,
+            1
+          ],
+          "repeated_counts": [
+            2,
+            1,
+            1
+          ],
+          "cases": [
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 6,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "AoS",
+              "memory": "Cuda",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Host",
+              "max_error": 0.0
+            },
+            {
+              "components": 9,
+              "layout": "SoA",
+              "memory": "Cuda",
+              "max_error": 0.0
+            }
+          ]
+        }
+      ],
+      "plugin_sha256": "c44535597489be7d56895dca9c233d23dd09bd07ee8317694567506d82a8f9cd"
+    }
+  }
+}

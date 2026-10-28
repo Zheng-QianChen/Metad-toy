@@ -1,0 +1,322 @@
+{
+  "host_np1": {
+    "meam": {
+      "median_ms": 141.38049999999998,
+      "samples_ms": [
+        141.38049999999998,
+        139.0395,
+        142.1215
+      ],
+      "min_ms": 139.0395,
+      "max_ms": 142.1215,
+      "stages_ms": {
+        "Pair": 140.23,
+        "Neigh": 0.7686,
+        "Comm": 0.08364,
+        "Output": 0.000364695,
+        "Modify": 0.25342
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0,
+      "increment_relative_to_meam_run": 0.0,
+      "total_relative_to_meam_pair": 1.008204378521001,
+      "increment_relative_to_meam_pair": 0.0
+    },
+    "global": {
+      "median_ms": 148.08350000000002,
+      "samples_ms": [
+        148.174,
+        148.08350000000002,
+        146.4615
+      ],
+      "min_ms": 146.4615,
+      "max_ms": 148.174,
+      "stages_ms": {
+        "Pair": 140.225,
+        "Neigh": 2.7285500000000003,
+        "Comm": 0.085655,
+        "Output": 0.000415455,
+        "Modify": 4.97865
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0474110644678725,
+      "increment_relative_to_meam_run": 0.04741106446787239,
+      "total_relative_to_meam_pair": 1.0560044213078517,
+      "increment_relative_to_meam_pair": 0.047800042786850405
+    },
+    "shared": {
+      "median_ms": 148.0745,
+      "samples_ms": [
+        148.0745,
+        148.37300000000002,
+        148.0705
+      ],
+      "min_ms": 148.0705,
+      "max_ms": 148.37300000000002,
+      "stages_ms": {
+        "Pair": 140.215,
+        "Neigh": 2.7372500000000004,
+        "Comm": 0.08542,
+        "Output": 0.000400355,
+        "Modify": 4.99585
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0473474064669457,
+      "increment_relative_to_meam_run": 0.047347406466945706,
+      "total_relative_to_meam_pair": 1.0559402410325893,
+      "increment_relative_to_meam_pair": 0.04773586251158823
+    }
+  },
+  "host_np2": {
+    "meam": {
+      "median_ms": 73.645,
+      "samples_ms": [
+        71.584,
+        73.76,
+        73.645
+      ],
+      "min_ms": 71.584,
+      "max_ms": 73.76,
+      "stages_ms": {
+        "Pair": 72.67,
+        "Neigh": 0.38591000000000003,
+        "Comm": 0.37526,
+        "Output": 0.00030855500000000007,
+        "Modify": 0.14323
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0,
+      "increment_relative_to_meam_run": 0.0,
+      "total_relative_to_meam_pair": 1.013416815742397,
+      "increment_relative_to_meam_pair": 0.0
+    },
+    "global": {
+      "median_ms": 80.01849999999999,
+      "samples_ms": [
+        80.0015,
+        80.73449999999998,
+        80.01849999999999
+      ],
+      "min_ms": 80.0015,
+      "max_ms": 80.73449999999998,
+      "stages_ms": {
+        "Pair": 71.955,
+        "Neigh": 1.636,
+        "Comm": 0.47025500000000003,
+        "Output": 0.00035370999999999997,
+        "Modify": 6.0615
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0865435535338448,
+      "increment_relative_to_meam_run": 0.0865435535338447,
+      "total_relative_to_meam_pair": 1.1011215081876977,
+      "increment_relative_to_meam_pair": 0.08770469244530057
+    },
+    "shared": {
+      "median_ms": 79.87599999999999,
+      "samples_ms": [
+        79.733,
+        80.056,
+        79.87599999999999
+      ],
+      "min_ms": 79.733,
+      "max_ms": 80.056,
+      "stages_ms": {
+        "Pair": 71.81,
+        "Neigh": 1.6357499999999998,
+        "Comm": 0.240445,
+        "Output": 0.000341225,
+        "Modify": 6.153499999999999
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.084608595288207,
+      "increment_relative_to_meam_run": 0.08460859528820687,
+      "total_relative_to_meam_pair": 1.0991605889638087,
+      "increment_relative_to_meam_pair": 0.08574377322141179
+    }
+  },
+  "kk_np1": {
+    "meam": {
+      "median_ms": 21.12,
+      "samples_ms": [
+        21.12,
+        21.041533333333334,
+        21.17216666666667
+      ],
+      "min_ms": 21.041533333333334,
+      "max_ms": 21.17216666666667,
+      "stages_ms": {
+        "Pair": 20.788999999999998,
+        "Neigh": 0.01455,
+        "Comm": 0.07622333333333332,
+        "Output": 0.00027682333333333336,
+        "Modify": 0.19809333333333334
+      },
+      "neighbor_builds": [
+        10,
+        10,
+        10
+      ],
+      "total_relative_to_meam_run": 1.0,
+      "increment_relative_to_meam_run": 0.0,
+      "total_relative_to_meam_pair": 1.0159218817643947,
+      "increment_relative_to_meam_pair": 0.0
+    },
+    "global": {
+      "median_ms": 27.326433333333334,
+      "samples_ms": [
+        27.309966666666664,
+        27.326433333333334,
+        27.4105
+      ],
+      "min_ms": 27.309966666666664,
+      "max_ms": 27.4105,
+      "stages_ms": {
+        "Pair": 20.746000000000002,
+        "Neigh": 1.9317,
+        "Comm": 0.07955000000000001,
+        "Output": 0.0003151133333333333,
+        "Modify": 4.537999999999999
+      },
+      "neighbor_builds": [
+        10,
+        10,
+        10
+      ],
+      "total_relative_to_meam_run": 1.2938652146464646,
+      "increment_relative_to_meam_run": 0.29386521464646465,
+      "total_relative_to_meam_pair": 1.314465983613129,
+      "increment_relative_to_meam_pair": 0.29854410184873414
+    },
+    "shared": {
+      "median_ms": 27.423366666666666,
+      "samples_ms": [
+        27.3975,
+        27.423366666666666,
+        27.536533333333338
+      ],
+      "min_ms": 27.3975,
+      "max_ms": 27.536533333333338,
+      "stages_ms": {
+        "Pair": 20.774,
+        "Neigh": 1.9445000000000001,
+        "Comm": 0.08153666666666666,
+        "Output": 0.00026564666666666667,
+        "Modify": 4.580666666666667
+      },
+      "neighbor_builds": [
+        10,
+        10,
+        10
+      ],
+      "total_relative_to_meam_run": 1.298454861111111,
+      "increment_relative_to_meam_run": 0.298454861111111,
+      "total_relative_to_meam_pair": 1.3191287058861259,
+      "increment_relative_to_meam_pair": 0.303206824121731
+    }
+  },
+  "kk_np2": {
+    "meam": {
+      "median_ms": 46.50785,
+      "samples_ms": [
+        45.530950000000004,
+        46.50785,
+        46.7579
+      ],
+      "min_ms": 45.530950000000004,
+      "max_ms": 46.7579,
+      "stages_ms": {
+        "Pair": 43.7775,
+        "Neigh": 0.04699899999999999,
+        "Comm": 0.5842,
+        "Output": 0.0011468000000000001,
+        "Modify": 1.7283000000000002
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.0,
+      "increment_relative_to_meam_run": 0.0,
+      "total_relative_to_meam_pair": 1.0623687967563245,
+      "increment_relative_to_meam_pair": 0.0
+    },
+    "global": {
+      "median_ms": 53.38549999999999,
+      "samples_ms": [
+        53.4185,
+        53.38549999999999,
+        52.648999999999994
+      ],
+      "min_ms": 52.648999999999994,
+      "max_ms": 53.4185,
+      "stages_ms": {
+        "Pair": 43.562000000000005,
+        "Neigh": 1.2275999999999998,
+        "Comm": 0.55655,
+        "Output": 0.0011787,
+        "Modify": 7.640499999999999
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.147881486673755,
+      "increment_relative_to_meam_run": 0.14788148667375497,
+      "total_relative_to_meam_pair": 1.2194734738164579,
+      "increment_relative_to_meam_pair": 0.1571046770601335
+    },
+    "shared": {
+      "median_ms": 52.958,
+      "samples_ms": [
+        52.958,
+        53.523500000000006,
+        52.8705
+      ],
+      "min_ms": 52.8705,
+      "max_ms": 53.523500000000006,
+      "stages_ms": {
+        "Pair": 43.170500000000004,
+        "Neigh": 1.21915,
+        "Comm": 0.52315,
+        "Output": 0.00122665,
+        "Modify": 7.714499999999999
+      },
+      "neighbor_builds": [
+        7,
+        7,
+        7
+      ],
+      "total_relative_to_meam_run": 1.1386894900538296,
+      "increment_relative_to_meam_run": 0.13868949005382963,
+      "total_relative_to_meam_pair": 1.2097081834275596,
+      "increment_relative_to_meam_pair": 0.14733938667123522
+    }
+  }
+}

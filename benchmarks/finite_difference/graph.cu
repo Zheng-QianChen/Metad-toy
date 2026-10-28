@@ -1,5 +1,6 @@
 // 对实际 GraphExecution 前向做双边差分，逐项核对 Leaf Jacobian 和多输出 VJP。
 #include "zqc_graph.cuh"
+#include "mpi_sum_reducer.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -98,13 +99,14 @@ void distributed(MPI_Comm communicator) {
         if ((ranks==1 ? 0 : 1+(id*id)%(ranks-1))==rank) local_ids.push_back(id);
     const int local_count=local_ids.size();
     Leaf first(std::vector<double>(local_count,0.0)),second(std::vector<double>(local_count,0.0));
-    Leaf coefficient({.43},{Domain::Global,1});
+    Leaf coefficient({.43},{ValueDomain::Global,1});
+    const auto sum=mpi_sum_reducer(communicator);
     Graph graph(Graph::Symbols{{"a",&first},{"b",&second},{"c",&coefficient}},
-                Graph::Switches{{"gate",{MetaD_zqc::FERMI,.2,0,2.1,0,0}}},communicator);
+                Graph::Switches{{"gate",{MetaD_zqc::FERMI,.2,0,2.1,0,0}}},sum);
     // 两个别名实际指向相同节点，检查共享乘积和共享规约的梯度累加。
     auto* product=graph.make_node<Mul>(&first,&second);
     graph.symbols["product"]=product;
-    graph.symbols["mean_product"]=graph.make_node<AVE>(product,communicator);
+    graph.symbols["mean_product"]=graph.make_node<AVE>(product,sum);
     const std::vector<std::string> expressions={
         "AVE(a)","AVE(a+b)","AVE(a-b)","AVE(-a)","AVE(a*b)","AVE(a*a)",
         "AVE(linear(a,-1.7,0.3))","AVE(exp(linear(a,0.3,0)))","AVE(constant_one(a))",
@@ -142,8 +144,8 @@ void distributed(MPI_Comm communicator) {
 }
 
 void host_only(MPI_Comm communicator) {
-    Leaf a({.43},{Domain::Global,1}),b({.77},{Domain::Global,1});
-    Graph graph(Graph::Symbols{{"a",&a},{"b",&b}}, {}, communicator);
+    Leaf a({.43},{ValueDomain::Global,1}),b({.77},{ValueDomain::Global,1});
+    Graph graph(Graph::Symbols{{"a",&a},{"b",&b}}, {}, mpi_sum_reducer(communicator));
     for (const char* expression:{"a+b","a-b","-a","a*b","a*a","linear(a,-1.7,0.3)",
             "exp(a)","constant_one(a)","step(a,0.2)","fermi(a,0.2,2.1)",
             "tanh(a,0.1,-1.2)","rational(a,1,6,12)","rational(a,1,3,7)","a*b+exp(-a)*b"})

@@ -1,0 +1,4 @@
+METADTOY_1 {
+    global: zqc_metadtoy_get_api;
+    local: *;
+};

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "identity": "row",
+  "length_unit": "angstrom",
+  "features": [
+    {
+      "name": "r_OO",
+      "kind": "distance",
+      "atoms": [
+        0,
+        1
+      ],
+      "image": "minimum"
+    }
+  ]
+}

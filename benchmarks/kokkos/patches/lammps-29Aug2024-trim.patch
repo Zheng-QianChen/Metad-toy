@@ -1,0 +1,50 @@
+--- a/src/npair_halffull.cpp
++++ b/src/npair_halffull.cpp
+@@ -121,7 +121,9 @@
+           delz = ztmp - x[j][2];
+           rsq = delx * delx + dely * dely + delz * delz;
+ 
+-          if (rsq > cutsq_custom) continue;
++          const double cutsq_trim = cutoff_custom > 0.0 ? cutsq_custom :
++              cutneighsq[atom->type[i]][atom->type[j]];
++          if (rsq > cutsq_trim) continue;
+         }
+ 
+         neighptr[n++] = joriginal;
+@@ -133,7 +135,9 @@
+             delz = ztmp - x[j][2];
+             rsq = delx * delx + dely * dely + delz * delz;
+ 
+-            if (rsq > cutsq_custom) continue;
++            const double cutsq_trim = cutoff_custom > 0.0 ? cutsq_custom :
++                cutneighsq[atom->type[i]][atom->type[j]];
++            if (rsq > cutsq_trim) continue;
+           }
+ 
+           neighptr[n++] = joriginal;
+--- a/src/npair_trim.cpp
++++ b/src/npair_trim.cpp
+@@ -83,7 +83,9 @@
+       delz = ztmp - x[j][2];
+       rsq = delx * delx + dely * dely + delz * delz;
+ 
+-      if (rsq > cutsq_custom) continue;
++      const double cutsq_trim = cutoff_custom > 0.0 ? cutsq_custom :
++          cutneighsq[atom->type[i]][atom->type[j]];
++      if (rsq > cutsq_trim) continue;
+ 
+       neighptr[n++] = joriginal;
+     }
+--- a/src/npair_skip.cpp
++++ b/src/npair_skip.cpp
+@@ -103,7 +103,9 @@
+         dely = ytmp - x[j][1];
+         delz = ztmp - x[j][2];
+         rsq = delx * delx + dely * dely + delz * delz;
+-        if (rsq > cutsq_custom) continue;
++        const double cutsq_trim = cutoff_custom > 0.0 ? cutsq_custom :
++            cutneighsq[atom->type[i]][atom->type[j]];
++        if (rsq > cutsq_trim) continue;
+       }
+ 
+       neighptr[n++] = joriginal;

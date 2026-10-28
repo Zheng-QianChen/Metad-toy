@@ -1,0 +1,309 @@
++ /home/saitang/cmake/bin/cmake -S /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/source copy -B /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli -DZQC_CLI_ONLY=ON -DPython3_EXECUTABLE=/home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -DCMAKE_INSTALL_PREFIX=/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/unused prefix -DCMAKE_CXX_COMPILER=/deliberately/unavailable/compiler
+-- Found Python3: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python (found suitable version "3.10.6", minimum required is "3.9") found components: Interpreter 
+-- MetadToy CLI: Python=/home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python; install with --component cli
+-- Configuring done
+-- Generating done
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    CMAKE_CXX_COMPILER
+
+
+-- Build files have been written to: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli
+
+PASS: CLI-only configuration requires no C++/CUDA compiler
++ /home/saitang/cmake/bin/cmake --build /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --target metadtoy-cli
+[100%] Packaging metadtoy CLI and its pip bootstrap
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip wheel --disable-pip-version-check --no-deps --wheel-dir '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-14_gpst_/wheels' '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-14_gpst_/package'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./cli-build-14_gpst_/package
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: metadtoy-cli
+  Building wheel for metadtoy-cli (pyproject.toml): started
+  Building wheel for metadtoy-cli (pyproject.toml): finished with status 'done'
+  Created wheel for metadtoy-cli: filename=metadtoy_cli-0.1.0-py3-none-any.whl size=37471 sha256=288f2db70d6dce1db916044b5c0268b257e7f02f6101ebe163a5092f6baa776f
+  Stored in directory: /tmp/pip-ephem-wheel-cache-jfyqodh7/wheels/c6/13/c1/d1025cfb3767bd9538c58aee3b86f97714db9dbba25d4d47e3
+Successfully built metadtoy-cli
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip download --disable-pip-version-check --only-binary=:all: --no-deps --dest '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-14_gpst_/wheels' 'pip>=22.3'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse/pip-26.2.2-py3-none-any.whl
+Saved ./cli-build-14_gpst_/wheels/pip-26.2.2-py3-none-any.whl
+Successfully downloaded pip
+[100%] Built target metadtoy-cli
+
++ /home/saitang/cmake/bin/cmake --build /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --target metadtoy-cli
+[100%] Built target metadtoy-cli
+
+PASS: unchanged builds reuse the packaged wheel
++ /home/saitang/cmake/bin/cmake --install /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --component cli --prefix /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces
+-- Install configuration: ""
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -m pip install --disable-pip-version-check '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/pip-26.2.2-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/pip-26.2.2-py3-none-any.whl
+Installing collected packages: pip
+Successfully installed pip-26.2.2
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check install '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl
+Processing ./wheelhouse/numpy-1.23.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (from metadtoy-cli==0.1.0)
+Processing ./wheelhouse/matplotlib-3.6.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (from metadtoy-cli==0.1.0)
+Processing ./wheelhouse/contourpy-1.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/cycler-0.12.1-py3-none-any.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/fonttools-4.65.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/kiwisolver-1.5.1-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/packaging-26.3-py3-none-any.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/pillow-12.2.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/pyparsing-3.3.3-py3-none-any.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/python_dateutil-3.0.0-py2.py3-none-any.whl (from matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/six-1.17.0-py2.py3-none-any.whl (from python-dateutil>=2.7->matplotlib>=3.5->metadtoy-cli==0.1.0)
+Processing ./wheelhouse/tzdata-2026.5-py2.py3-none-any.whl (from python-dateutil>=2.7->matplotlib>=3.5->metadtoy-cli==0.1.0)
+Installing collected packages: tzdata, six, pyparsing, pillow, packaging, numpy, kiwisolver, fonttools, cycler, python-dateutil, contourpy, matplotlib, metadtoy-cli
+
+Successfully installed contourpy-1.3.2 cycler-0.12.1 fonttools-4.65.0 kiwisolver-1.5.1 matplotlib-3.6.2 metadtoy-cli-0.1.0 numpy-1.23.4 packaging-26.3 pillow-12.2.0 pyparsing-3.3.3 python-dateutil-3.0.0 six-1.17.0 tzdata-2026.5
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check install --no-deps --force-reinstall '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl
+Installing collected packages: metadtoy-cli
+  Attempting uninstall: metadtoy-cli
+    Found existing installation: metadtoy-cli 0.1.0
+    Uninstalling metadtoy-cli-0.1.0:
+      Successfully uninstalled metadtoy-cli-0.1.0
+Successfully installed metadtoy-cli-0.1.0
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check check
+No broken requirements found.
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -c 'import numpy, matplotlib; from metadtoy_cli.cli import main; import metadtoy_cli; print('"'"'metadtoy'"'"', metadtoy_cli.__version__)'
+metadtoy 0.1.0
+Installed command: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/bin/metadtoy
+Add this directory to PATH: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/bin
+
+PASS: install-time prefix override and paths containing spaces
++ metadtoy --help
+usage: metadtoy [-h] [--version] {hills,fes,trajectory,dataset} ...
+
+Offline MetaD-toy analysis (LAMMPS and GPUMD histories)
+
+positional arguments:
+  {hills,fes,trajectory,dataset}
+    hills               Inspect, export and preview deposited bias histories
+    fes                 Reconstruct FES from bias-reweighted CV trajectories
+    trajectory          Inspect LAMMPS dump or XYZ trajectories
+    dataset             Build offline descriptor datasets
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+
++ metadtoy --version
+0.1.0
+
+PASS: bare metadtoy works outside the repository without activation
++ metadtoy fes reconstruct /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/COLVAR --kbt 1 --bins 2 --range 1 0 1 --out /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/fes --progress always
+初始化 [处理中] 0 items 已用 0.0s
+校验输入 [                    ]   0.0% 0/1 files 已用 0.0s
+校验输入 [====================] 100.0% 1/1 files 已用 0.0s COLVAR
+扫描轨迹 [处理中] 0 frames 已用 0.0s
+重加权 [                    ]   0.0% 0/4 frames 已用 0.0s
+重加权 [====================] 100.0% 4/4 frames 已用 0.0s
+导出表格 [处理中] 0 items 已用 0.0s
+生成图片 [处理中] 0 items 已用 0.0s
+复核输入 [                    ]   0.0% 0/1 files 已用 0.0s
+复核输入 [====================] 100.0% 1/1 files 已用 0.0s COLVAR
+保存结果 [处理中] 0 items 已用 0.0s
+完成 [====================] 100.0% 1/1 job 已用 1.3s 剩余约 0.0s
+{
+  "outputs": [
+    "/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/fes.csv",
+    "/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/fes.png",
+    "/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/fes.json",
+    "/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/outside/fes.weights.csv"
+  ]
+}
+
+PASS: installed dependencies execute FES and progress output
++ /home/saitang/cmake/bin/cmake --install /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --component cli --prefix /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/conflicting prefix
+-- Install configuration: ""
+metadtoy installer: refusing to replace an unrelated command: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/conflicting prefix/bin/metadtoy
+CMake Error at run/build cli/tools/install_cli.cmake:16 (message):
+  metadtoy CLI installation failed (1).
+Call Stack (most recent call first):
+  run/build cli/tools/cmake_install.cmake:41 (include)
+  run/build cli/cmake_install.cmake:42 (include)
+
+
+
+PASS: unrelated command is preserved
++ /home/saitang/cmake/bin/cmake --install /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --component cli --prefix /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/staged
+-- Install configuration: ""
+CMake Error at run/build cli/tools/install_cli.cmake:3 (message):
+  CLI virtual environments do not support DESTDIR staging.  Use cmake
+  --install --prefix /final/path, or package the wheel separately.
+Call Stack (most recent call first):
+  run/build cli/tools/cmake_install.cmake:41 (include)
+  run/build cli/cmake_install.cmake:42 (include)
+
+
+
+PASS: unsupported DESTDIR is rejected before installation
++ /home/saitang/cmake/bin/cmake --build /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --target metadtoy-cli
+[100%] Packaging metadtoy CLI and its pip bootstrap
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip wheel --disable-pip-version-check --no-deps --wheel-dir '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-e761xgfc/wheels' '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-e761xgfc/package'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./cli-build-e761xgfc/package
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: metadtoy-cli
+  Building wheel for metadtoy-cli (pyproject.toml): started
+  Building wheel for metadtoy-cli (pyproject.toml): finished with status 'done'
+  Created wheel for metadtoy-cli: filename=metadtoy_cli-0.1.0-py3-none-any.whl size=37486 sha256=33914d1ac2141dd949d223a82e21f41b6c48a0e1efe9692a1ba59f9697f24680
+  Stored in directory: /tmp/pip-ephem-wheel-cache-si1v94cp/wheels/18/07/6d/300d146727fcd8f09e5d7a49a5b49001f7b9134fd63375d2ca
+Successfully built metadtoy-cli
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip download --disable-pip-version-check --only-binary=:all: --no-deps --dest '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-build-e761xgfc/wheels' 'pip>=22.3'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse/pip-26.2.2-py3-none-any.whl
+Saved ./cli-build-e761xgfc/wheels/pip-26.2.2-py3-none-any.whl
+Successfully downloaded pip
+[100%] Built target metadtoy-cli
+
++ /home/saitang/cmake/bin/cmake --install /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli --component cli --prefix /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces
+-- Install configuration: ""
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -m pip install --disable-pip-version-check '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/pip-26.2.2-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/pip-26.2.2-py3-none-any.whl
+pip is already installed with the same version as the provided wheel. Use --force-reinstall to force an installation of the wheel.
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check install '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl
+Requirement already satisfied: numpy>=1.21 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from metadtoy-cli==0.1.0) (1.23.4)
+Requirement already satisfied: matplotlib>=3.5 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from metadtoy-cli==0.1.0) (3.6.2)
+Requirement already satisfied: contourpy>=1.0.1 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (1.3.2)
+Requirement already satisfied: cycler>=0.10 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (4.65.0)
+Requirement already satisfied: kiwisolver>=1.0.1 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (1.5.1)
+Requirement already satisfied: packaging>=20.0 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (26.3)
+Requirement already satisfied: pillow>=6.2.0 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (12.2.0)
+Requirement already satisfied: pyparsing>=2.2.1 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (3.3.3)
+Requirement already satisfied: python-dateutil>=2.7 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from matplotlib>=3.5->metadtoy-cli==0.1.0) (3.0.0)
+Requirement already satisfied: six>=1.6 in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from python-dateutil>=2.7->matplotlib>=3.5->metadtoy-cli==0.1.0) (1.17.0)
+Requirement already satisfied: tzdata in ./run/installed with spaces/libexec/metadtoy/venv/lib/python3.10/site-packages (from python-dateutil>=2.7->matplotlib>=3.5->metadtoy-cli==0.1.0) (2026.5)
+metadtoy-cli is already installed with the same version as the provided wheel. Use --force-reinstall to force an installation of the wheel.
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check install --no-deps --force-reinstall '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./run/build cli/tools/cli-wheel/metadtoy_cli-0.1.0-py3-none-any.whl
+Installing collected packages: metadtoy-cli
+  Attempting uninstall: metadtoy-cli
+    Found existing installation: metadtoy-cli 0.1.0
+    Uninstalling metadtoy-cli-0.1.0:
+      Successfully uninstalled metadtoy-cli-0.1.0
+Successfully installed metadtoy-cli-0.1.0
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -m pip --disable-pip-version-check check
+No broken requirements found.
++ '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/libexec/metadtoy/venv/bin/python' -I -c 'import numpy, matplotlib; from metadtoy_cli.cli import main; import metadtoy_cli; print('"'"'metadtoy'"'"', metadtoy_cli.__version__)'
+metadtoy 0.1.0
+Installed command: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/bin/metadtoy
+Add this directory to PATH: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/installed with spaces/bin
+
++ metadtoy --help
+usage: metadtoy [-h] [--version] {hills,fes,trajectory,dataset} ...
+
+INSTALL-UPDATE Offline MetaD-toy analysis (LAMMPS and GPUMD histories)
+
+positional arguments:
+  {hills,fes,trajectory,dataset}
+    hills               Inspect, export and preview deposited bias histories
+    fes                 Reconstruct FES from bias-reweighted CV trajectories
+    trajectory          Inspect LAMMPS dump or XYZ trajectories
+    dataset             Build offline descriptor datasets
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+
+PASS: same-version source update is installed
++ metadtoy --version
+0.1.0
+
+PASS: installed runtime does not depend on the source checkout
++ /home/saitang/cmake/bin/cmake -S /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/source copy -B /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build -DZQC_ENABLE_CUDA=OFF -DZQC_BUILD_TESTS=OFF -DZQC_BUILD_CLI=ON -DPython3_EXECUTABLE=/home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python
+-- The CXX compiler identification is GNU 7.5.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/local/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Looking for C++ include pthread.h
+-- Looking for C++ include pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - found
+-- Found Threads: TRUE  
+-- Found Python3: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python (found suitable version "3.10.6", minimum required is "3.9") found components: Interpreter 
+-- MetadToy CLI: Python=/home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python; install with --component cli
+-- MetadToy layers: CUDA=OFF, CVs=OFF, LAMMPS=OFF, GPUMD=OFF, tests=OFF
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build
+
++ /home/saitang/cmake/bin/cmake --build /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build --target metadtoy-cli zqc_bias -j2
+[100%] Packaging metadtoy CLI and its pip bootstrap
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip wheel --disable-pip-version-check --no-deps --wheel-dir '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build/tools/cli-build-_wn0v_h8/wheels' '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build/tools/cli-build-_wn0v_h8/package'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing ./cli-build-_wn0v_h8/package
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: metadtoy-cli
+  Building wheel for metadtoy-cli (pyproject.toml): started
+  Building wheel for metadtoy-cli (pyproject.toml): finished with status 'done'
+  Created wheel for metadtoy-cli: filename=metadtoy_cli-0.1.0-py3-none-any.whl size=37486 sha256=d952ad50f660be993607be42fc3827639a92f84c9c4f282c6f41428b2c75037d
+  Stored in directory: /tmp/pip-ephem-wheel-cache-4edkvo3v/wheels/aa/4e/9b/ef663dcf490e7d7630d686beb2fe1ba4e083b6839a7382b7f8
+Successfully built metadtoy-cli
++ /home/saitang/work/MetadToy-gpumd-20261023/build/cli-20261025-validation/venv310/bin/python -m pip download --disable-pip-version-check --only-binary=:all: --no-deps --dest '/home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/run/host build/tools/cli-build-_wn0v_h8/wheels' 'pip>=22.3'
+Looking in links: /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse
+Processing /home/saitang/work/MetadToy-gpumd-20261023/build/cli-install-20261027/wheelhouse/pip-26.2.2-py3-none-any.whl
+Saved ./cli-build-_wn0v_h8/wheels/pip-26.2.2-py3-none-any.whl
+Successfully downloaded pip
+[100%] Built target metadtoy-cli
+[ 50%] Building CXX object CMakeFiles/zqc_bias.dir/src/sampling/zqc_bias_grid.cpp.o
+[ 50%] Building CXX object CMakeFiles/zqc_bias.dir/src/sampling/zqc_hill_bias.cpp.o
+[ 75%] Building CXX object CMakeFiles/zqc_bias.dir/src/sampling/zqc_bias.cpp.o
+[100%] Linking CXX static library libzqc_bias.a
+[100%] Built target zqc_bias
+
+PASS: CLI target coexists with the Host bias library
+{
+  "passed": 10,
+  "checks": [
+    "CLI-only configuration requires no C++/CUDA compiler",
+    "unchanged builds reuse the packaged wheel",
+    "install-time prefix override and paths containing spaces",
+    "bare metadtoy works outside the repository without activation",
+    "installed dependencies execute FES and progress output",
+    "unrelated command is preserved",
+    "unsupported DESTDIR is rejected before installation",
+    "same-version source update is installed",
+    "installed runtime does not depend on the source checkout",
+    "CLI target coexists with the Host bias library"
+  ],
+  "python": "3.10.6 | packaged by conda-forge | (main, Aug 22 2022, 20:35:26) [GCC 10.4.0]"
+}

@@ -1,178 +1,103 @@
 cmake_minimum_required(VERSION 3.18)
-project(fix_crystallize_plugin LANGUAGES CXX CUDA)
-
-
-# 独立验证图的源码生成和 NVRTC 编译，不构建 LAMMPS 插件。
-option(ZQC_GRAPH_STANDALONE "Build experimental CUDA graph validation programs" OFF)
-find_package(CUDAToolkit REQUIRED)
-find_program(XXD NAMES xxd REQUIRED)
-
-# 普通 CUDA 编译与 NVRTC 使用同一份设备函数源码。
-set(ZQC_GRAPH_DEVICE_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/utils/zqc_graph_device.cuh")
-set(ZQC_GRAPH_EMBED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/embed/zqc_graph_device.cpp")
-add_custom_command(
-    OUTPUT "${ZQC_GRAPH_EMBED_SOURCE}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/embed"
-    COMMAND "${CMAKE_COMMAND}"
-            "-DXXD=${XXD}"
-            "-DINPUT=${ZQC_GRAPH_DEVICE_HEADER}"
-            "-DSYMBOL=zqc_graph_device_source"
-            "-DOUTPUT=${ZQC_GRAPH_EMBED_SOURCE}"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/xxd_embed.cmake"
-    DEPENDS "${ZQC_GRAPH_DEVICE_HEADER}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/cmake/xxd_embed.cmake"
-    VERBATIM
-)
-
-if(ZQC_GRAPH_STANDALONE)
-    # Keep the generated source and its owning target in the same directory scope.
-    add_library(zqc_graph_embedded STATIC "${ZQC_GRAPH_EMBED_SOURCE}")
-    enable_testing()
-    add_subdirectory(benchmarks/graph)
+option(ZQC_CLI_ONLY "Configure only the offline Python CLI" OFF)
+if(ZQC_CLI_ONLY)
+    project(MetadToy LANGUAGES NONE)
+    add_subdirectory(tools)
     return()
 endif()
+project(MetadToy LANGUAGES CXX)
+option(ZQC_BUILD_CLI "Package and install the offline Python CLI" OFF)
 
-# -------------------------------------------------------------------
-# 模式切换开关：默认关闭调试
-# 使用时：cmake -DENABLE_DEBUG=ON ..
-# -------------------------------------------------------------------
-option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" ON)
-# option(ENABLE_DEBUG "Enable debug mode with GDB support and line info" OFF)
-option(USE_ML_CVS   "Use Machine Learning models as Collective Variables" ON)
-option(ENABLE_ASAN  "Enable AddressSanitizer for host-side memory checking" OFF)   # 新加这一行
-
-# -------------------------------------------------------------------
-# 1. 路径配置（通过环境变量获取，不再硬编码）
-# -------------------------------------------------------------------
-
-# 使用 "$ENV{变量名}" 获取本地环境，如果环境没设置则报错
-if(NOT LAMMPS_SOURCE_DIR AND NOT DEFINED ENV{LAMMPS_SOURCE_DIR})
-    message(FATAL_ERROR "please set the ENV: export LAMMPS_SOURCE_DIR=/path/to/lammps/src")
+# 基础接口仅需 C++；CUDA、宿主插件和测试按选项加载各自的依赖。
+option(ZQC_ENABLE_CUDA "Build CUDA graph and CV libraries" ON)
+option(ZQC_GRAPH_STANDALONE "Compatibility shortcut: graph tests without LAMMPS" OFF)
+set(plugin_default ON)
+set(tests_default OFF)
+if(ZQC_GRAPH_STANDALONE OR NOT ZQC_ENABLE_CUDA)
+    set(plugin_default OFF)
+    set(tests_default ON)
+endif()
+option(ZQC_BUILD_LAMMPS "Build the LAMMPS plugin and adapter" ${plugin_default})
+option(ZQC_BUILD_GPUMD "Build optional GPUMD EnhancedSampling bridge" OFF)
+option(ZQC_BUILD_GPUMD_RUNTIME "Build standalone shared GPUMD runtime" ${ZQC_BUILD_GPUMD})
+set(ZQC_GPUMD_SOURCE "" CACHE PATH "GPUMD v5.9.1 source directory")
+option(ZQC_GPUMD_VALIDATION_MORSE "Include the two-atom O2 validation potential" OFF)
+option(ZQC_BUILD_CVS "Build production collective variables" ${ZQC_BUILD_LAMMPS})
+option(ZQC_BUILD_TESTS "Build independent validation programs" ${tests_default})
+option(ZQC_TEST_MPI "Build distributed graph validation programs" ON)
+option(USE_ML_CVS "Build the optional ONNX Runtime module" OFF)
+option(ENABLE_DEBUG "Enable CUDA device debugging and DEBUG diagnostics" OFF)
+option(ENABLE_ASAN "Enable host AddressSanitizer" OFF)
+if(ZQC_GRAPH_STANDALONE)
+    # 保留旧命令的含义，避免旧 cache 中的插件选项影响独立验证。
+    set(ZQC_BUILD_LAMMPS OFF)
+    set(ZQC_BUILD_CVS OFF)
+    set(ZQC_BUILD_TESTS ON)
+endif()
+if(ZQC_BUILD_LAMMPS OR ZQC_BUILD_GPUMD OR ZQC_BUILD_GPUMD_RUNTIME)
+    set(ZQC_BUILD_CVS ON)
+endif()
+if(NOT ZQC_ENABLE_CUDA AND (ZQC_BUILD_CVS OR ZQC_BUILD_LAMMPS OR ZQC_BUILD_GPUMD OR ZQC_BUILD_GPUMD_RUNTIME OR USE_ML_CVS))
+    message(FATAL_ERROR "CVs, LAMMPS and ML targets require ZQC_ENABLE_CUDA=ON")
 endif()
 
-set(LAMMPS_SOURCE_DIR ${LAMMPS_SOURCE_DIR})
-set(MPI_INCLUDE_PATH  ${MPI_HOME}/include) 
-
-# -------------------------------------------------------------------
-# 2. 编译器与标准设置
-# -------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration" FORCE)
+endif()
+include(cmake/BuildOptions.cmake)
 
-set(CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc")
-set(CMAKE_C_COMPILER   ${MPI_HOME}/bin/mpicc)
-set(CMAKE_CXX_COMPILER ${MPI_HOME}/bin/mpicxx)
+# 头文件接口用于适配器、CPU 验证和未来其他宿主；不向其传播宿主包含目录。
+add_library(zqc_views INTERFACE)
+add_library(MetadToy::views ALIAS zqc_views)
+target_include_directories(zqc_views INTERFACE "${PROJECT_SOURCE_DIR}/include/utils")
+target_compile_features(zqc_views INTERFACE cxx_std_17)
 
-set(CMAKE_CUDA_HOST_COMPILER ${CLEAN_HOST_COMPILER})
-set(CUDA_NVCC_FLAGS -ccbin ${CLEAN_HOST_COMPILER})
+# 偏势数学层可在纯 C++ 环境构建，供各 MD 后端与离线验证共用。
+find_package(Threads REQUIRED)
+add_library(zqc_bias STATIC src/sampling/zqc_hill_bias.cpp
+    src/sampling/zqc_bias_grid.cpp src/sampling/zqc_bias.cpp)
+add_library(MetadToy::bias ALIAS zqc_bias)
+target_link_libraries(zqc_bias PUBLIC zqc_views Threads::Threads PRIVATE zqc_build_options)
 
-set(ABI_DEFINITION -D_GLIBCXX_USE_CXX11_ABI=1)
-
-# -------------------------------------------------------------------
-# 3. 包含路径与库
-# -------------------------------------------------------------------
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party)
-include_directories(${LAMMPS_SOURCE_DIR})
-include_directories(${MPI_INCLUDE_PATH})
-
-# -------------------------------------------------------------------
-# 4. 自动识别源文件
-# -------------------------------------------------------------------
-# 自动寻找 src 目录下的所有 cu 文件，方便未来扩展 CV
-# file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cu")
-# file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*/*.cu")
-# file(GLOB_RECURSE CHILDREN LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/include/*)
-# foreach(child ${CHILDREN})
-#     if(IS_DIRECTORY ${child})
-#         include_directories(${child})
-#         message(STATUS "Include path added: ${child}")
-#     endif()
-# endforeach()
-# 创建一个全局列表，用于收集所有子包的源文件
-set_property(GLOBAL PROPERTY PLUGIN_SOURCES "")
-set_property(GLOBAL PROPERTY PLUGIN_INCLUDES "")
-set_property(GLOBAL PROPERTY PLUGIN_LIBS "")
-
-# 依次添加子包
-add_subdirectory(src/cvs)
-add_subdirectory(src/grids)
-add_subdirectory(src/core)
-add_subdirectory(src/utils)
-if (USE_ML_CVS)
-    add_subdirectory(src/ml_cvs)
+if(ZQC_BUILD_TESTS)
+    enable_testing()
 endif()
 
-# 包含收集到的所有头文件路径
-# include_directories(${PLUGIN_INCLUDES})
-
-get_property(FINAL_SOURCES GLOBAL PROPERTY PLUGIN_SOURCES)
-get_property(FINAL_INCLUDES GLOBAL PROPERTY PLUGIN_INCLUDES)
-get_property(FINAL_LIBS    GLOBAL PROPERTY PLUGIN_LIBS)
-
-include_directories(${FINAL_INCLUDES})
-
-# -------------------------------------------------------------------
-# 5. 编译目标
-# -------------------------------------------------------------------
-# 找lammps库文件，路径由环境变量 LAMMPS_LIB_DIR 指定
-find_library(LAMMPS_LIB lammps PATHS ${LAMMPS_LIB_DIR} NO_DEFAULT_PATH)
-# add_library(fix_crystallize_plugin MODULE ${SOURCES})
-add_library(fix_crystallize_plugin MODULE ${FINAL_SOURCES})
-if(LAMMPS_LIB)
-    message(STATUS "linking lammps lib path is: ${LAMMPS_LIB}")
-    target_link_libraries(fix_crystallize_plugin PRIVATE ${LAMMPS_LIB} ${FINAL_LIBS})
-else()
-    message(FATAL_ERROR "cannot find liblammps.so, please check LAMMPS_LIB_DIR")
+if(ZQC_ENABLE_CUDA)
+    # 兼容已有脚本中的名称；标准 CMake 选项和 toolchain 的选择优先。
+    if(CLEAN_HOST_COMPILER AND NOT CMAKE_CUDA_HOST_COMPILER)
+        set(CMAKE_CUDA_HOST_COMPILER "${CLEAN_HOST_COMPILER}" CACHE FILEPATH "CUDA host compiler")
+    endif()
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    find_package(CUDAToolkit REQUIRED)
+    add_subdirectory(src/utils)
+    if(ZQC_BUILD_CVS)
+        add_subdirectory(src/cvs)
+    endif()
+    if(ZQC_BUILD_GPUMD OR ZQC_BUILD_GPUMD_RUNTIME)
+        add_subdirectory(src/adapters/gpumd)
+    endif()
+    if(USE_ML_CVS)
+        add_subdirectory(src/ml_cvs)
+    endif()
+    if(ZQC_BUILD_LAMMPS)
+        include(cmake/LammpsDependencies.cmake)
+        add_subdirectory(src/grids)
+        add_subdirectory(src/core)
+    endif()
 endif()
-
-# AddressSanitizer 注入（仅作用于 host 端 C++ 代码，CUDA device 代码无效）
-if(ENABLE_ASAN)
-    message(STATUS "AddressSanitizer: ENABLED (host-side C++ only)")
-
-    target_compile_options(fix_crystallize_plugin PRIVATE
-        $<$<COMPILE_LANGUAGE:CXX>:-fsanitize=address -fno-omit-frame-pointer -g>
-        $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fsanitize=address,-fno-omit-frame-pointer>
-    )
-
-    target_link_options(fix_crystallize_plugin PRIVATE -fsanitize=address)
+if(ZQC_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(benchmarks/graph)
 endif()
-
-# 注入ABI定义，确保与LAMMPS库兼容
-target_compile_options(fix_crystallize_plugin PRIVATE ${ABI_DEFINITION})
-
-# 调试与优化标志注入
-if(ENABLE_DEBUG)
-    message(STATUS "Build Mode: DEBUG (with Nsight support)")
-    
-    # 1. 给 C++ 代码注入宏定义，相当于在头文件写了 #define PLUGIN_DEBUG
-    target_compile_definitions(fix_crystallize_plugin PRIVATE DEBUG)
-    
-    # 2. 注入调试专用的编译器标志
-    target_compile_options(fix_crystallize_plugin PRIVATE 
-        $<$<COMPILE_LANGUAGE:CUDA>:-g -G --generate-line-info> 
-        $<$<COMPILE_LANGUAGE:CXX>:-g -O0>
-    )
-else()
-    message(STATUS "Build Mode: RELEASE (Optimized)")
-    
-    # 优化标志
-    target_compile_options(fix_crystallize_plugin PRIVATE 
-        $<$<COMPILE_LANGUAGE:CUDA>:-O3 --generate-line-info> 
-        $<$<COMPILE_LANGUAGE:CXX>:-O3>
-    )
+if(ZQC_BUILD_CLI)
+    add_subdirectory(tools)
 endif()
-
-# 显卡架构配置（建议由用户从命令行传入，如 -DCMAKE_CUDA_ARCHITECTURES=89）
-if(NOT CMAKE_CUDA_ARCHITECTURES)
-    set_target_properties(fix_crystallize_plugin PROPERTIES CUDA_ARCHITECTURES "89")
-endif()
-
-set_target_properties(fix_crystallize_plugin PROPERTIES PREFIX "" SUFFIX ".so")
-
-
-# 将自动嵌入的设备源码一起放入运行库。
-target_sources(fix_crystallize_plugin PRIVATE "${ZQC_GRAPH_EMBED_SOURCE}")
-target_link_libraries(fix_crystallize_plugin PRIVATE
-    CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)
+message(STATUS "MetadToy layers: CUDA=${ZQC_ENABLE_CUDA}, CVs=${ZQC_BUILD_CVS}, LAMMPS=${ZQC_BUILD_LAMMPS}, GPUMD=${ZQC_BUILD_GPUMD}, tests=${ZQC_BUILD_TESTS}")

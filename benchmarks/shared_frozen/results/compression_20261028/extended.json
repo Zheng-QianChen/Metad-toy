@@ -1,0 +1,593 @@
+{
+  "model": "U=4[(x^2-1)^2+(y^2-1)^2]+(x-y)^2; kBT=1; x,y in [-3,3]",
+  "mapping": "q=unbiased marginal CDF(x); compressed s=q/(81-80q)",
+  "physical_reference_moments": [
+    0.49999999999998845,
+    0.49999999999999756,
+    0.9469150581289463,
+    0.8117714463726073,
+    0.9104209707101238,
+    0.9104209707101223
+  ],
+  "criteria": {
+    "moment_max_abs": 0.035,
+    "moment_max_sem": 0.01,
+    "joint_total_variation": 0.035,
+    "covered_reference_mass": 0.98,
+    "fes_rmse_kbt": 0.12,
+    "bin_weight_ess": 60,
+    "confidence_multiplier": 4.0,
+    "confidence_abs_floor": 0.003
+  },
+  "samples_per_chain": 480000,
+  "independent_chains": 8,
+  "burn_sweeps": 20000,
+  "stride": 8,
+  "training_sweeps": 1000000,
+  "height": 0.02,
+  "sigma": 0.005,
+  "pace": 200,
+  "cdf": {
+    "partition": 0.4359183263242806,
+    "cdf_endpoint": 1.0,
+    "probability_threshold_x": 1.1032355330657944,
+    "reference_bin_convergence": 2.7755575615628914e-17,
+    "partition_relative_error": 1.1102230246251565e-16
+  },
+  "flat_control": {
+    "raw_probability_q_le_09": 0.10011625,
+    "reweighted_probability_q_le_09": 0.9000707255982872,
+    "independent_sem": 0.000781084393377895,
+    "expected_probability": 0.9,
+    "relative_bias_range_kbt": 8.788898309344876,
+    "bias_q09_minus_q1_kbt": 4.394449154672438,
+    "total_variation": 0.015499756708706078,
+    "weight_ess": 29209.65406121469
+  },
+  "training": {
+    "learned_plain": {
+      "hills": 10000,
+      "interpolation_energy_max": 2.1759425816725297e-08,
+      "interpolation_gradient_max": 0.0003488328244714012,
+      "history_bitwise": true
+    },
+    "learned_compressed": {
+      "hills": 10000,
+      "interpolation_energy_max": 1.2378656677469735e-07,
+      "interpolation_gradient_max": 0.0027315149286550877,
+      "history_bitwise": true
+    }
+  },
+  "source_sha256": "a48a316140de92b934b846e03881a87502c2e10d1c874f743ea526b528d5a459",
+  "cpp_source_sha256": "cb5740fe050000635ddc52eebb5a54cb41c2184942ecc2de61f4b88d32441631",
+  "extended_from": "/home/saitang/work/MetadToy-shared-probability-20261028/run-compression",
+  "host_library_sha256": "865dd099560798240f63d8707660358127a58ebcc3d19cbe569dc0ee19602e27",
+  "cuda_library_sha256": "acac398d087c9c701e4c4f77bc4374413df0d5fd63979c2205de1d6464460f05",
+  "records": [
+    {
+      "name": "unbiased",
+      "compressed": false,
+      "scale": 0.5,
+      "frames": 960000,
+      "acceptance_range": [
+        0.15521938775510205,
+        0.1568326530612245
+      ],
+      "passed": true,
+      "raw": {
+        "moments": [
+          0.5076354166666667,
+          0.5082927083333333,
+          0.947278125,
+          0.8128057279496164,
+          0.9112102528937067,
+          0.9107634493733627
+        ],
+        "total_variation": 0.010050611236611131,
+        "fes_rmse_kbt": 0.02375927146372658,
+        "covered_reference_mass": 0.998858103964007,
+        "weight_ess": 960000.0
+      },
+      "correct": {
+        "moments": [
+          0.5076354166666667,
+          0.5082927083333333,
+          0.947278125,
+          0.8128057279496164,
+          0.9112102528937067,
+          0.9107634493733627
+        ],
+        "total_variation": 0.010050611236611131,
+        "fes_rmse_kbt": 0.02375927146372658,
+        "covered_reference_mass": 0.998858103964007,
+        "weight_ess": 960000.0
+      },
+      "moment_sem": [
+        0.0034356837734389146,
+        0.0034908939214452995,
+        0.00038063861823058135,
+        0.0008839980208352289,
+        0.0006487583678555369,
+        0.0004483523337220786
+      ],
+      "moment_error": [
+        0.007635416666678219,
+        0.00829270833333573,
+        0.0003630668710536966,
+        0.001034281577009022,
+        0.0007892821835828734,
+        0.00034247866324044196
+      ],
+      "biased_reference_error": 2.7755575615628914e-17,
+      "biased_reference_order": 64,
+      "raw_vs_biased_reference": {
+        "moments": [
+          0.5076354166666667,
+          0.5082927083333333,
+          0.947278125,
+          0.8128057279496164,
+          0.9112102528937067,
+          0.9107634493733627
+        ],
+        "total_variation": 0.010050611236611147,
+        "fes_rmse_kbt": 0.023759271463726635,
+        "covered_reference_mass": 0.9988581039640068,
+        "weight_ess": 960000.0
+      },
+      "chain_prefix_bitwise": null,
+      "actual_samples_per_chain": 120000,
+      "region_raw": 0.89826875,
+      "region_reweighted": 0.89826875,
+      "region_sem": 0.0011814662395508494,
+      "half_length_correct": {
+        "moments": [
+          0.511375,
+          0.51174375,
+          0.9480229166666667,
+          0.8136993862967431,
+          0.9110368505652635,
+          0.9112321983899512
+        ],
+        "total_variation": 0.014797219315583083,
+        "fes_rmse_kbt": 0.03426244963784073,
+        "covered_reference_mass": 0.9970178449930303,
+        "weight_ess": 480000.0
+      },
+      "force_reference_percentiles": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "cuda": {
+        "energy_max": 0.0,
+        "physical_gradient_max": 0.0,
+        "physical_finite_difference_max": 0.0,
+        "step": 2e-07,
+        "pairs": 256
+      },
+      "table_sha256": "e9314ee24ececb5d35855f161f098a24652fd19887d902ad6c14048757fd39f3"
+    },
+    {
+      "name": "learned_plain",
+      "compressed": false,
+      "scale": 0.5,
+      "frames": 960000,
+      "acceptance_range": [
+        0.15784285714285715,
+        0.1596704081632653
+      ],
+      "passed": true,
+      "raw": {
+        "moments": [
+          0.48591354166666667,
+          0.485278125,
+          0.9476520833333333,
+          0.8159253688893882,
+          0.9142352944869357,
+          0.9142294358644398
+        ],
+        "total_variation": 0.02097657344189585,
+        "fes_rmse_kbt": 0.06134926194228218,
+        "covered_reference_mass": 0.998754639349076,
+        "weight_ess": 960000.0
+      },
+      "correct": {
+        "moments": [
+          0.4996258980943281,
+          0.49897840178117236,
+          0.9474854251862846,
+          0.8126815522114673,
+          0.9105199301899015,
+          0.9105375937232898
+        ],
+        "total_variation": 0.004319280005300923,
+        "fes_rmse_kbt": 0.016242585604967767,
+        "covered_reference_mass": 0.998754639349076,
+        "weight_ess": 950104.0819182477
+      },
+      "moment_sem": [
+        0.0029350792179758042,
+        0.0032360842189176732,
+        0.000309657971883873,
+        0.0005578196455775061,
+        0.0003693758595519928,
+        0.0005544729270928033
+      ],
+      "moment_error": [
+        0.00037410190566034007,
+        0.0010215982188251926,
+        0.0005703670573383723,
+        0.0009101058388599759,
+        9.895947977767161e-05,
+        0.00011662301316750501
+      ],
+      "biased_reference_error": 1.33261972290466e-09,
+      "biased_reference_order": 128,
+      "raw_vs_biased_reference": {
+        "moments": [
+          0.48591354166666667,
+          0.485278125,
+          0.9476520833333333,
+          0.8159253688893882,
+          0.9142352944869357,
+          0.9142294358644398
+        ],
+        "total_variation": 0.0045201128617244615,
+        "fes_rmse_kbt": 0.01648748813287887,
+        "covered_reference_mass": 0.9984723426006873,
+        "weight_ess": 960000.0
+      },
+      "chain_prefix_bitwise": null,
+      "actual_samples_per_chain": 120000,
+      "region_raw": 0.89969375,
+      "region_reweighted": 0.9000417554848739,
+      "region_sem": 0.0008517134081557293,
+      "half_length_correct": {
+        "moments": [
+          0.5009076227262327,
+          0.5006184142098119,
+          0.9472878403382885,
+          0.8121974468369858,
+          0.9101767339104383,
+          0.9105973634895529
+        ],
+        "total_variation": 0.006679552737164839,
+        "fes_rmse_kbt": 0.021299120399165736,
+        "covered_reference_mass": 0.9970590498603061,
+        "weight_ess": 475045.58418113505
+      },
+      "force_reference_percentiles": [
+        4.337027440370669,
+        13.61954955837177,
+        23.551732938790288,
+        29.640670813744205
+      ],
+      "cuda": {
+        "energy_max": 8.881784197001252e-16,
+        "physical_gradient_max": 4.867217739956686e-13,
+        "physical_finite_difference_max": 3.062548259435971e-08,
+        "step": 2e-07,
+        "pairs": 256
+      },
+      "table_sha256": "38192d614e2120bfe564a4a7ffc5dfaa146145258c5f20ec5ea1dddc66e29238"
+    },
+    {
+      "name": "learned_compressed",
+      "compressed": true,
+      "scale": 0.5,
+      "frames": 3840000,
+      "acceptance_range": [
+        0.058734715025906735,
+        0.059661139896373054
+      ],
+      "passed": false,
+      "raw": {
+        "moments": [
+          0.9783341145833333,
+          0.9784127604166667,
+          0.9956625,
+          1.4437018497185086,
+          1.4678003555918535,
+          1.4676522600215056
+        ],
+        "total_variation": 0.8110596142197486,
+        "fes_rmse_kbt": 1.655663607705012,
+        "covered_reference_mass": 0.9748085929131554,
+        "weight_ess": 3840000.0
+      },
+      "correct": {
+        "moments": [
+          0.4882802698230425,
+          0.48972779898527014,
+          0.9466961546098555,
+          0.8124074741124757,
+          0.9111542896048548,
+          0.9108508506415948
+        ],
+        "total_variation": 0.017458583646485178,
+        "fes_rmse_kbt": 0.040407578171198985,
+        "covered_reference_mass": 0.9739102466106286,
+        "weight_ess": 140791.4529445981
+      },
+      "moment_sem": [
+        0.008857821358339402,
+        0.00877599070612986,
+        0.0009941954072817175,
+        0.0024354824666370347,
+        0.0012727401255539382,
+        0.0010895703629351168
+      ],
+      "moment_error": [
+        0.011719730176945942,
+        0.010272201014727422,
+        0.0002189035190908184,
+        0.0006360277398683722,
+        0.0007333188947309388,
+        0.0004298799314724766
+      ],
+      "biased_reference_error": 5.964195803898065e-11,
+      "biased_reference_order": 512,
+      "raw_vs_biased_reference": {
+        "moments": [
+          0.9783341145833333,
+          0.9784127604166667,
+          0.9956625,
+          1.4437018497185086,
+          1.4678003555918535,
+          1.4676522600215056
+        ],
+        "total_variation": 0.0023358483667154147,
+        "fes_rmse_kbt": 0.010677845861674399,
+        "covered_reference_mass": 0.9993555336247598,
+        "weight_ess": 3840000.0
+      },
+      "chain_prefix_bitwise": true,
+      "actual_samples_per_chain": 480000,
+      "region_raw": 0.17025807291666667,
+      "region_reweighted": 0.9024020296020175,
+      "region_sem": 0.0019941618936673653,
+      "half_length_correct": {
+        "moments": [
+          0.4979182734533684,
+          0.5009727667654286,
+          0.9440229009810698,
+          0.8068623706361566,
+          0.9085840329957994,
+          0.9088527016019471
+        ],
+        "total_variation": 0.01910027845124557,
+        "fes_rmse_kbt": 0.04346510564394374,
+        "covered_reference_mass": 0.9495004634065877,
+        "weight_ess": 68854.19003568111
+      },
+      "force_reference_percentiles": [
+        3.6171062959365523,
+        11.879392702838867,
+        43.91173064787655,
+        95.78730119824036
+      ],
+      "cuda": {
+        "energy_max": 3.552713678800501e-15,
+        "physical_gradient_max": 1.723066134218243e-12,
+        "physical_finite_difference_max": 1.1510885911114599e-06,
+        "step": 2e-07,
+        "pairs": 256
+      },
+      "table_sha256": "ca81fe5c2c6773178977db7f7d4282f0f05df2a869cc27d0ce0a364c20ed3c8d",
+      "cli": {
+        "density_mass_max_error": 3.920475055707584e-15,
+        "frames": 480000
+      }
+    },
+    {
+      "name": "ideal_compressed_mean",
+      "compressed": true,
+      "scale": 0.5,
+      "frames": 3840000,
+      "acceptance_range": [
+        0.10973782383419689,
+        0.11052435233160622
+      ],
+      "passed": true,
+      "raw": {
+        "moments": [
+          0.9662,
+          0.966221875,
+          0.9885802083333334,
+          1.2379727173522515,
+          1.283269950092662,
+          1.2837714080536782
+        ],
+        "total_variation": 0.643995881705583,
+        "fes_rmse_kbt": 1.5683353336680539,
+        "covered_reference_mass": 0.9966194857274058,
+        "weight_ess": 3840000.0
+      },
+      "correct": {
+        "moments": [
+          0.5032755292910314,
+          0.5035090856673702,
+          0.9470429340703166,
+          0.8125148952843427,
+          0.9103122053329246,
+          0.9112115834277721
+        ],
+        "total_variation": 0.009116605389176798,
+        "fes_rmse_kbt": 0.024805192135714714,
+        "covered_reference_mass": 0.9964902130907068,
+        "weight_ess": 388271.8988749489
+      },
+      "moment_sem": [
+        0.003196510468073843,
+        0.003126678540673326,
+        0.0003446583036910997,
+        0.0009475415552252136,
+        0.0008678813690783373,
+        0.0007598834687976987
+      ],
+      "moment_error": [
+        0.0032755292910429112,
+        0.0035090856673726245,
+        0.00012787594137031455,
+        0.0007434489117353893,
+        0.00010876537719928248,
+        0.0007906127176497968
+      ],
+      "biased_reference_error": 4.9731052609303106e-14,
+      "biased_reference_order": 64,
+      "raw_vs_biased_reference": {
+        "moments": [
+          0.9662,
+          0.966221875,
+          0.9885802083333334,
+          1.2379727173522515,
+          1.283269950092662,
+          1.2837714080536782
+        ],
+        "total_variation": 0.002105511098364685,
+        "fes_rmse_kbt": 0.009008905363151192,
+        "covered_reference_mass": 0.9996681833821133,
+        "weight_ess": 3840000.0
+      },
+      "chain_prefix_bitwise": true,
+      "actual_samples_per_chain": 480000,
+      "region_raw": 0.3988947916666667,
+      "region_reweighted": 0.8992774364820847,
+      "region_sem": 0.0006568753628602152,
+      "half_length_correct": {
+        "moments": [
+          0.49870080877990247,
+          0.49927514844400306,
+          0.9476169453055227,
+          0.8128378259377079,
+          0.909671574098173,
+          0.9112744624026209
+        ],
+        "total_variation": 0.01148179954767635,
+        "fes_rmse_kbt": 0.03239188822852262,
+        "covered_reference_mass": 0.9922130190730138,
+        "weight_ess": 194201.02759743307
+      },
+      "force_reference_percentiles": [
+        1.339982151515683,
+        7.427479947788317,
+        9.506370395154304,
+        9.542101429655888
+      ],
+      "cuda": {
+        "energy_max": 1.7763568394002505e-15,
+        "physical_gradient_max": 1.7390533457728452e-12,
+        "physical_finite_difference_max": 4.174627944372733e-08,
+        "step": 2e-07,
+        "pairs": 256
+      },
+      "table_sha256": "2580b671e9b1acfa7d8f729ccfa8892d7310ec80742b00ce897e5a9226745940"
+    },
+    {
+      "name": "ideal_compressed_sum",
+      "compressed": true,
+      "scale": 1.0,
+      "frames": 960000,
+      "acceptance_range": [
+        0.04604183673469388,
+        0.04685612244897959
+      ],
+      "passed": false,
+      "raw": {
+        "moments": [
+          0.9996916666666666,
+          0.99970625,
+          0.99955,
+          1.6013267537700755,
+          1.6145519488317255,
+          1.614118024182913
+        ],
+        "total_variation": 0.8885990606080104,
+        "fes_rmse_kbt": 2.206845920914253,
+        "covered_reference_mass": 0.39854253151041463,
+        "weight_ess": 960000.0
+      },
+      "correct": {
+        "moments": [
+          0.6199622609599927,
+          0.6218215625974247,
+          0.9414908376133859,
+          0.7880552862342914,
+          0.8751465003512368,
+          0.9236255847847835
+        ],
+        "total_variation": 0.2548574408253851,
+        "fes_rmse_kbt": 0.04375232143199529,
+        "covered_reference_mass": 0.3975132722625018,
+        "weight_ess": 396.5606002165764
+      },
+      "moment_sem": [
+        0.08166850433858595,
+        0.07660545432496968,
+        0.0066971942549795315,
+        0.01743296445235512,
+        0.017770605714849477,
+        0.022850020596014053
+      ],
+      "moment_error": [
+        0.11996226096000429,
+        0.12182156259742716,
+        0.005424220515560352,
+        0.0237161601383159,
+        0.03527447035888709,
+        0.013204614074661225
+      ],
+      "biased_reference_error": 2.504663143554353e-13,
+      "biased_reference_order": 64,
+      "raw_vs_biased_reference": {
+        "moments": [
+          0.9996916666666666,
+          0.99970625,
+          0.99955,
+          1.6013267537700755,
+          1.6145519488317255,
+          1.614118024182913
+        ],
+        "total_variation": 0.0022037357457332482,
+        "fes_rmse_kbt": 0.007844327913537444,
+        "covered_reference_mass": 0.998875783400216,
+        "weight_ess": 960000.0
+      },
+      "chain_prefix_bitwise": null,
+      "actual_samples_per_chain": 120000,
+      "region_raw": 0.07390104166666667,
+      "region_reweighted": 0.8745483690839572,
+      "region_sem": 0.01709058797606537,
+      "half_length_correct": {
+        "moments": [
+          0.6956503744303537,
+          0.7233306195219915,
+          0.9363374192544799,
+          0.7693324394492641,
+          0.8881893357656858,
+          0.9051478887014702
+        ],
+        "total_variation": 0.35028029901110147,
+        "fes_rmse_kbt": 0.06297851064271416,
+        "covered_reference_mass": 0.39554421301607806,
+        "weight_ess": 247.41984472660533
+      },
+      "force_reference_percentiles": [
+        2.679964303031366,
+        14.854959895576634,
+        19.01274079030861,
+        19.084202859311777
+      ],
+      "cuda": {
+        "energy_max": 1.7763568394002505e-15,
+        "physical_gradient_max": 1.7390533457728452e-12,
+        "physical_finite_difference_max": 4.174627944372733e-08,
+        "step": 2e-07,
+        "pairs": 256
+      },
+      "table_sha256": "2580b671e9b1acfa7d8f729ccfa8892d7310ec80742b00ce897e5a9226745940"
+    }
+  ],
+  "seconds": 99.49552178382874
+}

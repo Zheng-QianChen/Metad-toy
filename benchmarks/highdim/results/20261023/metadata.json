@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-23",
+  "host": "Intel Core i7-14700KF; WSL2 Ubuntu 22.04; RTX 4080 SUPER",
+  "timing": "5 repeats median; O3; no fast-math; single machine; production processes not paused",
+  "cuda_compile": [
+    "/usr/local/cuda/bin/nvcc",
+    "-O3",
+    "-std=c++17",
+    "-arch=sm_89"
+  ],
+  "source_sha256": {
+    "include/utils/zqc_bias.h": "3927aeb4981edb0cbc66cf00d15823b08401567b9acafe72e7d00d2c53b98ce0",
+    "include/utils/zqc_bias_grid.h": "6a77dc0978e970b4ec099da90744f1cabb20c97d7d85d54148961f792e5b92ca",
+    "include/utils/zqc_hill_bias.h": "2a46f92286ef66fa896061010d0e7f8929a518db3b6417d00d1249a9bb529a06",
+    "src/sampling/zqc_bias.cpp": "13e77009cab4767cffbd7f0aa0bd7e20c6cc4f3d80f73cf71840d58ac9f16ffe",
+    "src/sampling/zqc_bias_grid.cpp": "88275f5a38caede26218a52d9554f3a60ae0e7dcce042d5eb45070f595cdbb35",
+    "src/sampling/zqc_hill_bias.cpp": "f2e8b2dbeebd4c97714085a1f2e4a4cccb3323c68e532256f32951cbe3176631",
+    "src/core/fix_crystallize.cu": "74682518832ca34c48a7a5e8a681595540be2893d7b76f1912462cad4a6140ce",
+    "benchmarks/highdim/evaluate_benchmark.cu": "430ecd89bd701248a006aeadecd74cb20bf78bb3cef01d77e6c94aa3064e8f67",
+    "benchmarks/highdim/rebuild_benchmark.cpp": "55438af338c389ddbeb0ade2705ec87d660d0ab83aaa47846f938318ab53faed",
+    "benchmarks/highdim/scientific_validation.py": "94076feac7702e7afa2ce0c06dad2133d94f686cdb1dbf743a32f75d6f5d09ee",
+    "benchmarks/highdim/run.py": "f831db656d375bc1061e4d36cf5e77cb7c680cf41b15ef257d8ede0d837ad7a5"
+  },
+  "plumed_reference_sha256": "7ca231638bbc96d5b17b0acd581e847bb59971dc07e2f46371498b078290f85e",
+  "plumed_reference_url": "https://raw.githubusercontent.com/plumed/plumed2/v2.10/src/bias/PBMetaD.cpp"
+}

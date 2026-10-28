@@ -1,0 +1,5 @@
+Command: ['/usr/local/cuda/bin/compute-sanitizer', '--tool', 'memcheck', '--error-exitcode', '99', '/home/zqc/work/Metad-toy/build/extension_lab/arrays/array_bridge_layoutleft']
+========= COMPUTE-SANITIZER
+Kokkos coordinate strides=1,17 force strides=3,1
+{"status":"pass","nvrtc":"12.6","max_force_error":7.10543e-15,"containers":["GPUMD GPU_Vector","LAMMPS DAT::tdual_x_array/tdual_f_array"]}
+========= ERROR SUMMARY: 0 errors

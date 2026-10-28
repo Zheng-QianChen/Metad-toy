@@ -9,7 +9,7 @@
 using namespace MetaD_zqc;
 using Point = std::array<double,3>;
 using Positions = std::vector<Point>;
-using LAMMPS_NS::tagint;
+using tagint = MetaD_zqc::LocalAtomIndex;
 const std::vector<int> centers{1,3,5,7};
 const std::vector<int> atom_types{1,2,3,1,2,3,1,2};
 const std::vector<double> center_adjoints{.7,-.4,1.1,.3};

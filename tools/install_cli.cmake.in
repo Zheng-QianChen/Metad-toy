@@ -1,0 +1,17 @@
+# A venv is created at its final location because it embeds absolute paths.
+if(NOT "$ENV{DESTDIR}" STREQUAL "")
+    message(FATAL_ERROR "CLI virtual environments do not support DESTDIR staging. Use cmake --install --prefix /final/path, or package the wheel separately.")
+endif()
+if(NOT EXISTS "@cli_wheel_dir@/ready.stamp")
+    message(FATAL_ERROR "Build the metadtoy-cli target before installing the CLI.")
+endif()
+execute_process(
+    COMMAND "@Python3_EXECUTABLE@" "@cli_installer@" install
+            --wheels "@cli_wheel_dir@"
+            --prefix "${CMAKE_INSTALL_PREFIX}"
+            --bindir "@ZQC_CLI_BINDIR@"
+            --runtime-dir "@ZQC_CLI_RUNTIME_DIR@"
+    RESULT_VARIABLE cli_install_status)
+if(NOT cli_install_status EQUAL 0)
+    message(FATAL_ERROR "metadtoy CLI installation failed (${cli_install_status}).")
+endif()

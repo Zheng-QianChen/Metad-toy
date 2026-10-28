@@ -1,0 +1,23 @@
+# lmp -var probe /absolute/path/full_cutoff_probe.so -in trim_reproducer.in
+units lj
+atom_style atomic
+region box block 0 10 0 10 0 10
+create_box 1 box
+create_atoms 1 single 4 5 5
+create_atoms 1 single 5.2 5 5
+mass 1 1
+pair_style lj/cut 2.5
+pair_coeff * * 1 1
+neighbor 0.3 bin
+comm_modify cutoff 3.4
+thermo_style custom step pe
+thermo_modify norm no format float %.17g
+run 0
+print "PAIR_BEFORE $(pe:%.17g)"
+plugin load ${probe}
+fix probe all full/cutoff/probe 3.0
+run 0
+print "PAIR_WITH_FULL_LIST $(pe:%.17g)"
+unfix probe
+run 0
+print "PAIR_AFTER $(pe:%.17g)"

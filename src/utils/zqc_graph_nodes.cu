@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <limits>
+#include <vector>
 #include <fmt/printf.h>
 
 constexpr int block_size = 256;
@@ -46,8 +47,8 @@ const Node* Node::kernel_output() const { return this; }
 bool AVE::is_reduction() const { return true; }
 const Node* AVE::kernel_output() const { return src; }
 void Node::bind_storage(double* device_value, double* device_adjoint) {
-    val = value_desc.domain == Domain::Global ? &host_value : device_value;
-    adj = value_desc.domain == Domain::Global ? &host_adjoint : device_adjoint;
+    val = value_desc.domain == ValueDomain::Global ? &host_value : device_value;
+    adj = value_desc.domain == ValueDomain::Global ? &host_adjoint : device_adjoint;
 }
 void Node::reduce_host(const double*, int) {
     throw std::logic_error("Node: Host reduction is not implemented");
@@ -56,7 +57,7 @@ double Node::reduction_seed() const {
     throw std::logic_error("Node: reduction backward is not implemented");
 }
 static int device_count(const Node* input) {
-    return input->value_desc.domain == Domain::PerAtom ? input->n : 0;
+    return input->value_desc.domain == ValueDomain::PerAtom ? input->n : 0;
 }
 
 ValueDesc infer_broadcast(ValueDesc a, ValueDesc b){
@@ -77,19 +78,52 @@ ValueDesc infer_broadcast(ValueDesc a, ValueDesc b){
     }
 
     // 任意一个输入是逐原子值，输出就是逐原子值。
-    Domain domain =
-        (a.domain == Domain::PerAtom ||
-         b.domain == Domain::PerAtom)
-        ? Domain::PerAtom
-        : Domain::Global;
+    ValueDomain domain =
+        (a.domain == ValueDomain::PerAtom ||
+         b.domain == ValueDomain::PerAtom)
+        ? ValueDomain::PerAtom
+        : ValueDomain::Global;
 
     return {domain, components};
 }
 
 // 叶子节点(最终节点)
+namespace {
+// 融合 NVRTC kernel 只接受连续设备指针；连续 CUDA 标量可直接借用。
+bool contiguous_cuda_scalars(const MetaD_zqc::ArrayView<const double>& view, int count) {
+    return view.memory == MetaD_zqc::MemorySpace::Cuda
+        && static_cast<int>(view.item_count) == count
+        && view.component_count == 1
+        && view.item_stride == 1
+        && view.component_stride == 1
+        && (!count || view.data);
+}
+bool contiguous_cuda_scalars(const MetaD_zqc::ArrayView<double>& view, int count) {
+    return contiguous_cuda_scalars(MetaD_zqc::ArrayView<const double>(view), count);
+}
+__global__ void leaf_gather_strided(MetaD_zqc::ArrayView<const double> source, double* target, int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) target[i] = source(i);
+}
+__global__ void leaf_scatter_strided(const double* source, MetaD_zqc::ArrayView<double> target, int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) target(i) = source[i];
+}
+__global__ void leaf_zero_strided(MetaD_zqc::ArrayView<double> target, int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) target(i) = 0.0;
+}
+}
+
+Leaf::Leaf(MetaD_zqc::ArrayView<const double> values, MetaD_zqc::ArrayView<double> gradients,
+           ValueDesc desc)
+    : Node(desc) {
+    bind(values, gradients);
+}
+
 Leaf::Leaf(GpuBuffer<double>& values, int count,
                   ValueDesc desc)
-        : Node(desc), abuf(desc.domain == Domain::PerAtom ? checked_count(count, desc) : 0),
+        : Node(desc), abuf(desc.domain == ValueDomain::PerAtom ? checked_count(count, desc) : 0),
           input_buffer_(&values){
     n = count;
     refresh_buffers();
@@ -104,51 +138,212 @@ Leaf::Leaf(GpuBuffer<double>& values, GpuBuffer<double>& gradients, int count,
 
 Leaf::Leaf(const std::vector<double>& host,
                   ValueDesc desc)
-        : Node(desc), xbuf(desc.domain == Domain::PerAtom ? checked_count(host.size(), desc) : 0),
-          abuf(desc.domain == Domain::PerAtom ? host.size() : 0){
+        : Node(desc), xbuf(desc.domain == ValueDomain::PerAtom ? checked_count(host.size(), desc) : 0),
+          abuf(desc.domain == ValueDomain::PerAtom ? host.size() : 0){
     n = checked_count(host.size(), desc);
-    if (desc.domain == Domain::Global) {
+    if (desc.domain == ValueDomain::Global) {
         if (desc.components != 1) throw std::runtime_error("Leaf: only Global scalars are supported");
-        host_value = host[0];
+        host_value = host.empty() ? 0.0 : host[0];
         bind_storage(nullptr, nullptr);
         return;
     }
-    if (n) graph_check_cuda(cudaMemcpy(xbuf.ptr, host.data(), host.size() * sizeof(double),
-                               cudaMemcpyHostToDevice));
-    refresh_buffers();
+    if (n) xbuf.upload_from(host.data(), host.size());
+    input_view_ = MetaD_zqc::ArrayView<const double>(xbuf.view(n));
+    gradient_view_ = abuf.view(n);
+    apply_bound_views();
+}
+
+void Leaf::bind(MetaD_zqc::ArrayView<const double> values, MetaD_zqc::ArrayView<double> gradients) {
+    values.validate();
+    gradients.validate();
+    if (values.component_count != 1 || gradients.component_count != 1)
+        throw std::invalid_argument("Leaf: only scalar views are supported");
+    if (values.item_count != gradients.item_count)
+        throw std::invalid_argument("Leaf: value and gradient extents differ");
+    if (value_desc.domain == ValueDomain::Global) {
+        if (value_desc.components != 1) throw std::runtime_error("Leaf: only Global scalars are supported");
+        n = checked_count(values.item_count, value_desc);
+        input_view_ = values;
+        gradient_view_ = gradients;
+        input_buffer_ = nullptr;
+        gradient_buffer_ = nullptr;
+        stages_values_ = false;
+        stages_gradients_ = false;
+        values.wait_host();
+        if (values.memory == MetaD_zqc::MemorySpace::Host) {
+            if (!values.data) throw std::invalid_argument("Leaf: Global Host value is null");
+            host_value = values(0);
+        } else if (values.memory == MetaD_zqc::MemorySpace::Cuda) {
+            if (!contiguous_cuda_scalars(values, 1))
+                throw std::invalid_argument("Leaf: Global Cuda value must be a contiguous scalar");
+            graph_check_cuda(cudaMemcpy(&host_value, values.data, sizeof(double), cudaMemcpyDeviceToHost));
+        } else {
+            throw std::invalid_argument("Leaf: unknown Global value memory space");
+        }
+        if (gradients.memory == MetaD_zqc::MemorySpace::Cuda && !contiguous_cuda_scalars(gradients, 1))
+            throw std::invalid_argument("Leaf: Global Cuda gradient must be a contiguous scalar");
+        if (gradients.memory != MetaD_zqc::MemorySpace::Host && gradients.memory != MetaD_zqc::MemorySpace::Cuda)
+            throw std::invalid_argument("Leaf: unknown Global gradient memory space");
+        bind_storage(nullptr, nullptr);
+        return;
+    }
+    if (values.memory != MetaD_zqc::MemorySpace::Cuda || gradients.memory != MetaD_zqc::MemorySpace::Cuda)
+        throw std::invalid_argument("Leaf: PerAtom views must be Cuda");
+    n = checked_count(values.item_count, value_desc);
+    input_view_ = values;
+    gradient_view_ = gradients;
+    input_buffer_ = nullptr;
+    gradient_buffer_ = nullptr;
+    apply_bound_views();
 }
 
 void Leaf::refresh_buffers(){
-    if (value_desc.domain == Domain::Global) {
-        checked_count(n, value_desc);
-        if (value_desc.components != 1) throw std::runtime_error("Leaf: only Global scalars are supported");
-        if (input_buffer_) {
+    if (input_buffer_) {
+        if (value_desc.domain == ValueDomain::Global) {
             if (!input_buffer_->ptr || input_buffer_->capacity < 1)
                 throw std::runtime_error("Leaf: Global input buffer is too small");
-            graph_check_cuda(cudaMemcpy(&host_value, input_buffer_->ptr, sizeof(double), cudaMemcpyDeviceToHost));
+            input_view_ = MetaD_zqc::ArrayView<const double>(input_buffer_->view(1));
+        } else {
+            if ((n && !input_buffer_->ptr) || input_buffer_->capacity < static_cast<size_t>(n))
+                throw std::runtime_error("Leaf: input buffer is too small");
+            input_view_ = MetaD_zqc::ArrayView<const double>(input_buffer_->view(n));
         }
-        if (gradient_buffer_ && (!gradient_buffer_->ptr || gradient_buffer_->capacity < 1))
-            throw std::runtime_error("Leaf: Global gradient buffer is too small");
+    }
+    if (gradient_buffer_) {
+        if (value_desc.domain == ValueDomain::Global) {
+            if (!gradient_buffer_->ptr || gradient_buffer_->capacity < 1)
+                throw std::runtime_error("Leaf: Global gradient buffer is too small");
+            gradient_view_ = gradient_buffer_->view(1);
+        } else {
+            if ((n && !gradient_buffer_->ptr) || gradient_buffer_->capacity < static_cast<size_t>(n))
+                throw std::runtime_error("Leaf: gradient buffer is too small");
+            gradient_view_ = gradient_buffer_->view(n);
+        }
+    } else if (value_desc.domain == ValueDomain::PerAtom && !gradient_view_.data
+               && abuf.capacity >= static_cast<size_t>(n)) {
+        gradient_view_ = abuf.view(n);
+    }
+    if (!input_buffer_ && !gradient_buffer_ && value_desc.domain == ValueDomain::Global
+            && !input_view_.data && !gradient_view_.data) {
+        // Host 向量构造的 Global Leaf：仅使用 host_value/host_adjoint。
+        checked_count(n, value_desc);
         bind_storage(nullptr, nullptr);
         return;
     }
-    auto& values = input_buffer_ ? *input_buffer_ : xbuf;
-    auto& gradients = gradient_buffer_ ? *gradient_buffer_ : abuf;
-    if ((n && !values.ptr) || values.capacity < static_cast<size_t>(n))
-        throw std::runtime_error("Leaf: input buffer is too small");
-    if ((n && !gradients.ptr) || gradients.capacity < static_cast<size_t>(n))
-        throw std::runtime_error("Leaf: gradient buffer is too small");
-    val = values.ptr;
-    adj = gradients.ptr;
+    if (input_view_.data || gradient_view_.data || input_buffer_ || gradient_buffer_)
+        apply_bound_views();
+}
+
+void Leaf::apply_bound_views() {
+    if (value_desc.domain == ValueDomain::Global) {
+        checked_count(n, value_desc);
+        if (input_view_.data) {
+            input_view_.wait_host();
+            if (input_view_.memory == MetaD_zqc::MemorySpace::Host) host_value = input_view_(0);
+            else graph_check_cuda(cudaMemcpy(&host_value, input_view_.data, sizeof(double),
+                                            cudaMemcpyDeviceToHost));
+        }
+        bind_storage(nullptr, nullptr);
+        stages_values_ = false;
+        stages_gradients_ = false;
+        return;
+    }
+    input_view_.validate();
+    gradient_view_.validate();
+    stages_values_ = !contiguous_cuda_scalars(input_view_, n);
+    stages_gradients_ = !contiguous_cuda_scalars(gradient_view_, n);
+    if (stages_values_) {
+        // 非连续路径：融合 kernel 只认连续设备数组，这里显式暂存。
+        if (xbuf.capacity < static_cast<size_t>(n)) xbuf.grow_to(n, __FILE__, __LINE__);
+        val = xbuf.ptr;
+    } else {
+        val = const_cast<double*>(input_view_.data);
+    }
+    if (stages_gradients_) {
+        if (abuf.capacity < static_cast<size_t>(n)) abuf.grow_to(n, __FILE__, __LINE__);
+        adj = abuf.ptr;
+    } else {
+        adj = gradient_view_.data;
+    }
     if (g) g = adj;
 }
 
-void Leaf::forward(){ refresh_buffers(); }
+void Leaf::stage_values_to_device(cudaStream_t stream) {
+    if (!stages_values_ || !n) return;
+    if (input_view_.memory == MetaD_zqc::MemorySpace::Cuda) {
+        leaf_gather_strided<<<grid_size(n), block_size, 0, stream>>>(input_view_, xbuf.ptr, n);
+        graph_check_cuda(cudaGetLastError());
+    } else {
+        std::vector<double> host(n);
+        input_view_.wait_host();
+        for (int i = 0; i < n; ++i) host[i] = input_view_(i);
+        xbuf.upload_from(host.data(), n, stream);
+    }
+}
 
-void Leaf::backward(){
+void Leaf::scatter_gradients_from_device(cudaStream_t stream) {
+    if (!stages_gradients_ || !n) return;
+    if (gradient_view_.memory == MetaD_zqc::MemorySpace::Cuda) {
+        leaf_scatter_strided<<<grid_size(n), block_size, 0, stream>>>(abuf.ptr, gradient_view_, n);
+        graph_check_cuda(cudaGetLastError());
+    } else {
+        std::vector<double> host(n);
+        abuf.download_to(host.data(), n, stream);
+        gradient_view_.wait_host();
+        for (int i = 0; i < n; ++i) gradient_view_(i) = host[i];
+    }
+}
+
+void Leaf::clear() {
+    refresh_buffers();
+    gradient_view_.wait_on(nullptr);
+    if (gradient_view_.memory == MetaD_zqc::MemorySpace::Host) gradient_view_.wait_host();
+    if (value_desc.domain == ValueDomain::Global) {
+        host_adjoint = 0.0;
+        if (gradient_view_.data) {
+            if (gradient_view_.memory == MetaD_zqc::MemorySpace::Host) gradient_view_(0) = 0.0;
+            else graph_check_cuda(cudaMemset(gradient_view_.data, 0, sizeof(double)));
+        }
+        graph_check_cuda(cudaStreamSynchronize(0));
+        return;
+    }
+    if (!n) return;
+    if (stages_gradients_) {
+        graph_check_cuda(cudaMemset(abuf.ptr, 0, n*sizeof(double)));
+        scatter_gradients_from_device();
+    } else if (contiguous_cuda_scalars(gradient_view_, n)) {
+        graph_check_cuda(cudaMemset(gradient_view_.data, 0, n*sizeof(double)));
+    } else {
+        leaf_zero_strided<<<grid_size(n), block_size>>>(gradient_view_, n);
+        sync_kernel();
+    }
+    graph_check_cuda(cudaStreamSynchronize(0));
+}
+
+void Leaf::forward(){ forward_on(0); }
+void Leaf::forward_on(cudaStream_t stream){
+    refresh_buffers();
+    input_view_.wait_on(stream);
+    stage_values_to_device(stream);
+}
+
+void Leaf::backward(){ backward_on(0); }
+void Leaf::backward_on(cudaStream_t stream){
+    gradient_view_.wait_on(stream);
     g = adj;
-    if (value_desc.domain == Domain::Global && gradient_buffer_)
-        graph_check_cuda(cudaMemcpy(gradient_buffer_->ptr, adj, sizeof(double), cudaMemcpyHostToDevice));
+    if (value_desc.domain == ValueDomain::Global) {
+        gradient_view_.wait_host();
+        if (gradient_view_.data) {
+            if (gradient_view_.memory == MetaD_zqc::MemorySpace::Host) gradient_view_(0) = host_adjoint;
+            else graph_check_cuda(cudaMemcpyAsync(gradient_view_.data, &host_adjoint, sizeof(double),
+                                                 cudaMemcpyHostToDevice, stream));
+        } else if (gradient_buffer_) {
+            graph_check_cuda(cudaMemcpyAsync(gradient_buffer_->ptr, adj, sizeof(double), cudaMemcpyHostToDevice, stream));
+        }
+        graph_check_cuda(cudaStreamSynchronize(stream));
+        return;
+    }
+    scatter_gradients_from_device(stream);
 }
 
 int Leaf::checked_count(size_t count, ValueDesc desc){
@@ -156,7 +351,7 @@ int Leaf::checked_count(size_t count, ValueDesc desc){
         throw std::runtime_error("Leaf: invalid element count");
     if (desc.components <= 0)
         throw std::runtime_error("Leaf: invalid components");
-    if (desc.domain == Domain::Global) {
+    if (desc.domain == ValueDomain::Global) {
         if (count != static_cast<size_t>(desc.components))
             throw std::runtime_error("Leaf: global size mismatch");
     } else if (count % static_cast<size_t>(desc.components) != 0) {
@@ -195,14 +390,14 @@ Mul::Mul(Node* a_, Node* b_) : Node(infer_broadcast(a_->value_desc, b_->value_de
 }
 
 void Mul::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_mul(*a->val, *b->val); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_mul(*a->val, *b->val); return; }
     if (n == 0) return;
     k_mul<<<grid_size(n), block_size>>>(a->val, b->val, val, n);
     sync_kernel();
 }
 
 void Mul::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_mul_bwd(*adj, *a->val, *b->val, a->adj, b->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_mul_bwd(*adj, *a->val, *b->val, a->adj, b->adj); return; }
     if (n == 0) return;
     k_mul_bwd<<<grid_size(n), block_size>>>(adj, a->val, b->val, a->adj, b->adj, n);
     sync_kernel();
@@ -251,14 +446,14 @@ Add::Add(Node* a_, Node* b_) : Node(infer_broadcast(a_->value_desc, b_->value_de
 }
 
 void Add::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_add(*a->val, *b->val); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_add(*a->val, *b->val); return; }
     if (n == 0) return;
     k_add<<<grid_size(n), block_size>>>(a->val, b->val, val, n);
     sync_kernel();
 }
 
 void Add::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_add_bwd(*adj, a->adj, b->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_add_bwd(*adj, a->adj, b->adj); return; }
     if (n == 0) return;
     k_add_bwd<<<grid_size(n), block_size>>>(adj, a->adj, b->adj, n);
     sync_kernel();
@@ -300,14 +495,14 @@ Neg::Neg(Node* a_) : Node(a_->value_desc),
 }
 
 void Neg::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_neg(*a->val); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_neg(*a->val); return; }
     if (n == 0) return;
     k_neg<<<grid_size(n), block_size>>>(a->val, val, n);
     sync_kernel();
 }
 
 void Neg::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_neg_bwd(*adj, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_neg_bwd(*adj, a->adj); return; }
     if (n == 0) return;
     k_neg_bwd<<<grid_size(n), block_size>>>(adj, a->adj, n);
     sync_kernel();
@@ -342,14 +537,14 @@ Linear::Linear(Node* a_, double k0_, double b0_) : Node(a_->value_desc),
 }
 
 void Linear::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_linear(*a->val, k0, b0); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_linear(*a->val, k0, b0); return; }
     if (n == 0) return;
     k_linear<<<grid_size(n), block_size>>>(a->val, k0, b0, val, n);
     sync_kernel();
 }
 
 void Linear::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_linear_bwd(*adj, k0, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_linear_bwd(*adj, k0, a->adj); return; }
     if (n == 0) return;
     k_linear_bwd<<<grid_size(n), block_size>>>(adj, a->val, k0, b0, a->adj, n);
     sync_kernel();
@@ -393,14 +588,14 @@ Exp::Exp(Node* a_) :  Node(a_->value_desc),
 }
 
 void Exp::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_exp(*a->val); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_exp(*a->val); return; }
     if (n == 0) return;
     k_exp<<<grid_size(n), block_size>>>(a->val, val, n);
     sync_kernel();
 }
 
 void Exp::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_exp_bwd(*adj, *a->val, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_exp_bwd(*adj, *a->val, a->adj); return; }
     if (n == 0) return;
     k_exp_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, n);
     sync_kernel();
@@ -443,14 +638,14 @@ ConstantOne::ConstantOne(Node* a_)
 }
 
 void ConstantOne::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_constant_one(*a->val); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_constant_one(*a->val); return; }
     if (n == 0) return;
     k_constant_one<<<grid_size(n), block_size>>>(a->val, val, n);
     sync_kernel();
 }
 
 void ConstantOne::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_constant_one_bwd(*adj, *a->val, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_constant_one_bwd(*adj, *a->val, a->adj); return; }
     if (n == 0) return;
     k_constant_one_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, n);
     sync_kernel();
@@ -484,14 +679,14 @@ StepSwitch::StepSwitch(Node* a_, double r0_)
 }
 
 void StepSwitch::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_step_switch(*a->val, r0); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_step_switch(*a->val, r0); return; }
     if (n == 0) return;
     k_step_switch<<<grid_size(n), block_size>>>(a->val, val, r0, n);
     sync_kernel();
 }
 
 void StepSwitch::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_step_switch_bwd(*adj, *a->val, r0, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_step_switch_bwd(*adj, *a->val, r0, a->adj); return; }
     if (n == 0) return;
     k_step_switch_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, r0, n);
     sync_kernel();
@@ -525,14 +720,14 @@ Fermi::Fermi(Node* a_, double r0_, double alpha_)
 }
 
 void Fermi::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_fermi(*a->val, r0, alpha); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_fermi(*a->val, r0, alpha); return; }
     if (n == 0) return;
     k_fermi<<<grid_size(n), block_size>>>(a->val, val, r0, alpha, n);
     sync_kernel();
 }
 
 void Fermi::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_fermi_bwd(*adj, *a->val, r0, alpha, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_fermi_bwd(*adj, *a->val, r0, alpha, a->adj); return; }
     if (n == 0) return;
     k_fermi_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, r0, alpha, n);
     sync_kernel();
@@ -566,14 +761,14 @@ TanhSwitch::TanhSwitch(Node* a_, double r0_, double alpha_)
 }
 
 void TanhSwitch::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_tanh_switch(*a->val, r0, alpha); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_tanh_switch(*a->val, r0, alpha); return; }
     if (n == 0) return;
     k_tanh_switch<<<grid_size(n), block_size>>>(a->val, val, r0, alpha, n);
     sync_kernel();
 }
 
 void TanhSwitch::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_tanh_switch_bwd(*adj, *a->val, r0, alpha, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_tanh_switch_bwd(*adj, *a->val, r0, alpha, a->adj); return; }
     if (n == 0) return;
     k_tanh_switch_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, r0, alpha, n);
     sync_kernel();
@@ -608,14 +803,14 @@ RationalSwitch::RationalSwitch(Node* a_, double r0_, int power_n_, int power_m_,
 }
 
 void RationalSwitch::forward(){
-    if (value_desc.domain == Domain::Global) { *val = zqc_graph_rational_switch(*a->val, r0, power_n, power_m, d0); return; }
+    if (value_desc.domain == ValueDomain::Global) { *val = zqc_graph_rational_switch(*a->val, r0, power_n, power_m, d0); return; }
     if (n == 0) return;
     k_rational_switch<<<grid_size(n), block_size>>>(a->val, val, r0, power_n, power_m, d0, n);
     sync_kernel();
 }
 
 void RationalSwitch::backward(){
-    if (value_desc.domain == Domain::Global) { zqc_graph_rational_switch_bwd(*adj, *a->val, r0, power_n, power_m, d0, a->adj); return; }
+    if (value_desc.domain == ValueDomain::Global) { zqc_graph_rational_switch_bwd(*adj, *a->val, r0, power_n, power_m, d0, a->adj); return; }
     if (n == 0) return;
     k_rational_switch_bwd<<<grid_size(n), block_size>>>(adj, a->val, a->adj, r0, power_n, power_m, d0, n);
     sync_kernel();
@@ -641,10 +836,16 @@ static __global__ void k_rational_switch_bwd(const double* adj, const double* a,
     if (i < n) zqc_graph_rational_switch_bwd(adj[i], a[i], r0, power_n, power_m, d0, &a_adj[i]);
 }
 
-// Host 规约是执行边界：设备数据就绪后才进入 MPI collective。
-AVE::AVE(Node* src_, MPI_Comm comm_)
-    : Node({Domain::Global, 1}), src(src_), comm(comm_) {
-    if (!src || src->value_desc.domain != Domain::PerAtom || src->value_desc.components != 1)
+std::vector<const Node*> ConstantOne::inputs() const { return {a}; }
+std::vector<const Node*> StepSwitch::inputs() const { return {a}; }
+std::vector<const Node*> Fermi::inputs() const { return {a}; }
+std::vector<const Node*> TanhSwitch::inputs() const { return {a}; }
+std::vector<const Node*> RationalSwitch::inputs() const { return {a}; }
+
+// Host 规约是执行边界：设备数据就绪后才进入跨进程求和回调。
+AVE::AVE(Node* src_, MetaD_zqc::SumReducer sum)
+    : Node({ValueDomain::Global, 1}), src(src_), sum_reducer(std::move(sum)) {
+    if (!src || src->value_desc.domain != ValueDomain::PerAtom || src->value_desc.components != 1)
         throw std::runtime_error("AVE: expected PerAtom scalar input");
     n = 1;
     bind_storage(nullptr, nullptr);
@@ -666,24 +867,16 @@ void AVE::reduce_host(const double* values, int count) {
 void AVE::reduce_sum_count(double local_sum, int local_count) {
     global_count = 0;
     if (local_count < 0) throw std::runtime_error("AVE: negative local count");
-    // 两个量打成一个数组，一次 MPI_SUM 同时计算全局 sum 和 count。
+    // 两个量打成一个数组，一次求和同时计算全局 sum 和 count。
     // count 在 double 的精确整数范围内传输；空 rank 以 {0, 0} 正常参与。
-    const double local[2] = {local_sum, static_cast<double>(local_count)};
-    double global[2] = {local[0], local[1]};
-    if (comm != MPI_COMM_NULL) {
-        int initialized = 0, finalized = 0;
-        MPI_Initialized(&initialized);
-        if (initialized) MPI_Finalized(&finalized);
-        if (!initialized || finalized) throw std::runtime_error("AVE: MPI must be active");
-        if (MPI_Allreduce(local, global, 2, MPI_DOUBLE, MPI_SUM, comm) != MPI_SUCCESS)
-            throw std::runtime_error("AVE: MPI_Allreduce failed");
-    }
+    double packed[2] = {local_sum, static_cast<double>(local_count)};
+    if (sum_reducer) sum_reducer(packed, 2);
     // 在 2^53 边界即拒绝，避免更大的整数舍入成 2^53 后被误当成精确计数。
-    if (global[1] >= 9007199254740992.0)
+    if (packed[1] >= 9007199254740992.0)
         throw std::overflow_error("AVE: global count must be below 2^53 for packed reduction");
-    if (global[1] == 0.0) throw std::runtime_error("AVE: the global input is empty");
-    global_count = static_cast<long long>(global[1]);
-    *val = global[0] / global[1];
+    if (packed[1] == 0.0) throw std::runtime_error("AVE: the global input is empty");
+    global_count = static_cast<long long>(packed[1]);
+    *val = packed[0] / packed[1];
 }
 
 double AVE::reduction_seed() const {
@@ -710,28 +903,6 @@ static __global__ void k_ave_bwd(double seed, int n, double* src_adj) {
 std::string AVE::emit_expr(Codegen&) const { throw std::logic_error("AVE executes on Host"); }
 std::string AVE::emit_expr_bwd(Codegen&) const { throw std::logic_error("AVE backward executes on Host"); }
 std::vector<const Node*> AVE::inputs() const { return {src}; }
-
-std::vector<const Node*> ConstantOne::inputs() const {
-    return {a};
-}
-
-std::vector<const Node*> StepSwitch::inputs() const {
-    return {a};
-}
-
-std::vector<const Node*> Fermi::inputs() const {
-    return {a};
-}
-
-std::vector<const Node*> TanhSwitch::inputs() const {
-    return {a};
-}
-
-std::vector<const Node*> RationalSwitch::inputs() const {
-    return {a};
-}
-
-// Each node interprets its parsed arguments; punctuation belongs to the parser.
 
 Node* Mul::create(Graph& graph, const GraphExpr& call) {
     call.require_args(2);
@@ -768,7 +939,7 @@ Node* ConstantOne::create(Graph& graph, const GraphExpr& call) {
 Node* AVE::create(Graph& graph, const GraphExpr& call) {
     call.require_args(1);
     Node* input = graph.create_node(call.args[0]);
-    return graph.make_node<AVE>(input, graph.comm);
+    return graph.make_node<AVE>(input, graph.sum_reducer);
 }
 
 Node* Linear::create(Graph& graph, const GraphExpr& call) {
