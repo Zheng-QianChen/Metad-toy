@@ -26,6 +26,25 @@ struct CVInput {
     }
 };
 
+// The common Leaf layout is a union of families. A nonlinear function of a
+// zero-padded input need not be zero, so SUM must mask both values and adjoints.
+struct SumFamily {
+    SelectionId id;
+    GpuBuffer<double> values, gradients;
+    std::unique_ptr<Leaf> leaf;
+    explicit SumFamily(SelectionId id_) : id(id_), leaf(std::make_unique<Leaf>(values,gradients,0)) {}
+    void bind(const CVAtomLayout& layout) {
+        const auto assembly=layout.group(id);
+        const int count=layout.leaf_count();
+        std::vector<double> mask(count,0.0);
+        for(int slot:assembly->leaf_slots()) if(slot>=0) mask[slot]=1.0;
+        values.grow_to(count,__FILE__,__LINE__); gradients.grow_to(count,__FILE__,__LINE__);
+        if(count) values.upload_from(mask.data(),count);
+        leaf->n=count;
+        leaf->bind(ArrayView<const double>(values.view(count)),gradients.view(count));
+    }
+};
+
 // CV.AVE 只对该 CV 的 owned 组成员求均值，不能把公共 Leaf 的组外零值计入分母。
 // 此节点只接原始 Leaf，因此反向给 padding 的种子最终会被 gather_adjoint 丢弃。
 struct CVGroupAverage : AVE {
@@ -45,6 +64,27 @@ struct CVGroupAverage : AVE {
         }
         // 与通用 AVE 共用 sum/count 二元规约；组外 padding 不计入 local_count。
         reduce_sum_count(local_sum, local_count);
+    }
+};
+
+// CV.SUM 只对该 CV 的 owned 中心求和；组外 padding 不参与，即使非线性后非零也不计入。
+// 反向仍可能给 padding 槽位写种子，gather_adjoint 会丢弃，与 CV.AVE 一致。
+struct CVGroupSum : SUM {
+    CVInput& input;
+    CVGroupSum(CVInput& input_, SumReducer sum)
+        : SUM(input_.leaf.get(), std::move(sum)), input(input_) {}
+    void reduce_host(const double* values, int count) override {
+        if (!input.assembly || count != input.assembly->leaf_count())
+            throw std::logic_error("CV.SUM: stale assembly");
+        double local_sum = 0.0, correction = 0.0;
+        const int local_count = input.assembly->group_count();
+        for (int k = 0; k < local_count; ++k) {
+            const double adjusted = values[input.assembly->leaf_slots()[k]] - correction;
+            const double next = local_sum + adjusted;
+            correction = (next - local_sum) - adjusted;
+            local_sum = next;
+        }
+        reduce_sum(local_sum);
     }
 };
 
@@ -75,6 +115,7 @@ struct CVGraphExecution::Impl {
     std::vector<std::string> expressions;
     std::vector<SelectionId> output_selections; // 外部逐原子偏势的中心集合，一并参与布局刷新。
     std::vector<std::unique_ptr<CVInput>> inputs;
+    std::vector<std::unique_ptr<SumFamily>> sum_families;
     CVAtomLayout layout;
     std::vector<SelectionSnapshot> cached_selections;
     int owned = -1, total = -1;
@@ -94,8 +135,9 @@ struct CVGraphExecution::Impl {
             const SelectionId selection = symbol.cv->graph_selection();
             if (!symbol.cv->supports_global_graph() && selection == -2)
                 throw std::runtime_error("Graph: CV for symbol '" + symbol.name + "' has no raw graph interface");
-            if (symbol.method != "AVE" && symbol.method != "MEAN" && symbol.method != "RAW" && symbol.method != "value")
-                throw std::runtime_error("Graph: supported CV methods are AVE/MEAN/RAW/value; got " + symbol.method);
+            if (symbol.method != "AVE" && symbol.method != "MEAN" && symbol.method != "SUM"
+                && symbol.method != "RAW" && symbol.method != "value")
+                throw std::runtime_error("Graph: supported CV methods are AVE/MEAN/SUM/RAW/value; got " + symbol.method);
             if (symbol.cv->supports_global_graph() && symbol.method != "RAW" && symbol.method != "value")
                 throw std::runtime_error("Graph: Global CV methods are RAW/value; got " + symbol.method);
             auto found = std::find_if(inputs.begin(), inputs.end(),
@@ -120,6 +162,8 @@ struct CVGraphExecution::Impl {
 
     std::vector<SelectionView> collect_selections() {
         std::vector<SelectionId> ids = output_selections;
+        for(const auto& family:sum_families)
+            if(std::find(ids.begin(),ids.end(),family->id)==ids.end()) ids.push_back(family->id);
         for (const auto& x : inputs) {
             if (!x->active || x->global) continue;
             const SelectionId id = x->cv->graph_selection();
@@ -155,6 +199,7 @@ struct CVGraphExecution::Impl {
         const bool changed = has_per_atom && layout_changed(next_owned, next_total, next_selections);
         if (changed) {
             layout.rebuild(next_owned, next_total - next_owned, next_selections);
+            for(auto& family:sum_families) family->bind(layout);
             for (auto& x : inputs) {
                 if (!x->active || x->global) continue;
                 x->assembly = layout.group(x->cv->graph_selection());
@@ -183,14 +228,53 @@ struct CVGraphExecution::Impl {
         for (auto& x : inputs) if (x->active) x->cv->prepare_graph_evaluation();
     }
 
+    Node* scoped_sum(Graph& target,const GraphExpr& call) {
+        if(call.args.size()!=1 && call.args.size()!=2)
+            call.fail("SUM expects (expression[, family_raw_symbol])");
+        Node* source=target.create_node(call.args[0]);
+        std::vector<SelectionId> families;
+        auto add_family=[&](const Node* node) {
+            for(const auto& input:inputs) if(!input->global && input->leaf.get()==node) {
+                const auto id=input->cv->graph_selection();
+                if(std::find(families.begin(),families.end(),id)==families.end()) families.push_back(id);
+            }
+        };
+        if(call.args.size()==2) {
+            if(call.args[1].kind!=GraphExpr::Kind::Symbol) call.fail("SUM family must be a RAW symbol");
+            add_family(target.create_node(call.args[1]));
+        } else {
+            std::vector<const Node*> pending{source},seen;
+            while(!pending.empty()) {
+                const Node* node=pending.back(); pending.pop_back();
+                if(std::find(seen.begin(),seen.end(),node)!=seen.end()) continue;
+                seen.push_back(node); add_family(node);
+                for(const auto* child:node->inputs()) pending.push_back(child);
+            }
+        }
+        if(families.size()!=1)
+            call.fail("SUM requires one center family; use SUM(expression, family_raw_symbol) for mixed groups");
+        const auto id=families.front();
+        auto found=std::find_if(sum_families.begin(),sum_families.end(),[&](const auto& x){return x->id==id;});
+        if(found==sum_families.end()) {
+            sum_families.push_back(std::make_unique<SumFamily>(id)); found=std::prev(sum_families.end());
+        }
+        auto* masked=target.make_node<Mul>(source,(*found)->leaf.get());
+        return target.make_node<SUM>(masked,engine.sum_reducer());
+    }
+
     void build() {
         graph = std::make_unique<Graph>(Graph::Symbols{}, Graph::Switches{}, engine.sum_reducer());
+        auto creator=[this](Graph& target,const GraphExpr& call){return scoped_sum(target,call);};
+        graph->register_node("SUM",creator,true);
+        graph->register_node(".SUM",creator,true);
         for (const auto& symbol : symbols) {
             auto found = std::find_if(inputs.begin(), inputs.end(),
                                       [&](const auto& x) { return x->cv == symbol.cv; });
             Node* node = (*found)->leaf.get();
             if (symbol.method == "AVE" || symbol.method == "MEAN")
                 node = graph->make_node<CVGroupAverage>(**found, engine.sum_reducer());
+            else if (symbol.method == "SUM")
+                node = graph->make_node<CVGroupSum>(**found, engine.sum_reducer());
             if (!graph->symbols.emplace(symbol.name, node).second)
                 throw std::runtime_error("Graph: duplicate symbol " + symbol.name);
         }

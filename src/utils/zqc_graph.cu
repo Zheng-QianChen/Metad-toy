@@ -18,9 +18,15 @@ Graph::Graph(std::vector<Node*> outputs_, MetaD_zqc::SumReducer sum)
     register_builtin_graph_nodes(*this);
 }
 
-void Graph::register_node(const std::string& name, NodeCreator creator) {
+void Graph::register_node(const std::string& name, NodeCreator creator, bool replace) {
     if (name.empty() || !creator)
         throw std::runtime_error("Graph: a node registration needs a name and creator");
+    if (replace) {
+        const auto found=creators_.find(name);
+        if(found==creators_.end()) throw std::runtime_error("Graph: cannot replace unregistered node: "+name);
+        found->second=std::move(creator);
+        return;
+    }
     if (!creators_.emplace(name, creator).second)
         throw std::runtime_error("Graph: node already registered: " + name);
 }
@@ -126,6 +132,18 @@ std::string Codegen::value(const Node* node){
 
     return name;
 }
+std::string Codegen::scalar_value(const Node* node){
+    if (!node || node->value_desc.domain != ValueDomain::Global || node->value_desc.components != 1)
+        throw std::runtime_error("Codegen: scalar_value expects a Global scalar");
+    if (!node->inputs().empty())
+        throw std::runtime_error("Codegen: broadcast Global operand must be a Leaf");
+    auto it = value_names.find(node);
+    if (it != value_names.end()) return it->second;
+    std::string name = fmt::sprintf("s%d", next_val_id++);
+    value_names.emplace(node, name);
+    scalar_inputs.emplace_back(node, name);
+    return name;
+}
 std::string Codegen::adjoint(const Node* node){
     auto it = adjoint_names.find(node);
     if (it != adjoint_names.end())
@@ -192,7 +210,10 @@ void Graph::build(){
                 if (per_atom || input->value_desc.domain != ValueDomain::PerAtom)
                     throw std::runtime_error("Graph: reductions require PerAtom input and Global output");
             } else if (input->value_desc.domain != node->value_desc.domain) {
-                throw std::runtime_error("Graph: use AVE to convert PerAtom values to Global; broadcasting is not implemented");
+                if (!node->allows_domain_broadcast())
+                    throw std::runtime_error("Graph: use AVE or SUM to convert PerAtom values to Global; broadcasting is not implemented");
+                if (input->value_desc.domain == ValueDomain::Global && !input->inputs().empty())
+                    throw std::runtime_error("Graph: broadcast Global operand must be a Leaf; reductions stay on the Host side");
             }
         }
         state[node] = 2;
@@ -249,6 +270,10 @@ std::string Graph::emit_kernel(bool backward){
         body += fmt::sprintf(
             "double %s = %s_ptr[i];\n", name, name);
     }
+    for (const auto& input : cg.scalar_inputs) {
+        // Global Leaf 以按值标量进入融合核，实现与 PerAtom 的 broadcast。
+        params += fmt::sprintf(", double %s", input.second);
+    }
 
     body += cg.body;
 
@@ -296,6 +321,9 @@ std::string Graph::emit_kernel(bool backward){
         for (const auto& input : cg.inputs) {
             params += fmt::sprintf(
                 ", double* %s_adj", input.second);
+        }
+        for (const auto& input : cg.scalar_inputs) {
+            params += fmt::sprintf(", double* %s_adj", input.second);
         }
 
         // 共享节点只处理一次，梯度由节点 helper 累加。

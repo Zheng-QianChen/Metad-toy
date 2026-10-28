@@ -1,5 +1,12 @@
 # 更新日志
 
+## 未发布 — 2026-10-28 旧独有 CV 功能恢复
+
+- 新增设备 LocalGeom COORD/TET 叶，恢复软配位总数与目标配位计数的 Graph 前后向和 virial。
+- 新增 SUM 与 safe_div，恢复 LocalQL NSOLID/MEAN_SOLID/FRAC；CVGraph 的 SUM 按中心组掩蔽值和伴随，多组表达式可显式指定规约组。
+- MEAN_RNN 保持诊断接口；零邻居不进入平均分母。Global Leaf 广播伴随跨 MPI 汇总。
+- LocalGeom、LocalQL 旧统计、MPI/差分及兼容插件验证见 [恢复记录](docs/LEGACY_RESTORATION_20261028.zh.md)。
+
 ## 未发布 — 2026-10-28 CSS / LocalQL 设备邻居准备
 
 - CSS/StruFactor 与 LocalQL 直接请求 Kokkos device full/ghost 邻居表，在 GPU 筛选、扫描并生成 CSR；保留 Host/全局 Q/Half 兼容路径。

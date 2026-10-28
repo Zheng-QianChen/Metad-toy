@@ -34,6 +34,16 @@ static __global__ void k_rational_switch(const double* a, double* y, double r0, 
 static __global__ void k_rational_switch_bwd(const double* adj, const double* a, double* a_adj, double r0, int power_n, int power_m, double d0, int n);
 
 static __global__ void k_ave_bwd(double seed, int n, double* src_adj);
+static __global__ void k_sum_bwd(double seed, int n, double* src_adj);
+static __global__ void k_safe_div(const double* a, const double* b, double* y, double epsilon, int n);
+static __global__ void k_safe_div_bwd(const double* adj, const double* a, const double* b,
+                                     double* a_adj, double* b_adj, double epsilon, int n);
+static __global__ void k_safe_div_broadcast(const double* per_atom, double global_scalar, double* y,
+                                           double epsilon, int n, bool scalar_is_divisor);
+static __global__ void k_safe_div_broadcast_bwd(const double* adj, const double* per_atom,
+                                               double global_scalar, double* per_atom_adj,
+                                               double* global_adj, double epsilon, int n,
+                                               bool scalar_is_divisor);
 
 
 Node::Node(ValueDesc desc)
@@ -44,8 +54,12 @@ Node::Node(ValueDesc desc)
 
 bool Node::is_reduction() const { return false; }
 const Node* Node::kernel_output() const { return this; }
+bool Node::allows_domain_broadcast() const { return false; }
 bool AVE::is_reduction() const { return true; }
 const Node* AVE::kernel_output() const { return src; }
+bool SUM::is_reduction() const { return true; }
+const Node* SUM::kernel_output() const { return src; }
+bool SafeDiv::allows_domain_broadcast() const { return true; }
 void Node::bind_storage(double* device_value, double* device_adjoint) {
     val = value_desc.domain == ValueDomain::Global ? &host_value : device_value;
     adj = value_desc.domain == ValueDomain::Global ? &host_adjoint : device_adjoint;
@@ -942,6 +956,211 @@ Node* AVE::create(Graph& graph, const GraphExpr& call) {
     return graph.make_node<AVE>(input, graph.sum_reducer);
 }
 
+SUM::SUM(Node* src_, MetaD_zqc::SumReducer sum)
+    : Node({ValueDomain::Global, 1}), src(src_), sum_reducer(std::move(sum)) {
+    if (!src || src->value_desc.domain != ValueDomain::PerAtom || src->value_desc.components != 1)
+        throw std::runtime_error("SUM: expected PerAtom scalar input");
+    n = 1;
+    bind_storage(nullptr, nullptr);
+}
+
+void SUM::reduce_host(const double* values, int count) {
+    ready = false;
+    if (count < 0 || (count && !values)) throw std::runtime_error("SUM: invalid local data");
+    double local_sum = 0.0, correction = 0.0;
+    for (int i = 0; i < count; ++i) {
+        const double adjusted = values[i] - correction;
+        const double next = local_sum + adjusted;
+        correction = (next - local_sum) - adjusted;
+        local_sum = next;
+    }
+    reduce_sum(local_sum);
+}
+
+void SUM::reduce_sum(double local_sum) {
+    ready = false;
+    double packed = local_sum;
+    if (sum_reducer) sum_reducer(&packed, 1);
+    *val = packed;
+    ready = true;
+}
+
+double SUM::reduction_seed() const {
+    if (!ready) throw std::logic_error("SUM: forward is required before backward");
+    return *adj;
+}
+
+void SUM::forward() {
+    std::vector<double> values(src->n);
+    if (src->n) graph_check_cuda(cudaMemcpy(values.data(), src->val, src->n*sizeof(double), cudaMemcpyDeviceToHost));
+    reduce_host(values.data(), src->n);
+}
+void SUM::backward() {
+    const double seed = reduction_seed();
+    if (src->n) {
+        k_sum_bwd<<<grid_size(src->n), block_size>>>(seed, src->n, src->adj);
+        sync_kernel();
+    }
+}
+static __global__ void k_sum_bwd(double seed, int n, double* src_adj) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) src_adj[i] += seed;
+}
+std::string SUM::emit_expr(Codegen&) const { throw std::logic_error("SUM executes on Host"); }
+std::string SUM::emit_expr_bwd(Codegen&) const { throw std::logic_error("SUM backward executes on Host"); }
+std::vector<const Node*> SUM::inputs() const { return {src}; }
+
+Node* SUM::create(Graph& graph, const GraphExpr& call) {
+    call.require_args(1);
+    Node* input = graph.create_node(call.args[0]);
+    return graph.make_node<SUM>(input, graph.sum_reducer);
+}
+
+namespace {
+int safe_div_device_count(const Node* a, const Node* b) {
+    if (a->value_desc.domain == ValueDomain::PerAtom) return a->n;
+    if (b->value_desc.domain == ValueDomain::PerAtom) return b->n;
+    return 0;
+}
+}
+
+SafeDiv::SafeDiv(Node* a_, Node* b_, double epsilon_)
+    : Node(infer_broadcast(a_->value_desc, b_->value_desc)),
+      a(a_), b(b_), epsilon(epsilon_),
+      vbuf(safe_div_device_count(a_, b_)), abuf(safe_div_device_count(a_, b_)),
+      broadcast_scalar_adj(a_->value_desc.domain == b_->value_desc.domain ? 0 : 1) {
+    if (!a || !b) throw std::runtime_error("safe_div: null input");
+    if (a->value_desc.components != 1 || b->value_desc.components != 1)
+        throw std::runtime_error("safe_div: expected scalar inputs");
+    if (!std::isfinite(epsilon) || epsilon < 0.0)
+        throw std::runtime_error("safe_div: epsilon must be finite and nonnegative");
+    if (a->value_desc.domain == b->value_desc.domain) {
+        if (a->n != b->n) throw std::runtime_error("safe_div: length mismatch");
+        n = a->n;
+    } else {
+        const Node* atom = a->value_desc.domain == ValueDomain::PerAtom ? a : b;
+        const Node* scalar = a->value_desc.domain == ValueDomain::Global ? a : b;
+        if (scalar->value_desc.domain != ValueDomain::Global || atom->value_desc.domain != ValueDomain::PerAtom)
+            throw std::runtime_error("safe_div: invalid broadcast pairing");
+        if (!scalar->inputs().empty())
+            throw std::runtime_error("safe_div: broadcast Global operand must be a Leaf");
+        n = atom->n;
+    }
+    bind_storage(vbuf.ptr, abuf.ptr);
+}
+
+void SafeDiv::forward() {
+    if (value_desc.domain == ValueDomain::Global) {
+        *val = zqc_graph_safe_div(*a->val, *b->val, epsilon);
+        return;
+    }
+    if (n == 0) return;
+    if (a->value_desc.domain == b->value_desc.domain) {
+        k_safe_div<<<grid_size(n), block_size>>>(a->val, b->val, val, epsilon, n);
+    } else if (a->value_desc.domain == ValueDomain::PerAtom) {
+        k_safe_div_broadcast<<<grid_size(n), block_size>>>(a->val, *b->val, val, epsilon, n, true);
+    } else {
+        k_safe_div_broadcast<<<grid_size(n), block_size>>>(b->val, *a->val, val, epsilon, n, false);
+    }
+    sync_kernel();
+}
+
+void SafeDiv::backward() {
+    if (value_desc.domain == ValueDomain::Global) {
+        zqc_graph_safe_div_bwd(*adj, *a->val, *b->val, epsilon, a->adj, b->adj);
+        return;
+    }
+    if (n == 0) return;
+    if (a->value_desc.domain == b->value_desc.domain) {
+        k_safe_div_bwd<<<grid_size(n), block_size>>>(adj, a->val, b->val, a->adj, b->adj, epsilon, n);
+        sync_kernel();
+        return;
+    }
+    double* scalar_host_adj = a->value_desc.domain == ValueDomain::Global ? a->adj : b->adj;
+    graph_check_cuda(cudaMemset(broadcast_scalar_adj.ptr, 0, sizeof(double)));
+    if (a->value_desc.domain == ValueDomain::PerAtom) {
+        k_safe_div_broadcast_bwd<<<grid_size(n), block_size>>>(adj, a->val, *b->val, a->adj,
+                                                              broadcast_scalar_adj.ptr, epsilon, n, true);
+    } else {
+        k_safe_div_broadcast_bwd<<<grid_size(n), block_size>>>(adj, b->val, *a->val, b->adj,
+                                                              broadcast_scalar_adj.ptr, epsilon, n, false);
+    }
+    sync_kernel();
+    double scalar_contrib = 0.0;
+    graph_check_cuda(cudaMemcpy(&scalar_contrib, broadcast_scalar_adj.ptr, sizeof(double),
+                                cudaMemcpyDeviceToHost));
+    *scalar_host_adj += scalar_contrib;
+}
+static __global__ void k_safe_div(const double* a, const double* b, double* y, double epsilon, int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) y[i] = zqc_graph_safe_div(a[i], b[i], epsilon);
+}
+static __global__ void k_safe_div_bwd(const double* adj, const double* a, const double* b,
+                                     double* a_adj, double* b_adj, double epsilon, int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) zqc_graph_safe_div_bwd(adj[i], a[i], b[i], epsilon, &a_adj[i], &b_adj[i]);
+}
+static __global__ void k_safe_div_broadcast(const double* per_atom, double global_scalar, double* y,
+                                           double epsilon, int n, bool scalar_is_divisor) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    y[i] = scalar_is_divisor ? zqc_graph_safe_div(per_atom[i], global_scalar, epsilon)
+                             : zqc_graph_safe_div(global_scalar, per_atom[i], epsilon);
+}
+static __global__ void k_safe_div_broadcast_bwd(const double* adj, const double* per_atom,
+                                               double global_scalar, double* per_atom_adj,
+                                               double* global_adj, double epsilon, int n,
+                                               bool scalar_is_divisor) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    double local_global = 0.0;
+    if (scalar_is_divisor)
+        zqc_graph_safe_div_bwd(adj[i], per_atom[i], global_scalar, epsilon, &per_atom_adj[i], &local_global);
+    else
+        zqc_graph_safe_div_bwd(adj[i], global_scalar, per_atom[i], epsilon, &local_global, &per_atom_adj[i]);
+    atomicAdd(global_adj, local_global);
+}
+std::string SafeDiv::emit_expr(Codegen& cg) const {
+    auto operand = [&](const Node* node) {
+        return node->value_desc.domain == ValueDomain::Global ? cg.scalar_value(node) : cg.value(node);
+    };
+    return fmt::sprintf("zqc_graph_safe_div( %s , %s , %.18g )", operand(a), operand(b), epsilon);
+}
+std::string SafeDiv::emit_expr_bwd(Codegen& cg) const {
+    const bool a_global = a->value_desc.domain == ValueDomain::Global;
+    const bool b_global = b->value_desc.domain == ValueDomain::Global;
+    auto av = a_global ? cg.scalar_value(a) : cg.value(a);
+    auto bv = b_global ? cg.scalar_value(b) : cg.value(b);
+    auto gv = cg.adjoint(this);
+    if (!a_global && !b_global) {
+        return fmt::sprintf("zqc_graph_safe_div_bwd(%s, %s, %s, %.18g, &(%s), &(%s));\n",
+                            gv, av, bv, epsilon, cg.adjoint(a), cg.adjoint(b));
+    }
+    // Broadcast：PerAtom 伴随写局部变量；Global Leaf 伴随经 atomicAdd 累加到标量输出。
+    std::string code;
+    if (!a_global) {
+        code += fmt::sprintf(
+            "{ double _zqc_safe_div_db = 0.0; zqc_graph_safe_div_bwd(%s, %s, %s, %.18g, &(%s), &_zqc_safe_div_db); atomicAdd(%s_adj, _zqc_safe_div_db); }\n",
+            gv, av, bv, epsilon, cg.adjoint(a), cg.scalar_value(b));
+    } else if (!b_global) {
+        code += fmt::sprintf(
+            "{ double _zqc_safe_div_da = 0.0; zqc_graph_safe_div_bwd(%s, %s, %s, %.18g, &_zqc_safe_div_da, &(%s)); atomicAdd(%s_adj, _zqc_safe_div_da); }\n",
+            gv, av, bv, epsilon, cg.adjoint(b), cg.scalar_value(a));
+    } else {
+        throw std::logic_error("safe_div: Global-only node is not emitted into the fused kernel");
+    }
+    return code;
+}
+std::vector<const Node*> SafeDiv::inputs() const { return {a, b}; }
+
+Node* SafeDiv::create(Graph& graph, const GraphExpr& call) {
+    call.require_args(3);
+    const double epsilon = call.number_arg(2);
+    Node* left = graph.create_node(call.args[0]);
+    Node* right = graph.create_node(call.args[1]);
+    return graph.make_node<SafeDiv>(left, right, epsilon);
+}
+
 Node* Linear::create(Graph& graph, const GraphExpr& call) {
     call.require_args(3);
     const double k0 = call.number_arg(1);
@@ -1032,4 +1251,7 @@ void register_builtin_graph_nodes(Graph& graph) {
     graph.register_node(".MEAN", AVE::create);
     graph.register_node(".AVE", AVE::create);
     graph.register_node("AVE", AVE::create);
+    graph.register_node(".SUM", SUM::create);
+    graph.register_node("SUM", SUM::create);
+    graph.register_node("safe_div", SafeDiv::create);
 }

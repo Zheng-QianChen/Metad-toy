@@ -59,6 +59,11 @@ def worker(args):
     mode = 'AVE' if args.case == 'mean' else 'RAW'
     expressions = ['q3*q4', 'q4+q6'] if args.case == 'mean' else [
         'AVE(q3*q4)+AVE(q4*q6)', 'AVE(q3*q4)+AVE(fermi(q6,0.45,12))']
+    if args.legacy_statistics:
+        mode = 'RAW'
+        expressions = ['SUM(fermi(q3,0.1,12))',
+            'safe_div(SUM(q6*fermi(q6,0.45,12)),SUM(fermi(q6,0.45,12)),0)']
+        if args.explicit_family: expressions[0]='SUM(fermi(q3+q4,0.1,12),q3)'
     configuration = f"""units lj
 atom_style atomic
 atom_modify map array
@@ -95,6 +100,9 @@ reset_timestep 100001
 run 0
 """
     # 用独立 worker 验证旧接口报出迁移提示，避免 MPI 异常中断正常场景。
+    if args.legacy_statistics:
+        configuration=configuration.replace('DIM 1 -1 2 300 ', 'DIM 1 -1 150 15100 ')
+        configuration=configuration.replace('CV_dim 2 DIM', f'CV_dim 2 SIGMAS {0.1*len(positions)} 0.1 DIM')
     if args.obsolete_interface:
         configuration = configuration.replace('EXECUTOR GRAPH', 'EXECUTOR LEGACY') if args.obsolete_interface.startswith('legacy') else configuration
         if args.obsolete_interface in ('legacy_switch', 'value_switch'):
@@ -181,7 +189,16 @@ run 0
         raw = expected_raw(current['rows'])
         error = float(np.max(np.abs(raw-current['rows'][:,7:10])))
         assert error < 2e-12, ('raw',error,np.max(np.abs(raw-current['rows'][:,7:10]),axis=0),raw[:2],current['rows'][:2,7:10])
-        if args.case == 'mean':
+        if args.legacy_statistics:
+            mask = np.ones(len(raw),dtype=bool)
+            if groups[0]=='tiny': mask=np.isin(atom_ids,tiny_ids)
+            elif groups[0]=='type2': mask=types==2
+            local_score=raw[mask,0]+(raw[mask,1] if args.explicit_family else 0)
+            weight3=1/(1+np.exp(-12*(local_score-.1)))
+            weight6=1/(1+np.exp(-12*(raw[:,2]-.45)))
+            denominator=weight6.sum()
+            expected=np.array([weight3.sum(),np.dot(raw[:,2],weight6)/denominator if denominator else 0])
+        elif args.case == 'mean':
             means=raw.mean(axis=0); expected=np.array([means[0]*means[1],means[1]+means[2]])
         else:
             expected=np.array([np.mean(raw[:,0]*raw[:,1]+raw[:,1]*raw[:,2]),
@@ -259,6 +276,8 @@ def main():
     parser.add_argument('--executor',default='GRAPH')
     parser.add_argument('--kind',choices=['Q','L','mixed'],default='Q')
     parser.add_argument('--finite-difference',action='store_true')
+    parser.add_argument('--legacy-statistics',action='store_true',help='Validate Graph NSOLID and MEAN_SOLID formulas')
+    parser.add_argument('--explicit-family',action='store_true',help='Test SUM(expression, raw_family_symbol)')
     parser.add_argument('--obsolete-interface', choices=['legacy_ave','legacy_mean_solid','legacy_switch','legacy_nsolid','legacy_frac','value_switch'])
     args=parser.parse_args();args.output=args.output.resolve();args.plugin=plugin_path(args.plugin)
     if args.worker: return worker(args)
@@ -275,6 +294,8 @@ def main():
                 command=[str(args.mpi),*shlex.split(args.mpi_args),'-np',str(ranks),sys.executable,str(Path(__file__).resolve()),
                          '--worker','--kind',args.kind,'--case',case,'--executor',executor,'--output',str(directory),'--plugin',str(args.plugin)]
                 if ranks==1 and case in ['nonlinear','groups','radial','excluded']: command.append('--finite-difference')
+                if args.legacy_statistics: command.append('--legacy-statistics')
+                if args.explicit_family: command.append('--explicit-family')
                 command.append('--lammps-args='+args.lammps_args)
                 if args.weave_plugin: command.extend(['--weave-plugin',str(args.weave_plugin)])
                 with (directory/'screen.txt').open('w') as output:

@@ -59,7 +59,7 @@ Attention:
 通过 `CAL` 计算出的 `STEINH` 数据是一组高维的、针对单个原子的局域值矩阵。在后续的 `SYMBOL` 中将其降维为一维集体变量：
 
 ```lammps
-SYMBOL <symbol_name> <cv_name>.<RAW/value/AVE/MEAN>
+SYMBOL <symbol_name> <cv_name>.<RAW/value/AVE/MEAN/SUM>
 ```
 
 ### 3.1 `STEINH Q`（非 Local）
@@ -67,20 +67,36 @@ SYMBOL <symbol_name> <cv_name>.<RAW/value/AVE/MEAN>
 必须指定 `EXECUTOR GRAPH`：
 
 - `.AVE` / `.MEAN`：由图节点对该 CV 的中心组求全局算术平均。
-- `.RAW` / `.value`：逐原子原始值，用于 `AVE(q4*q6)`、`AVE(fermi(q6,0.45,12))` 等图表达式。
+- `.SUM`：对该 CV 的中心组全局求和；空组为 0。
+- `.RAW` / `.value`：逐原子原始值，用于 `AVE(q4*q6)`、`SUM(fermi(q6,0.45,12))`、`safe_div(...)` 等图表达式。
 - `SW_FUNC_r`：保留邻居距离的径向权重。
 
 Q 原有 LEGACY 的 `AVE`、`SW_FUNC` 回调及 `SW_FUNC_cv` 参数已移除。对 q 值的开关在图中定义。例如 `SYMBOL q6 Q6.RAW` 配合 `DIM ... "AVE(fermi(q6,0.45,12))"` 得到平均开关值。
 
-旧 Q 的 `SW_FUNC` 实际计算 $\sum_i q_i f(q_i)$，不是平均开关值；Graph 当前仅提供均值规约，迁移这类输入时需要明确目标量。
+旧 Q 的 `SW_FUNC` 实际计算 $\sum_i q_i f(q_i)$，不是平均开关值；若目标是总数而非均值，改用下方 `SUM` 迁移式，不要把旧 `SW_FUNC` 写成 `AVE`。
 
 ### 3.2 `STEINH L`（Local / LQ）
 
-Local Q 必须使用 `EXECUTOR GRAPH`，提供 `.RAW` / `.value` 及 `.AVE` / `.MEAN`。Graph `.AVE` 是原始 LQ 的算术均值，值开关写在 DIM 中，例如 `AVE(fermi(q6,0.45,12))`。输入与验证见 [Local Q Graph](../../benchmarks/localql_graph/README.md)。
+Local Q 必须使用 `EXECUTOR GRAPH`，提供 `.RAW` / `.value`、`.AVE` / `.MEAN` 及 `.SUM`。Graph `.AVE` 是原始 LQ 的算术均值，值开关写在 DIM 中，例如 `AVE(fermi(q6,0.45,12))`。输入与验证见 [Local Q Graph](../../benchmarks/localql_graph/README.md)。
 
-旧 CV 内部的 `AVE` / `MEAN_SOLID`、`SW_FUNC` / `NSOLID`、`FRAC` 和 `SW_FUNC_cv` 已移除，输入这些旧配置会提示迁移到 Graph。旧 `MEAN_SOLID` 计算 $\sum_i q_i f(q_i)/\sum_i f(q_i)$，与原始值的算术平均不同；旧 `NSOLID` 计算 $\sum_i f(q_i)$，Graph 当前尚未提供 SUM 规约。
+旧 CV 内部的 `AVE` / `MEAN_SOLID`、`SW_FUNC` / `NSOLID`、`FRAC` 和 `SW_FUNC_cv` 已移除，输入这些旧配置会提示迁移到 Graph。对应 Graph 写法：
 
-`.AVE` / `.MEAN` 按该 CV 自己的中心组求均值。`AVE(expr)` 按 Graph 公共中心并集求均值；当图中只有同一中心组时，`AVE(fermi(q6,...))` 可以表达原先的平均类固分数。
+| 旧轴 | 数学含义 | Graph 迁移 |
+| --- | --- | --- |
+| `NSOLID`（旧 `SW_FUNC` 别名） | $\sum_i f(q_i)$ | `SUM(fermi(q,...))`；空集合（含全局空）为 0 |
+| `MEAN_SOLID`（该旧 fork 中的 `AVE` 别名） | $\sum_i q_i f(q_i)/\sum_i f(q_i)$ | `safe_div(SUM(q*fermi(q,...)), SUM(fermi(q,...)), epsilon)`；当 $\lvert b\rvert\le\epsilon$ 时值与两路导数均为 0（$\epsilon$ 为有限非负），不做其它静默正则 |
+| `FRAC` | $\sum_i f(q_i)/N$ | `safe_div(SUM(fermi(q,...)),SUM(constant_one(q)),0)`；空中心返回 0 |
+
+`.AVE` / `.MEAN` 按该 CV 自己的中心组求均值；`.SUM` 按同一中心组求原始值总和。
+在 CVGraph 中，`SUM(expr)` 从逐原子输入推断唯一中心组，并在 GPU 上同时掩蔽值和反向种子；
+因此 `fermi(0)` 等非线性变换不会把公共数组的组外补零计入总数。
+多个不同中心组参与同一个表达式时，必须显式指定 `SUM(expr, q)`，其中 `q` 是目标组的 RAW 符号。
+`AVE(expr)` 保留原来的公共中心并集语义；独立 Graph（无 CVGraph/中心组）中的 SUM 仍对所有输入项求和。
+
+旧 MEAN_SOLID 的分母只在等于零时返回 0，因此迁移时 `epsilon=0` 保持该约定；
+正 epsilon 是显式选择的近零区间约定，会改变该区间的值和导数，边界不光滑。
+`safe_div` 支持 Global/PerAtom 同域，以及 Global Leaf 与 PerAtom 的广播；广播产生的 Global
+伴随在执行器内跨 rank 求和，调用方不能再次求和。规约结果回灌逐原子融合段尚不支持。
 
 ---
 

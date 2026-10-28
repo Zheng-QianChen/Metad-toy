@@ -1,5 +1,9 @@
 # MetaDtoy 版本整合记录（2026-10-28）
 
+本文记录首次整合时的状态。其后 LocalGeom、NSOLID、MEAN_SOLID 已恢复并完成验证，
+见 [旧功能恢复记录](LEGACY_RESTORATION_20261028.zh.md)；后续任务按
+[完成顺序](COMPLETION_ORDER_20261028.zh.md) 跟踪。
+
 本次以主工作区的完整开发状态为底座，吸收另存的 Weave/Kokkos GPU 联合实现。
 主工作区原 HEAD 为 `2d9ac7801ed7f093d5e83312f707e2167a337595`，但其代码不代表实际工作区：
 当时仍有 52 个已跟踪文件修改和三百余个未跟踪文件。整合前保存的完整快照提交为

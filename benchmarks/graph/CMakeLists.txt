@@ -96,6 +96,7 @@ endforeach()
 if(ZQC_TEST_MPI)
     find_package(MPI REQUIRED COMPONENTS CXX)
     zqc_graph_test(zqc_graph_ave_test graph_ave_mpi.cu)
+    zqc_graph_test(zqc_graph_sum_safe_div_test graph_sum_safe_div.cu)
     zqc_graph_test(zqc_graph_fd_test ../finite_difference/graph.cu)
     zqc_graph_test(zqc_strufactor_test strufactor_graph.cu)
     zqc_graph_test(zqc_strufactor_chem_test strufactor_graph.cu)
@@ -105,12 +106,13 @@ if(ZQC_TEST_MPI)
     foreach(target zqc_strufactor_test zqc_strufactor_chem_test zqc_weighted_chem_test)
         target_link_libraries(${target} PRIVATE zqc_validation_kernels)
     endforeach()
-    foreach(target zqc_graph_ave_test zqc_graph_fd_test
+    foreach(target zqc_graph_ave_test zqc_graph_sum_safe_div_test zqc_graph_fd_test
                    zqc_strufactor_test zqc_strufactor_chem_test zqc_weighted_chem_test)
         target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
         target_link_libraries(${target} PRIVATE MPI::MPI_CXX)
     endforeach()
-    foreach(test_pair "zqc_graph_ave;zqc_graph_ave_test" "zqc_graph_fd;zqc_graph_fd_test"
+    foreach(test_pair "zqc_graph_ave;zqc_graph_ave_test" "zqc_graph_sum_safe_div;zqc_graph_sum_safe_div_test"
+                      "zqc_graph_fd;zqc_graph_fd_test"
                       "zqc_strufactor;zqc_strufactor_test" "zqc_strufactor_chem;zqc_strufactor_chem_test"
                       "zqc_weighted_chem;zqc_weighted_chem_test")
         list(GET test_pair 0 test_name)

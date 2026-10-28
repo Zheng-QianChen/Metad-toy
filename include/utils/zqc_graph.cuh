@@ -8,6 +8,7 @@
 
 #include <cuda_runtime.h>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -55,6 +56,8 @@ struct Node {
     // GPU 段完成后，由 Host 执行规约；seed 已包括规约的导数。
     virtual void reduce_host(const double* values, int count);
     virtual double reduction_seed() const;
+    // SafeDiv 等节点允许 Global Leaf 与 PerAtom 混用；规约结果仍不能回灌融合段。
+    virtual bool allows_domain_broadcast() const;
 
     // 节点连接：列出输入节点
     virtual std::vector<const Node*> inputs() const = 0;
@@ -105,6 +108,8 @@ private:
 struct Codegen {
     // Each input records its node and the local name loaded by the kernel.
     std::vector<std::pair<const Node*, std::string>> inputs;
+    // Global Leaf 标量，作为融合 kernel 的按值参数（broadcast 到每个原子）。
+    std::vector<std::pair<const Node*, std::string>> scalar_inputs;
     std::unordered_map<const Node*, std::string> value_names;
     std::unordered_map<const Node*, std::string> adjoint_names;
     std::string adjoint_decls;
@@ -113,13 +118,15 @@ struct Codegen {
     int next_adj_id = 0;
 
     std::string value(const Node* node);
+    // 仅用于 PerAtom 表达式中的 Global Leaf；不得传入规约或其他 Host Global 节点。
+    std::string scalar_value(const Node* node);
     std::string adjoint(const Node* node);
 };
 
 struct Graph {
     using Symbols = std::unordered_map<std::string, Node*>;
     using Switches = std::unordered_map<std::string, MetaD_zqc::SwitchFunctionRequest>;
-    using NodeCreator = Node* (*)(Graph&, const GraphExpr&);
+    using NodeCreator = std::function<Node*(Graph&, const GraphExpr&)>;
 
     Symbols symbols;
     Switches switches;
@@ -146,7 +153,7 @@ struct Graph {
     }
 
     // Node creators consume parsed arguments, and allocate through make_node().
-    void register_node(const std::string& name, NodeCreator creator);
+    void register_node(const std::string& name, NodeCreator creator, bool replace = false);
     Node* create_node(const GraphExpr& expression);
     // Compatibility entry point; the switch adapter is implemented with the nodes.
     Node* make_switch_node(Node* input, const MetaD_zqc::SwitchFunctionRequest& params);
@@ -418,6 +425,48 @@ protected:
 
 // 保留实验阶段的名称；两者采用同一个 Host 规约实现。
 using MEAN = AVE;
+
+// 全局求和：空集合（含全局空）约定为 0；不改变 AVE 的空输入报错语义。
+struct SUM : Node {
+    Node* src;
+    MetaD_zqc::SumReducer sum_reducer;
+    bool ready = false;
+
+    explicit SUM(Node* src_, MetaD_zqc::SumReducer sum = {});
+    void forward() override;
+    void backward() override;
+    void reduce_host(const double* values, int count) override;
+    double reduction_seed() const override;
+    std::vector<const Node*> inputs() const override;
+    std::string emit_expr(Codegen& cg) const override;
+    std::string emit_expr_bwd(Codegen& cg) const override;
+    static Node* create(Graph& graph, const GraphExpr& call);
+    bool is_reduction() const override;
+    const Node* kernel_output() const override;
+protected:
+    void reduce_sum(double local_sum);
+};
+
+// safe_div(a,b,epsilon)：|b|<=epsilon 时值为 0 且两路导数为 0；epsilon 为有限非负数。
+// 同域 Global/PerAtom，以及 Global Leaf 与 PerAtom 的 broadcast。
+struct SafeDiv : Node {
+    Node* a;
+    Node* b;
+    double epsilon;
+    GpuBuffer<double> vbuf;
+    GpuBuffer<double> abuf;
+    // 独立 broadcast 反向时暂存 Global 伴随；融合路径由执行器提供标量伴随缓冲。
+    GpuBuffer<double> broadcast_scalar_adj;
+
+    SafeDiv(Node* a_, Node* b_, double epsilon_);
+    void forward() override;
+    void backward() override;
+    std::vector<const Node*> inputs() const override;
+    std::string emit_expr(Codegen& cg) const override;
+    std::string emit_expr_bwd(Codegen& cg) const override;
+    static Node* create(Graph& graph, const GraphExpr& call);
+    bool allows_domain_broadcast() const override;
+};
 
 // 图执行器：编译并调度 GPU 融合段、Host 计算及跨进程规约回调。
 // Graph 和输入节点必须比执行器活得更久；图结构固定，本地元素数可显式更新。

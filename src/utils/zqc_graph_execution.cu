@@ -24,6 +24,8 @@ struct GraphExecution::Impl {
     std::vector<Node*> outputs;
     std::string source;
     std::vector<Node*> inputs;
+    std::vector<Node*> scalar_inputs;
+    std::vector<std::unique_ptr<MetaD_zqc::GpuBuffer<double>>> scalar_adjoints;
     std::vector<Node*> reductions;
     std::vector<std::unique_ptr<MetaD_zqc::GpuBuffer<double>>> device_outputs;
     std::vector<std::vector<double>> host_outputs;
@@ -53,6 +55,10 @@ struct GraphExecution::Impl {
         for (const Node* node : topo)
             if (node->value_desc.domain == ValueDomain::PerAtom) cg.value(node);
         for (const auto& input : cg.inputs) inputs.push_back(const_cast<Node*>(input.first));
+        for (const auto& input : cg.scalar_inputs) {
+            scalar_inputs.push_back(const_cast<Node*>(input.first));
+            scalar_adjoints.push_back(std::make_unique<MetaD_zqc::GpuBuffer<double>>(1));
+        }
         if (inputs.empty()) throw std::runtime_error("GraphExecution: no PerAtom inputs");
         n = inputs.front()->n;
         for (Node* input : inputs)
@@ -79,7 +85,9 @@ struct GraphExecution::Impl {
         rtc_check(nvrtcVersion(&major, &minor));
         log("NVRTC begin: version=" + std::to_string(major) + "." + std::to_string(minor) +
             " " + arch + " source_bytes=" + std::to_string(source.size()) +
-            " inputs=" + std::to_string(inputs.size()) + " reductions=" + std::to_string(reductions.size()));
+            " inputs=" + std::to_string(inputs.size()) +
+            " scalars=" + std::to_string(scalar_inputs.size()) +
+            " reductions=" + std::to_string(reductions.size()));
         using Clock = std::chrono::steady_clock;
         const auto start = Clock::now();
         nvrtcProgram program = nullptr;
@@ -155,6 +163,12 @@ struct GraphExecution::Impl {
             static_cast<Leaf*>(input)->forward_on(execution.get()); // 等待 CV/外部生产者。
             args.push_back(&input->val);
         }
+        std::vector<double> scalar_values(scalar_inputs.size());
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            static_cast<Leaf*>(scalar_inputs[k])->forward_on(execution.get());
+            scalar_values[k] = *scalar_inputs[k]->val;
+            args.push_back(&scalar_values[k]);
+        }
         for (auto& output : device_outputs) args.push_back(&output->ptr);
         if (module) launch(fwd, args);
         for (auto& output : device_outputs) output->record_write(execution.get());
@@ -226,8 +240,13 @@ struct GraphExecution::Impl {
         // Kernel 边界按生成顺序混合标量种子与数组种子；存储稳定到 launch 返回。
         std::vector<double> expanded(reductions.size());
         std::vector<const double*> pointers(reductions.size());
+        std::vector<double> scalar_values(scalar_inputs.size());
         std::vector<void*> args{&n};
         for (Node* input : inputs) args.push_back(&input->val);
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            scalar_values[k] = *scalar_inputs[k]->val;
+            args.push_back(&scalar_values[k]);
+        }
         size_t atom_index = 0;
         for (size_t k = 0; k < reductions.size(); ++k) {
             if (reductions[k]->is_reduction()) {
@@ -242,10 +261,25 @@ struct GraphExecution::Impl {
             static_cast<Leaf*>(input)->wait_gradient_on(execution.get());
             args.push_back(&input->adj);
         }
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            graph_check_cuda(cudaMemsetAsync(scalar_adjoints[k]->ptr, 0, sizeof(double), execution.get()));
+            args.push_back(&scalar_adjoints[k]->ptr);
+        }
         if (module) launch(bwd, args);
         for (Node* input : inputs) static_cast<Leaf*>(input)->backward_on(execution.get());
-        // 保持公开 backward 返回时外部梯度可读的约定，只等待融合流。
+        // Global Leaf broadcast 伴随在设备上 atomicAdd；同步后累加到 Host adjoint。
         execution.synchronize();
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            double contrib = 0.0;
+            graph_check_cuda(cudaMemcpy(&contrib, scalar_adjoints[k]->ptr, sizeof(double),
+                                        cudaMemcpyDeviceToHost));
+            // A Global Leaf is replicated on every rank. Reduce only its new
+            // PerAtom contribution; Host/global seeds already agree across ranks.
+            if(graph.sum_reducer) graph.sum_reducer(&contrib,1);
+            *scalar_inputs[k]->adj += contrib;
+            static_cast<Leaf*>(scalar_inputs[k])->backward_on(execution.get());
+        }
+        if (!scalar_inputs.empty()) execution.synchronize();
     }
 };
 

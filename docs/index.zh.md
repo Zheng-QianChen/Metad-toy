@@ -2,6 +2,11 @@
 
 欢迎查阅 **MetaD-toy** 官方技术文档！这是一个专为 LAMMPS 分子动力学框架设计的非侵入式加速扩展插件。
 
+当前功能与验收：[版本整合](VERSION_CONSOLIDATION_20261028.zh.md)、
+[旧功能恢复](LEGACY_RESTORATION_20261028.zh.md)、
+[LocalGeom 软配位与 TET](manuals/CVs_LocalGeom.zh.md)、
+[Steinhardt 与 Graph 统计](manuals/CVs_Steinhardt.zh.md)。
+
 本插件融合了底层的 C++/CUDA 异构并发架构，专门用于加速多组元金属体系（如铝基体、钨合金）在**凝固形核、多相转变、魔数团簇演化及晶型选择**过程中的自由能势垒跨越与非平衡态采样。
 
 ---
