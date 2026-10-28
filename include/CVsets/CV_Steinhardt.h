@@ -136,11 +136,12 @@ public:
 
 
 // calctag 前 group_count 项是 owned I，随后为 I 的邻居 J（可含 ghost）。
-// calc_tag[localid] 是反向映射，未参与的原子为 -1；GPU 每轮重新标记 I/J/K。
+// calc_tag[localid] 是反向映射，未参与的原子为 -1；GPU 每轮重新标记 I/J。
 class STEIN_LocalQL_env : public Steinhardt_env {
     template<int L> friend class STEIN_LocalQL;
 protected:
     GpuBuffer<int> d_calc_tag, d_LQ_mask, d_pure_J_write_offset;
+    GpuBuffer<int> d_neighbor_ends;
     int num_of_all_IJ_atoms = 0;
 public:
     STEIN_LocalQL_env(CVContext&, SteinhardtRequest);
@@ -165,7 +166,6 @@ protected:
     using STEIN_QL<L>::d_stein_qlm;
     using STEIN_QL<L>::h_dcvdx;
     using STEIN_QL<L>::d_dcvdx;
-    using STEIN_QL<L>::d_stein_Ylm;
     using STEIN_QL<L>::h_a_virial;
     using STEIN_QL<L>::d_a_virial;
     using STEIN_QL<L>::d_center_adjoint;
@@ -258,10 +258,8 @@ __global__ void get_environment_Steinhardt_LocalQ(
     int *d_group_indices,
     int *d_calc_tag,
     int *d_group_numneigh,
-    int *d_firstneigh_ptrs, MetaD_zqc::ArrayView<const double> d_x_flat,
-    unsigned int current_pass_mask,   // 中心原子该打的标签 (例如：CALC_MASK_IS_I 或 CALC_MASK_IS_J)
-    unsigned int neighbor_mask,       // 邻居原子该打的标签 (例如：CALC_MASK_IS_J 或 CALC_MASK_IS_K)
-    unsigned int neighbor_inc_val,    // 邻居原子计数器自增的位移量 (例如：1U << CALC_SHIFT_I)
+    const int *d_neighbor_ends, MetaD_zqc::ArrayView<const int> candidates,
+    MetaD_zqc::ArrayView<const double> d_x_flat, bool mark_neighbors,
     // out
     int *d_neigh_in_cutoff_r, int *d_LQ_mask,
     double *d_neigh_in_switching,
@@ -282,11 +280,10 @@ __global__ void steinhardt_Local_cv_get_qlm(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
-    double *d_stein_qlm, double *d_stein_Ylm);
+    double *d_stein_qlm);
 
 template <int L>
 __global__ void steinhardt_Local_cv_get_LQl(
@@ -295,7 +292,6 @@ __global__ void steinhardt_Local_cv_get_LQl(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
@@ -310,7 +306,6 @@ __global__ void steinhardt_Local_backward_ij_kernel(
     int group_count,
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
-    int *d_calculated_firstneigh_ptrs,
     int *d_group_indices,
     int *d_group_numneigh,
     int *d_calculated_numneigh,
@@ -329,12 +324,11 @@ __global__ void steinhardt_Local_backward_jk_kernel(
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_group_indices,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     int *d_calc_tag,
     int *d_neigh_in_cutoff_r,
     double *d_dcvdx_rjk_prefix,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_stein_qlm, double *d_stein_ql,
     double *d_dcvdx, double *d_a_virial);
 
 

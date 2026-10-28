@@ -13,18 +13,13 @@ __global__ void initialize_localql_tags(int count, const int* centers, int* tags
     const int row=blockIdx.x*blockDim.x+threadIdx.x;
     if (row<count) tags[centers[row]]=row;
 }
-__global__ void localql_row_counts(int rows, ArrayView<const int> centers,
-                                   ArrayView<const int> offsets, int* counts) {
+__global__ void localql_map_rows(int rows, ArrayView<const int> centers,
+                                ArrayView<const int> offsets, int* starts, int* ends) {
     const int row=blockIdx.x*blockDim.x+threadIdx.x;
-    if (row<rows) counts[centers(row)]=offsets(row+1)-offsets(row);
-}
-__global__ void localql_copy_rows(int rows, ArrayView<const int> centers,
-                                 ArrayView<const int> offsets, ArrayView<const int> neighbors,
-                                 const int* dense_offsets, int* dense_neighbors) {
-    const int row=blockIdx.x*blockDim.x+threadIdx.x;
-    if (row>=rows) return;
-    int write=dense_offsets[centers(row)];
-    for (int k=offsets(row);k<offsets(row+1);++k) dense_neighbors[write++]=neighbors(k);
+    if (row<rows) {
+        starts[centers(row)]=offsets(row);
+        ends[centers(row)]=offsets(row+1);
+    }
 }
 template<class T> void resize_host(std::vector<T>& storage, T*& alias, size_t count) {
     storage.resize(std::max<size_t>(count,1));
@@ -70,19 +65,15 @@ void STEIN_LocalQL_env::get_env() {
         ERR_COND(candidates.centers.memory!=MemorySpace::Cuda || candidates.offsets.memory!=MemorySpace::Cuda ||
                  candidates.neighbors.memory!=MemorySpace::Cuda || candidates.offsets.item_count!=candidates.centers.item_count+1 ||
                  candidates.neighbors.item_count>size_t(INT_MAX),"Local Q requires device CSR candidates");
-        // Convert compressed rows to localid-indexed rows entirely on the device.
-        // The mask is temporary row-count storage until geometric I/J/K marking below.
-        d_LQ_mask.grow_to(storage_count,__FILE__,__LINE__);
-        d_LQ_mask.clear_async(execution.get());
+        // Retain the engine CSR ordering; only map row bounds to local atom IDs.
+        // This avoids a second copy of all neighbor entries and a prefix scan.
+        d_group_numneigh.grow_to(storage_count,__FILE__,__LINE__);
+        d_neighbor_ends.grow_to(storage_count,__FILE__,__LINE__);
+        d_group_numneigh.clear_async(execution.get());
+        d_neighbor_ends.clear_async(execution.get());
         const int rows=static_cast<int>(candidates.centers.item_count);
-        if (rows) localql_row_counts<<<(rows+255)/256,256,0,execution.get()>>>(
-            rows,candidates.centers,candidates.offsets,d_LQ_mask.ptr);
-        CUDA_LAUNCH_CHECK();
-        d_group_numneigh.grow_to(atom_count+1,__FILE__,__LINE__);
-        d_LQ_mask.scan_to(d_group_numneigh,atom_count,execution.get());
-        d_firstneigh_ptrs.grow_to(std::max<size_t>(candidates.neighbors.item_count,1),__FILE__,__LINE__);
-        if (rows) localql_copy_rows<<<(rows+255)/256,256,0,execution.get()>>>(
-            rows,candidates.centers,candidates.offsets,candidates.neighbors,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr);
+        if (rows) localql_map_rows<<<(rows+255)/256,256,0,execution.get()>>>(
+            rows,candidates.centers,candidates.offsets,d_group_numneigh.ptr,d_neighbor_ends.ptr);
         CUDA_LAUNCH_CHECK();
         cached_neigh_generation=candidates.topology_generation;init_flag=true;
     }
@@ -99,7 +90,7 @@ void STEIN_LocalQL_env::get_env() {
         get_environment_Steinhardt_LocalQ<<<block_num,d_block_size,0,execution.get()>>>(
             my_r_SWfunc->params, group_count, 0, cutoff_r, cutoff_eps_r,
             d_group_indices.ptr, d_calc_tag.ptr, d_group_numneigh.ptr,
-            d_firstneigh_ptrs.ptr, positions, CALC_MASK_IS_I, CALC_MASK_IS_J, CALC_SHIFT_J,
+            d_neighbor_ends.ptr, candidates.neighbors, positions, true,
             d_neigh_in_cutoff_r.ptr, d_LQ_mask.ptr, d_neigh_in_switching.ptr, d_calculated_numneigh.ptr);
         CUDA_LAUNCH_CHECK();
     }
@@ -118,19 +109,12 @@ void STEIN_LocalQL_env::get_env() {
         get_environment_Steinhardt_LocalQ<<<neighbor_blocks,d_block_size,0,execution.get()>>>(
             my_r_SWfunc->params, extra_neighbors, group_count, cutoff_r, cutoff_eps_r,
             d_group_indices.ptr, d_calc_tag.ptr, d_group_numneigh.ptr,
-            d_firstneigh_ptrs.ptr, positions, CALC_MASK_IS_J, CALC_MASK_IS_K, CALC_SHIFT_K,
+            d_neighbor_ends.ptr, candidates.neighbors, positions, false,
             d_neigh_in_cutoff_r.ptr, d_LQ_mask.ptr, d_neigh_in_switching.ptr, d_calculated_numneigh.ptr);
         CUDA_LAUNCH_CHECK();
     }
-    // calctag 前缀和给每个 I/J 的球谐方向缓存分配连续段。
-    d_calculated_firstneigh_ptrs.grow_to(num_of_all_IJ_atoms+1, __FILE__, __LINE__);
-    d_calculated_firstneigh_ptrs.clear_async(execution.get());
-    if (num_of_all_IJ_atoms)
-        d_neigh_in_cutoff_r.scan_to(d_calculated_firstneigh_ptrs, num_of_all_IJ_atoms, execution.get());
-    // Only the terminal count is needed for harmonic-buffer allocation, not the CSR.
-    execution_check(cudaMemcpyAsync(&num_of_all_calc_fullpair,
-        d_calculated_firstneigh_ptrs.ptr+num_of_all_IJ_atoms,sizeof(int),cudaMemcpyDeviceToHost,execution.get()));
-    execution.synchronize();
+    // The backward path recomputes unit harmonics and their gradients directly.
+    // No pair-harmonic cache, active-pair prefix scan, or count download is needed.
     geometry_evaluation = engine.evaluation_id();
 }
 
@@ -184,7 +168,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::steinhardt_param_calc(double *stein_ql){
     d_stein_qlm.grow_to(harmonic_count, __FILE__, __LINE__);
     d_stein_LQlm.grow_to(harmonic_count, __FILE__, __LINE__);
     sum_of_qlm_value_weights.grow_to(size_t(my_loc_env->group_count)*2*(L+1), __FILE__, __LINE__);
-    d_stein_Ylm.grow_to(size_t(my_loc_env->num_of_all_calc_fullpair)*2*(L+1), __FILE__, __LINE__);
     d_stein_ql.clear_async(my_env->execution.get());
     d_stein_qlm.clear_async(my_env->execution.get());
     d_stein_LQlm.clear_async(my_env->execution.get());
@@ -207,11 +190,10 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_forward_kernel(){
         (my_loc_env->d_group_indices.ptr),
         (my_loc_env->d_neigh_in_cutoff_r.ptr),
         (my_loc_env->d_group_numneigh.ptr),
-        (my_loc_env->d_calculated_firstneigh_ptrs.ptr),
         (my_loc_env->d_calculated_numneigh.ptr),
         (my_loc_env->positions),
         (my_loc_env->d_neigh_in_switching.ptr),
-        d_stein_qlm.ptr, d_stein_Ylm.ptr) ;
+        d_stein_qlm.ptr) ;
     CUDA_LAUNCH_CHECK();
     steinhardt_Local_cv_get_LQl<L> <<<block_num,d_block_size,0,my_env->execution.get()>>>(
         (my_loc_env)->my_r_SWfunc->params,
@@ -219,7 +201,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_forward_kernel(){
         (my_loc_env->d_group_indices.ptr),
         (my_loc_env->d_neigh_in_cutoff_r.ptr),
         (my_loc_env->d_group_numneigh.ptr),
-        (my_loc_env->d_calculated_firstneigh_ptrs.ptr),
         (my_loc_env->d_calculated_numneigh.ptr),
         (my_loc_env->positions),
         (my_loc_env->d_neigh_in_switching.ptr),
@@ -242,7 +223,6 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_backward_kernel(){
         (my_loc_env->positions),
         (my_loc_env->d_neigh_in_switching.ptr),
         (my_loc_env->d_neigh_in_cutoff_r.ptr),
-        (my_loc_env->d_calculated_firstneigh_ptrs.ptr),
         (my_loc_env->d_group_indices.ptr),
         (my_loc_env->d_group_numneigh.ptr),
         (my_loc_env->d_calculated_numneigh.ptr),
@@ -267,13 +247,12 @@ void MetaD_zqc::STEIN_LocalQL<L>::call_steinhardt_Local_backward_kernel(){
         (my_loc_env->d_neigh_in_switching.ptr),
         (my_loc_env->d_group_indices.ptr),
         (my_loc_env->d_group_numneigh.ptr),
-        (my_loc_env->d_calculated_firstneigh_ptrs.ptr),
         (my_loc_env->d_calculated_numneigh.ptr),
         (my_loc_env->d_calc_tag.ptr),
         (my_loc_env->d_neigh_in_cutoff_r.ptr),
 
         d_dcvdx_rjk_prefix.ptr,
-        d_stein_qlm.ptr, d_stein_Ylm.ptr,  d_stein_ql.ptr,
+        d_stein_qlm.ptr,  d_stein_ql.ptr,
         d_dcvdx.ptr, d_a_virial.ptr);
     CUDA_LAUNCH_CHECK();
 }
@@ -287,10 +266,8 @@ __global__ void get_environment_Steinhardt_LocalQ(
     int *d_group_indices,
     int *d_calc_tag,
     int *d_group_numneigh,
-    int *d_firstneigh_ptrs, MetaD_zqc::ArrayView<const double> d_x_flat,
-    unsigned int current_pass_mask,   // 中心原子该打的标签 (例如：CALC_MASK_IS_I 或 CALC_MASK_IS_J)
-    unsigned int neighbor_mask,       // 邻居原子该打的标签 (例如：CALC_MASK_IS_J 或 CALC_MASK_IS_K)
-    unsigned int neighbor_inc_val,    // 邻居原子计数器自增的位移量 (例如：1U << CALC_SHIFT_I)
+    const int *d_neighbor_ends, MetaD_zqc::ArrayView<const int> candidates,
+    MetaD_zqc::ArrayView<const double> d_x_flat, bool mark_neighbors,
     // out
     int *d_neigh_in_cutoff_r, int *d_LQ_mask,
     double *d_neigh_in_switching,
@@ -311,15 +288,16 @@ __global__ void get_environment_Steinhardt_LocalQ(
         double sum_of_sigma_CNatoms = 0;
         int sum_of_numneigh = 0;
         // give tag mask
-        MASK_ATOMIC_SET_ACTIVE(&d_LQ_mask[c_atom_loctag]);
-        MASK_ATOMIC_SET_VAR(&d_LQ_mask[c_atom_loctag],current_pass_mask);
+        if (mark_neighbors)
+            atomicOr(reinterpret_cast<unsigned int*>(&d_LQ_mask[c_atom_loctag]),
+                     CALC_MASK_ACTIVE | CALC_MASK_IS_I);
         int max_ii=0;
         //find curtoff_Natoms neigh
         int start_neigh = d_group_numneigh[c_atom_loctag];
         for (int neigh_atom=start_neigh;
-                neigh_atom<d_group_numneigh[c_atom_loctag+1];
+                neigh_atom<d_neighbor_ends[c_atom_loctag];
                 neigh_atom++){
-            int n_local_tag = d_firstneigh_ptrs[neigh_atom];
+            int n_local_tag = candidates(neigh_atom);
             double r2,sigma_r,r;
             double temp_x,temp_y,temp_z;
             double neigh_x,neigh_y,neigh_z;
@@ -349,9 +327,11 @@ __global__ void get_environment_Steinhardt_LocalQ(
             // 计算 sum_of_sigma_CNatoms
             sum_of_sigma_CNatoms += sigma_r;
             sum_of_numneigh ++;
-            MASK_ATOMIC_SET_ACTIVE(&d_LQ_mask[n_local_tag]);
-            MASK_ATOMIC_SET_VAR(&d_LQ_mask[n_local_tag],neighbor_mask);
-            MASK_ATOMIC_INC_VAR(&d_LQ_mask[n_local_tag],neighbor_inc_val);
+            // Only the first pass needs a J membership flag. K membership and
+            // packed neighbor counters are not consumed by either CV kernel.
+            if (mark_neighbors)
+                atomicOr(reinterpret_cast<unsigned int*>(&d_LQ_mask[n_local_tag]),
+                         CALC_MASK_ACTIVE | CALC_MASK_IS_J);
         }
         d_neigh_in_cutoff_r[c_atom_calctag] = sum_of_numneigh;
         d_neigh_in_switching[c_atom_calctag] = sum_of_sigma_CNatoms;
@@ -388,11 +368,10 @@ __global__ void steinhardt_Local_cv_get_qlm(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
-    double *d_stein_qlm, double *d_stein_Ylm) {
+    double *d_stein_qlm) {
     // 此处应该计算i,j原子的qlm
 
     int c_atom_calctag = blockIdx.x * blockDim.x + threadIdx.x;
@@ -405,7 +384,6 @@ __global__ void steinhardt_Local_cv_get_qlm(
     // 【与导数核函数完美镜像】的近邻数读取与基础寻址逻辑
     int neigh_num = d_neigh_in_cutoff_r[c_atom_calctag];
     int stein_qlm_base_id = c_atom_loctag * lm_size; // 为了通讯方便，qlm和Ylm都按照local原子标签来存储和访问
-    int stein_Ylm_base_id;
 
     // 如果没有邻居，直接清零退出
     double NFb_i_check = d_neigh_in_switching[c_atom_calctag];
@@ -426,12 +404,10 @@ __global__ void steinhardt_Local_cv_get_qlm(
     double c_z = d_x_flat(c_atom_loctag,2);
 
     int neigh_base = d_group_numneigh[c_atom_loctag];
-    int neigh_pair_base = d_calculated_firstneigh_ptrs[c_atom_calctag];
 
     for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
         int n_local_tag = d_calculated_numneigh[neigh_base + neigh_atom];
         // Ylm 只与原子位置有关，所以可以按照group直接访问不需要扩大数组,所以用c_atom而不是c_atom_tag
-        stein_Ylm_base_id = (neigh_pair_base+neigh_atom)*lm_size;
         double local_Ylm[lm_size] = {0.0};
 
         double neigh_x = d_x_flat(n_local_tag,0);
@@ -452,9 +428,6 @@ __global__ void steinhardt_Local_cv_get_qlm(
         for (int m = 0; m < lm_size; ++m) {
             local_qlm[m] += r_weight * local_Ylm[m];
         }
-        // CUDA 12.2/12.5 的设备端使用通用 memcpy；libcu++ 未提供 cuda::std::memcpy。
-        ::memcpy(&d_stein_Ylm[stein_Ylm_base_id], &local_Ylm,
-                            sizeof(double)*lm_size);
     }
 
     // // --- 循环外归一化与写回全局显存 ---
@@ -476,33 +449,30 @@ template __global__ void steinhardt_Local_cv_get_qlm<3>(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
-    double *d_stein_qlm, double *d_stein_Ylm);
+    double *d_stein_qlm);
 template __global__ void steinhardt_Local_cv_get_qlm<4>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
-    double *d_stein_qlm, double *d_stein_Ylm);
+    double *d_stein_qlm);
 template __global__ void steinhardt_Local_cv_get_qlm<6>(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
-    double *d_stein_qlm, double *d_stein_Ylm);
+    double *d_stein_qlm);
 
 
 template <int L>
@@ -512,7 +482,6 @@ __global__ void steinhardt_Local_cv_get_LQl(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
@@ -552,7 +521,6 @@ __global__ void steinhardt_Local_cv_get_LQl(
     double sum_of_qlm_value_weight_loc[lm_size] = {0.0};
 
     int neigh_base = d_group_numneigh[c_atom_loctag];
-    int neigh_pair_base = d_calculated_firstneigh_ptrs[c_atom_calctag];
 
     for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
         int n_local_tag = d_calculated_numneigh[neigh_base + neigh_atom];
@@ -603,7 +571,6 @@ template __global__ void steinhardt_Local_cv_get_LQl<3>(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
@@ -616,7 +583,6 @@ template __global__ void steinhardt_Local_cv_get_LQl<4>(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
@@ -629,7 +595,6 @@ template __global__ void steinhardt_Local_cv_get_LQl<6>(
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
@@ -663,7 +628,6 @@ __global__ void steinhardt_Local_backward_ij_kernel(
     int group_count,
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
-    int *d_calculated_firstneigh_ptrs,
     int *d_group_indices,
     int *d_group_numneigh,
     int *d_calculated_numneigh,
@@ -715,7 +679,6 @@ __global__ void steinhardt_Local_backward_ij_kernel(
 
     // 邻居的分发
     int neigh_base = d_group_numneigh[c_atom_loctag];
-    int neigh_pair_base = d_calculated_firstneigh_ptrs[c_atom_calctag];
 
     for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
         int n_local_tag = d_calculated_numneigh[neigh_base + neigh_atom];
@@ -830,7 +793,6 @@ template __global__ void steinhardt_Local_backward_ij_kernel<3>(
     int group_count,
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
-    int *d_calculated_firstneigh_ptrs,
     int *d_group_indices,
     int *d_group_numneigh,
     int *d_calculated_numneigh,
@@ -847,7 +809,6 @@ template __global__ void steinhardt_Local_backward_ij_kernel<4>(
     int group_count,
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
-    int *d_calculated_firstneigh_ptrs,
     int *d_group_indices,
     int *d_group_numneigh,
     int *d_calculated_numneigh,
@@ -864,7 +825,6 @@ template __global__ void steinhardt_Local_backward_ij_kernel<6>(
     int group_count,
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_neigh_in_cutoff_r,
-    int *d_calculated_firstneigh_ptrs,
     int *d_group_indices,
     int *d_group_numneigh,
     int *d_calculated_numneigh,
@@ -885,12 +845,11 @@ __global__ void steinhardt_Local_backward_jk_kernel(
     MetaD_zqc::ArrayView<const double> d_x_flat, double *d_neigh_in_switching,
     int *d_group_indices,
     int *d_group_numneigh,
-    int *d_calculated_firstneigh_ptrs,
     int *d_calculated_numneigh,
     int *d_calc_tag,
     int *d_neigh_in_cutoff_r,
     double *d_dcvdx_rjk_prefix,
-    double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql,
+    double *d_stein_qlm, double *d_stein_ql,
     double *d_dcvdx, double *d_a_virial) {
 
     int c_atom_calctag = blockIdx.x * blockDim.x + threadIdx.x;
@@ -936,7 +895,6 @@ __global__ void steinhardt_Local_backward_jk_kernel(
 
 
     int neigh_base = d_group_numneigh[c_atom_loctag];
-    int neigh_pair_base = d_calculated_firstneigh_ptrs[c_atom_calctag];
 
     for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
         int n_local_tag = d_calculated_numneigh[neigh_base + neigh_atom];
