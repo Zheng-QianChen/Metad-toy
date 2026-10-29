@@ -1,0 +1,173 @@
+[
+  {
+    "items": 256,
+    "layouts": {
+      "contiguous": {
+        "median_us": 113.197058,
+        "min_us": 108.2507695,
+        "max_us": 122.9228365,
+        "staging_interval_us": 0.013151999563,
+        "samples_us": [
+          122.9228365,
+          113.197058,
+          108.2507695
+        ],
+        "overhead_us": 0.0,
+        "overhead_percent": 0.0
+      },
+      "input_stride3": {
+        "median_us": 113.1326245,
+        "min_us": 105.6328605,
+        "max_us": 119.860061,
+        "staging_interval_us": 6.28736019135,
+        "samples_us": [
+          119.860061,
+          113.1326245,
+          105.6328605
+        ],
+        "overhead_us": -0.0644334999999927,
+        "overhead_percent": -0.05692153235996002
+      },
+      "both_stride3": {
+        "median_us": 115.8562725,
+        "min_us": 108.9343845,
+        "max_us": 117.344214,
+        "staging_interval_us": 12.4265918732,
+        "samples_us": [
+          108.9343845,
+          115.8562725,
+          117.344214
+        ],
+        "overhead_us": 2.6592145000000045,
+        "overhead_percent": 2.349190471010302
+      },
+      "both_stride8": {
+        "median_us": 111.3475965,
+        "min_us": 109.751069,
+        "max_us": 113.5430075,
+        "staging_interval_us": 12.497376442,
+        "samples_us": [
+          111.3475965,
+          109.751069,
+          113.5430075
+        ],
+        "overhead_us": -1.8494615000000039,
+        "overhead_percent": -1.6338423742426273
+      }
+    }
+  },
+  {
+    "items": 16384,
+    "layouts": {
+      "contiguous": {
+        "median_us": 153.131031,
+        "min_us": 150.1002325,
+        "max_us": 159.908504,
+        "staging_interval_us": 0.0124159995466,
+        "samples_us": [
+          159.908504,
+          153.131031,
+          150.1002325
+        ],
+        "overhead_us": 0.0,
+        "overhead_percent": 0.0
+      },
+      "input_stride3": {
+        "median_us": 158.8170305,
+        "min_us": 156.260197,
+        "max_us": 182.0872035,
+        "staging_interval_us": 6.75651216507,
+        "samples_us": [
+          182.0872035,
+          158.8170305,
+          156.260197
+        ],
+        "overhead_us": 5.68599949999998,
+        "overhead_percent": 3.713159548961686
+      },
+      "both_stride3": {
+        "median_us": 160.1302775,
+        "min_us": 157.220355,
+        "max_us": 162.365654,
+        "staging_interval_us": 12.0010719299,
+        "samples_us": [
+          160.1302775,
+          157.220355,
+          162.365654
+        ],
+        "overhead_us": 6.999246499999998,
+        "overhead_percent": 4.570756465422085
+      },
+      "both_stride8": {
+        "median_us": 163.474974,
+        "min_us": 162.5107265,
+        "max_us": 168.5190395,
+        "staging_interval_us": 12.3960323334,
+        "samples_us": [
+          163.474974,
+          168.5190395,
+          162.5107265
+        ],
+        "overhead_us": 10.343942999999996,
+        "overhead_percent": 6.7549620298710025
+      }
+    }
+  },
+  {
+    "items": 262144,
+    "layouts": {
+      "contiguous": {
+        "median_us": 815.7501085,
+        "min_us": 805.265523,
+        "max_us": 816.095762,
+        "staging_interval_us": 0.015359999612,
+        "samples_us": [
+          816.095762,
+          805.265523,
+          815.7501085
+        ],
+        "overhead_us": 0.0,
+        "overhead_percent": 0.0
+      },
+      "input_stride3": {
+        "median_us": 822.0373335,
+        "min_us": 805.739067,
+        "max_us": 847.0782225,
+        "staging_interval_us": 7.51104021072,
+        "samples_us": [
+          847.0782225,
+          822.0373335,
+          805.739067
+        ],
+        "overhead_us": 6.287225000000035,
+        "overhead_percent": 0.7707292876198293
+      },
+      "both_stride3": {
+        "median_us": 822.0049645,
+        "min_us": 818.6780225,
+        "max_us": 913.416727,
+        "staging_interval_us": 17.4888954163,
+        "samples_us": [
+          822.0049645,
+          913.416727,
+          818.6780225
+        ],
+        "overhead_us": 6.254856000000018,
+        "overhead_percent": 0.7667612832441343
+      },
+      "both_stride8": {
+        "median_us": 828.132023,
+        "min_us": 820.0770415,
+        "max_us": 835.8050935,
+        "staging_interval_us": 19.6642246246,
+        "samples_us": [
+          828.132023,
+          835.8050935,
+          820.0770415
+        ],
+        "overhead_us": 12.381914499999993,
+        "overhead_percent": 1.5178563105272322
+      }
+    }
+  }
+]

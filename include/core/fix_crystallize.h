@@ -10,8 +10,12 @@
 
 #include "fix.h"
 #include "neigh_hub.h"
+#include "../utils/zqc_engine.h"
+#include "../utils/zqc_cv.h"
+#include "zqc_lammps_diagnostics.h"
 
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <utility>
 #include <map> 
@@ -27,149 +31,25 @@ namespace MetaD_zqc {
   class CVAssembly;
   class CVGraphExecution;
 
-  class CV_info {
-    protected:
-      FILE *f_check;
-      LAMMPS_NS::LAMMPS *lmp;
-      LAMMPS_NS::Error *error = nullptr;
-      LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
-    public:
-      CV_info(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
-          : lmp(lmp), f_check(f_check), Fixmetad(Fixmetad) {error=lmp->error; }
-      ~CV_info(){};
-
-      // GPU buffer manager
-      template<typename T>
-      void register_buffer(GpuBuffer<T>& buf, const char* name, int size = 0) {
-          error = lmp->error;
-          buf.set_name(name, this->f_check, this->error, this->lmp);
-          if (size > 0) {
-              buf.grow_to(size, __FILE__, __LINE__);
-          }
-      }
-  };
-
-  class CV {
-    protected:
-      FILE *f_check;
-      LAMMPS_NS::LAMMPS *lmp;
-      LAMMPS_NS::Error *error = nullptr;
-      LAMMPS_NS::FixMetadynamics *Fixmetad = nullptr;
-      double cv_value = 0.0;
-      double *dcvdx = nullptr;
-      double dVdcv = 0.0;
-      std::shared_ptr<const CVAssembly> assembly_; // 外部筛好的 owned/ghost 编号和 owned Leaf 写入位置
-      // double virial[6]={0.0};
-    public:
-      CV(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check)
-          : lmp(lmp), f_check(f_check), Fixmetad(Fixmetad) {error=lmp->error; }
-      virtual ~CV() {
-          if (dcvdx != nullptr) {
-              delete[] dcvdx; 
-              dcvdx = nullptr;
-          }
-      }
-      typedef double (CV::*CV_Calculation)();
-      typedef void (CV::*CV_BiasForce)(double);
-      virtual CV_Calculation set_CV_calculate(std::string func_name) = 0;
-      virtual CV_BiasForce set_CV_bias_force(std::string func_name) = 0;
-      virtual void base_calc() = 0; // 计算 CV 值
-      // virtual double compute_cv() = 0; // 计算 CV 值
-      // virtual void bias_force(double dVdcv) = 0; // 计算梯度
-      virtual void summary(FILE* f) = 0;
-      // virtual void get_dcvdx(double cv_value, double *dcvdx) = 0;
-
-      inline void set_cv_value(double value) noexcept {cv_value = value;}
-
-      // GPU buffer manager
-      template<typename T>
-      void register_buffer(GpuBuffer<T>& buf, const char* name, int size = 0) {
-          buf.set_name(name, f_check, error, lmp);
-          if (size > 0) {
-              buf.grow_to(size, __FILE__, __LINE__);
-          }
-      }
-
-      // 由管理层绑定装配表；装配前先完成 base_calc()，目标显存由 Leaf/调用方持有。
-      virtual void bind_assembly(std::shared_ptr<const CVAssembly> assembly) {
-          assembly_ = std::move(assembly);
-      }
-      // 负值表示尚未实现原始值/梯度接口；Graph 在运行前拒绝不支持的 CV。
-      virtual int graph_groupbit() const { return -1; }
-      // Graph 每轮先准备全部输入，再开始 base_calc；共享环境不能在逐个计算时失效。
-      virtual void prepare_graph_evaluation() {}
-      const CVAssembly* assembly() const { return assembly_.get(); }
-      virtual void assemble_values(GpuBuffer<double>&) {
-          throw std::logic_error("CV: value assembly is not implemented");
-      }
-      // 输入为 Leaf 排列的 dV/dcv_i；各 rank 按相同 CV 顺序调用，包含空组 rank。
-      virtual void apply_adjoint(const GpuBuffer<double>&) {
-          throw std::logic_error("CV: raw adjoint is not implemented");
-      }
-
-      // 全局标量 CV 在 base_calc 中完成跨 rank 汇总；Graph 的 Host Leaf 保存同一数值。
-      virtual bool supports_global_graph() const { return false; }
-      virtual double graph_global_value() const {
-          throw std::logic_error("CV: global graph value is not implemented");
-      }
-      // seed 为每个 rank 上相同的 dV/dcv；CV 将力和 virial 写入各自 owned 原子。
-      virtual void apply_global_adjoint(double seed) {
-          throw std::logic_error("CV: global graph adjoint is not implemented");
-      }
-
-      // 通信宽度为每原子的 double 数；0 表示该方向无需通信，各 rank 使用同一宽度。
-      virtual int get_comm_forward_width() const { return 0; }
-      virtual int get_comm_reverse_width() const { return 0; }
-      // pack 返回每原子写入的 double 数，由 Fix 校验后换算为总发送长度。
-      // forward 将 owned 属性写入 ghost；reverse 将 ghost 贡献累加回 owner。
-      virtual int pack_comm_forward_ubuf(int n, int *list, double *buf, int offset, int stride) { return 0; }
-      virtual void unpack_comm_forward_ubuf(int n, int first, double *buf, int offset, int stride) {}
-      virtual int pack_comm_reverse_ubuf(int n, int first, double *buf, int offset, int stride) { return 0; }
-      virtual void unpack_comm_reverse_ubuf(int n, int *list, double *buf, int offset, int stride) {}
-
-      // 返回该 CV 是否有“每个原子”的数据
-      virtual bool has_per_atom_data() { return false; }
-      virtual double* get_per_atom_data() { return nullptr; }
-      virtual std::string get_per_atom_name() { return ""; }
-
-      // 返回该 CV 是否有“整个体系”的标量数据
-      virtual bool has_global_data() { return false; }
-      virtual double get_global_data() { return 0.0; }
-      virtual std::string get_global_name() { return ""; }
-
-      // Compute接口
-      virtual double* get_peratom_ptr(const std::string &prop_name) { return nullptr; }
-  };
 
   class MetaDimensionManager;
 
-  class Gaussian_Hill_Base;
+  class BiasSession;
+  class FrozenSharedBias;
+  class OnlineSharedBias;
   // class GH_t0_uniformGrid;
 
   class SwitchFunction;
 
-  class CVFactory {
-    typedef CV* (*CreatorFunc)(LAMMPS_NS::LAMMPS*,
-                    LAMMPS_NS::FixMetadynamics *, FILE*, 
-                   int, char**, int&);
-    private:
-      // 用静态方法包裹 map，确保初始化顺序安全
-      static std::map<std::string, CreatorFunc>& get_registry();
-    public:
-      CVFactory() {};
-      CVFactory(const CVFactory&) = delete;
-      CVFactory& operator=(const CVFactory&) = delete;
-      static void register_cv(std::string name, CreatorFunc func);
-      static CV* create(std::string name, LAMMPS_NS::LAMMPS* lmp, 
-                        LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                        int narg, char** arg, int &i);
-  };
+
 }
 
 namespace LAMMPS_NS {
   class FixMetadynamics : public Fix {
   public:
     MetaD_zqc::NeighHub neigh_hub;
+    // 适配器持有一轮 CV 求值共享的数组暂存和邻居请求，寿命覆盖所有 CV。
+    std::unique_ptr<MetaD_zqc::EngineAdapter> engine_adapter;
     std::map<std::string, MetaD_zqc::SwitchFunction*> sw_registry;
 
     // return values for compute_scalar and compute_vector
@@ -183,11 +63,14 @@ namespace LAMMPS_NS {
     void init() override;
     void setup(int vflag) override;
     void init_list(int id, NeighList *ptr) override;
+    void setup_post_neighbor() override;
+    void post_neighbor() override;
+    void min_post_neighbor() override;
 
     // communication
     // 所有 rank 按相同 CV 顺序调用，包含本地中心组为空的 rank。
-    void communicate_forward(MetaD_zqc::CV& cv);
-    void communicate_reverse(MetaD_zqc::CV& cv);
+    void communicate_forward(MetaD_zqc::AtomCommunication& payload);
+    void communicate_reverse(MetaD_zqc::AtomCommunication& payload);
     int pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/) override;
     void unpack_forward_comm(int n, int first, double *buf) override;
     int pack_reverse_comm(int n, int first, double *buf) override;
@@ -207,18 +90,21 @@ namespace LAMMPS_NS {
     double *a_virial;
   private:
     enum class CommDirection { None, Forward, Reverse };
-    // 一次阻塞通信期间，由四个 LAMMPS 回调共同借用当前 CV。
+    // 一次阻塞通信期间，由四个 LAMMPS 回调共同借用当前数据包。
     struct CVCommunication {
-      MetaD_zqc::CV* cv = nullptr;
+      MetaD_zqc::AtomCommunication* payload = nullptr;
       int width = 0;
       CommDirection direction = CommDirection::None;
     } active_comm;
     void init_cv_communication();
-    void communicate(MetaD_zqc::CV& cv, CommDirection direction);
+    void communicate(MetaD_zqc::AtomCommunication& payload, CommDirection direction);
     int comm_buffer_size(int n, CommDirection direction) const;
     void evaluate_bias(int vflag, bool advance_history);
     int cv_dim,nbin_num;
-    MetaD_zqc::Gaussian_Hill_Base *p_gaussian;
+    MetaD_zqc::BiasSession *p_gaussian;
+    std::unique_ptr<MetaD_zqc::FrozenSharedBias> shared_frozen_bias;
+    std::unique_ptr<MetaD_zqc::OnlineSharedBias> shared_online_bias;
+    MetaD_zqc::SelectionId shared_frozen_selection = MetaD_zqc::all_atoms;
     int pace,rec_pace;
     bool first_run;
     // double cv1_min, cv1_max, cv2_min, cv2_max;
@@ -231,6 +117,9 @@ namespace LAMMPS_NS {
       std::string func;
     };
     std::map<std::string, MetaD_zqc::CV*> cal_registry;
+    // compute::init 先于 fix::init：每次运行收集当前存在的输出请求，随后替换活动集合。
+    std::set<MetaD_zqc::CV*> pending_output_cvs, output_cvs;
+    std::map<std::string,std::vector<double>> peratom_output; // compute 的 Host 连续列
     MetaD_zqc::MetaDimensionManager *cv_configs;
     std::unique_ptr<MetaD_zqc::CVGraphExecution> graph_execution;
     // FILE *file;

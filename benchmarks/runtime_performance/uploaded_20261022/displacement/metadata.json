@@ -1,0 +1,24 @@
+{
+  "plugins": {
+    "uploaded": {
+      "path": "/home/zqc/work/Metad-toy/build/performance/uploaded_2d9ac78/fix_crystallize_plugin.so",
+      "sha256": "67b9ca52375508986a734af1de767f1d9bbc779df42e0b73a8fa1f1db17b1ef2"
+    },
+    "current": {
+      "path": "/home/zqc/work/Metad-toy/build/performance/current/fix_crystallize_plugin.so",
+      "sha256": "422782f4c882451820e3b40c831fafc1e52cef74e747ce4956681e759548c66f"
+    }
+  },
+  "lmp": "/home/zqc/apps/deepmd/bin/lmp_mpi",
+  "mpi": "/home/zqc/apps/deepmd/bin/mpirun",
+  "repeats": 3,
+  "warmup": 100,
+  "target_seconds": 3.0,
+  "cpu_threads": 1,
+  "mpi_args": "--bind-to none",
+  "cuda_visible_devices": "0",
+  "neighbor_rebuild": "displacement",
+  "timing": "LAMMPS final Loop time, warmed fixed translation, shared GPU",
+  "script_sha256": "dce0127c4c77180c6ff398f5e7de7e3b15e24ff81b20a9097d6414ced11dcbe9",
+  "gpu": "name, driver_version, temperature.gpu, clocks.current.sm [MHz], power.draw [W]\nNVIDIA GeForce RTX 4080 SUPER, 610.88, 51, 2610 MHz, 41.18 W\n"
+}

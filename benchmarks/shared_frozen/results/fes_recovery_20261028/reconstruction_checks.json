@@ -1,0 +1,6 @@
+{
+  "cli_probability_max_error": 3.4833247397614286e-15,
+  "frames": 1600000,
+  "reference_used": false,
+  "weight_formula": "exp(B/kBT), full frame bias B"
+}

@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-23",
+  "host": "310_right",
+  "tests_passed": 4,
+  "tests_total": 4,
+  "gpumd_executable_sha256": "3c8dbfaa63e30c6c6f28911cb87eb36173f26bc0d900e08ef1fe13439c00211a",
+  "executable_unchanged_after_library_only_rebuild": true,
+  "independent_runtime_without_gpumd_sources": true,
+  "installed_runtime_with_original_executable": true,
+  "c11_header_check": true,
+  "static": {
+    "none": {
+      "energy": 0.0,
+      "force": 0.0,
+      "virial": 6.938893903907228e-18
+    },
+    "native": {
+      "energy": 0.0,
+      "force": 1.3877787807814457e-17,
+      "virial": 6.938893903907228e-18
+    },
+    "bridge": {
+      "energy": 0.0,
+      "force": 1.3877787807814457e-17,
+      "virial": 6.938893903907228e-18
+    },
+    "square": {
+      "energy": 0.0,
+      "force": 1.3877787807814457e-17,
+      "virial": 6.938893903907228e-18
+    },
+    "shared": {
+      "energy": 0.0,
+      "force": 8.881784197001252e-16,
+      "virial": 8.881784197001252e-16
+    },
+    "finite_difference_force_max_eV_per_A": 6.980299005476809e-09
+  },
+  "sampling": {
+    "seed": 73517,
+    "steps": 2000,
+    "hills": 18,
+    "seconds": 0.5265219695866108,
+    "hills_sha256": "36c53f8a8816fc31669f09d18e3112941a19ca23808db83888e518aa6d61bd70",
+    "colvar_sha256": "4cc3a871241164cd6c8411792c85cc43f96d7b03bbdbb2ab46721471d4cb859e",
+    "ms_per_step": 0.2632609847933054,
+    "distance_min_A": 1.1581530561832154,
+    "distance_max_A": 1.2629255168712958
+  }
+}

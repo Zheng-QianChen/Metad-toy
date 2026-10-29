@@ -1,0 +1,32 @@
+{
+  "name": "uploaded_2d9ac78",
+  "commit": "2d9ac7801ed7f093d5e83312f707e2167a337595",
+  "source": "/home/zqc/work/Metad-toy/build/performance/sources/uploaded_2d9ac78",
+  "archive_sha256": "0330d063c81e44d83bc2c42b4cbfd56aad4fbf24785789895fbbe692b20cda28",
+  "configure_command": [
+    "/home/zqc/apps/cmake/3.31.8/bin/cmake",
+    "-S",
+    "/home/zqc/work/Metad-toy/build/performance/sources/uploaded_2d9ac78",
+    "-B",
+    "/home/zqc/work/Metad-toy/build/performance/uploaded_2d9ac78",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_CXX_COMPILER=/home/zqc/apps/deepmd/bin/mpicxx",
+    "-DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc",
+    "-DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++",
+    "-DCLEAN_HOST_COMPILER=/usr/bin/g++",
+    "-DCMAKE_CUDA_ARCHITECTURES=89",
+    "-DUSE_ML_CVS=OFF",
+    "-DENABLE_DEBUG=OFF",
+    "-DENABLE_ASAN=OFF",
+    "-DLAMMPS_SOURCE_DIR=/home/zqc/apps/lammps/lammps-stable_29Aug2024/src",
+    "-DLAMMPS_LIB_DIR=/home/zqc/apps/deepmd/lib",
+    "-DMPI_HOME=/home/zqc/apps/deepmd"
+  ],
+  "plugin": "/home/zqc/work/Metad-toy/build/performance/uploaded_2d9ac78/fix_crystallize_plugin.so",
+  "plugin_sha256": "67b9ca52375508986a734af1de767f1d9bbc779df42e0b73a8fa1f1db17b1ef2",
+  "build_seconds": 104.11259462300222,
+  "verified_export_files": 367,
+  "source_modifications": [],
+  "remote_main_verified_commit": "2d9ac7801ed7f093d5e83312f707e2167a337595",
+  "compiler_notes": "Original committed CMake; Release -O3 -DNDEBUG, sm_89, CUDA 12.6, GCC 11.4 through the same OpenMPI wrapper; original --generate-line-info retained."
+}

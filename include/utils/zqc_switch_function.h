@@ -12,14 +12,8 @@
 
 #include "zqc_switch_function_device.cuh"
 
-#include "error.h"
-#include "comm.h"
-
-#include "zqc_debug.h"
-#include "lammps.h"
-#include "utils.h"
-
-namespace LAMMPS_NS { class FixMetadynamics; }
+#include "zqc_cv_parse.h"
+#include "zqc_diagnostics.h"
 
 namespace MetaD_zqc {
 
@@ -84,86 +78,37 @@ namespace MetaD_zqc {
                 double _alpha, int _n = 6, int _m = 12)
             : params({_type, _r_0, _d_0, _alpha, _n, _m}) {}
 
-        static inline SwitchFunction* create(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad,
-                         FILE *f_check, int narg, char **arg, int &i) {
-            DEBUG_LOG("In SW_FUNC settings");
-            LAMMPS_NS::Error *error = lmp->error;
-
-            i++;
-
-            // 1. 初始化一个默认请求参数包（由于放弃多态，直接在栈上初始化默认结构体）
-            SwitchFunctionRequest req;
-            req.type = RATIONAL;
-            req.r_0 = 1.25;
-            req.d_0 = 0.0;
-            req.alpha = 20.0;
-            req.n = 6;
-            req.m = 12;
-
-            // 🚨 此时 arg[i] 应该是开关函数子类型的关键字（例如：FERMI, TANH, RATIONAL）
-            ERR_COND(i >= narg, "Error: SW_FUNC command requires a type (LINE, STEP, FERMI, TANH, RATIONAL).");
-            std::string sw_type_str = arg[i];
-            
-            if (sw_type_str == "STEP") {
-                req.type = STEP;
-                req.r_0 = 1.0;
-            } else if (sw_type_str == "FERMI") {
-                req.type = FERMI;
-                req.r_0 = 1.0; 
-                req.alpha = 20.0;
-            } else if (sw_type_str == "TANH") {
-                req.type = TANH_TYPE;
-                req.r_0 = 1.0;
-                req.alpha = 20.0;
-            } else if (sw_type_str == "RATIONAL") {
-                req.type = RATIONAL;
-                req.r_0 = 1.25;
-                req.d_0 = 0.0;
-                req.n = 6;
-                req.m = 12;
-            } else {
-                ERR_COND(1, "Error: Unknown SW_func type. Choose from FERMI, TANH, RATIONAL.");
+        // index 进入时指向名称，返回时指向下一个主关键字；日志交由宿主回调。
+        static SwitchFunction* create(int argument_count, char** arguments,
+                                      int& index, Logger logger = {}) {
+            ++index;
+            if (index >= argument_count)
+                throw std::invalid_argument("SW_FUNC requires a type (STEP, FERMI, TANH, RATIONAL)");
+            SwitchFunctionRequest request{RATIONAL, 1.25, 0.0, 20.0, 6, 12};
+            const std::string type = arguments[index++];
+            if (type == "STEP") { request.type = STEP; request.r_0 = 1.0; }
+            else if (type == "FERMI") { request.type = FERMI; request.r_0 = 1.0; }
+            else if (type == "TANH") { request.type = TANH_TYPE; request.r_0 = 1.0; }
+            else if (type != "RATIONAL") throw std::invalid_argument("Unknown SW_FUNC type: " + type);
+            while (index < argument_count) {
+                const std::string parameter = arguments[index];
+                if (parameter != "r_0" && parameter != "d_0" && parameter != "alpha" &&
+                    parameter != "n" && parameter != "m") break;
+                if (index + 1 >= argument_count)
+                    throw std::invalid_argument("SW_FUNC parameter requires a value: " + parameter);
+                const char* value = arguments[index+1];
+                if (parameter == "r_0") request.r_0 = cv_number(value);
+                else if (parameter == "d_0") request.d_0 = cv_number(value);
+                else if (parameter == "alpha") request.alpha = cv_number(value);
+                else if (parameter == "n") request.n = cv_integer(value);
+                else request.m = cv_integer(value);
+                index += 2;
             }
-
-            // 2. 仿照你的风格，使用 iarg 从 i+1 开始向后解析亚参数
-            int iarg = i + 1;
-            printf("im in SwitchFunction::create, with type=%s\n", sw_type_str.c_str());
-
-            while (iarg < narg) {
-                if (strcmp(arg[iarg], "r_0") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: 'r_0' requires a numeric value");
-                    req.r_0 = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "d_0") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: 'd_0' requires a numeric value");
-                    req.d_0 = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "alpha") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: 'alpha' requires a numeric value");
-                    req.alpha = LAMMPS_NS::utils::numeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "n") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: 'n' requires an integer value");
-                    req.n = LAMMPS_NS::utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else if (strcmp(arg[iarg], "m") == 0) {
-                    ERR_COND((iarg + 1 >= narg), "Error: 'm' requires an integer value");
-                    req.m = LAMMPS_NS::utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
-                    iarg += 2;
-                } else {
-                    // 遇到不属于当前开关函数的参数（例如到了下一个主关键字 CAL 等），退出当前解析
-                    break;
-                }
-            }
-
-            // 3. 🚨【核心】同步更新外层的参数索引指针 `i`，确保外层大循环不会乱
-            i = iarg;
-
-            LOG("[Metad-toy LOG] SW_FUNC parsed: %s, r_0=%g, d_0=%g, alpha=%g, n=%d, m=%d",
-                        sw_type_str.c_str(), req.r_0, req.d_0, req.alpha, req.n, req.m);
-
-            // 4. 通过动态全参数构造函数，new 出统一的计算类实例，返回并注册到 sw_registry 中
-            return new MetaD_zqc::SwitchFunction(req.type, req.r_0, req.d_0, req.alpha, req.n, req.m);
+            logger.printf(LogLevel::Info, "SwitchFunction", __FILE__, __LINE__,
+                          "SW_FUNC %s: r_0=%g d_0=%g alpha=%g n=%d m=%d",
+                          type.c_str(), request.r_0, request.d_0, request.alpha, request.n, request.m);
+            return new SwitchFunction(request.type, request.r_0, request.d_0,
+                                      request.alpha, request.n, request.m);
         }
 
         __host__ __forceinline__ double f(double S_i) const {

@@ -41,10 +41,10 @@ int main(){
         graph_sample_inputs<<<1, 32>>>(cv1_values.ptr, cv2_values.ptr,
                                      cv3_values.ptr, cv4_values.ptr, count);
         sync_kernel();
-        Leaf cv1(cv1_values, count, {Domain::PerAtom, 1});
-        Leaf cv2(cv2_values, count, {Domain::PerAtom, 1});
-        Leaf cv3(cv3_values, count, {Domain::PerAtom, 1});
-        Leaf cv4(cv4_values, count, {Domain::PerAtom, 1});
+        Leaf cv1(cv1_values, count, {ValueDomain::PerAtom, 1});
+        Leaf cv2(cv2_values, count, {ValueDomain::PerAtom, 1});
+        Leaf cv3(cv3_values, count, {ValueDomain::PerAtom, 1});
+        Leaf cv4(cv4_values, count, {ValueDomain::PerAtom, 1});
         const Graph::Symbols symbols{
             {"v1", &cv1}, {"v2", &cv2}, {"v3", &cv3}, {"v4", &cv4}
         };

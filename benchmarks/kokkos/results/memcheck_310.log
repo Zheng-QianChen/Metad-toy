@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+[NeighHub] register id=1 key=1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_1_4239114433 occasional=0 ghost=0 cut=4.23911 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] register id=2 key=1_0_0_0_1_0_0_0_0_0_0_0_0_0_0_0_0_0_1_4239114433 occasional=0 ghost=1 cut=4.23911 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] register id=3 key=1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_1_3050000000 occasional=0 ghost=0 cut=3.05 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] register id=4 key=1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_1_4839114433 occasional=0 ghost=0 cut=4.83911 (add_request deferred to Fix::init / rerequest_all)
+[NeighHub] rerequest_all: 4 id(s)
+[NeighHub] rerequest_all: 4 id(s)
+[NeighHub] rerequest_all: 4 id(s)
+[NeighHub] rerequest_all: 4 id(s)
+[NeighHub] rerequest_all: 4 id(s)
+PASS: trajectory, force, virial, compute output, sorting and refresh
+========= ERROR SUMMARY: 0 errors

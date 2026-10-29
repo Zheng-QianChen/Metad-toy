@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "pairs": 512,
+  "energy_max": 3.2566256202242415e-14,
+  "gradient_max": 1.438849039914203e-13,
+  "permutation_max": 0.0,
+  "finite_difference_max": 6.304974320414658e-10,
+  "host": "same physical-CV interpolator as Langevin sampler",
+  "device": "production FrozenSharedBias via CUDA benchmark bridge"
+}

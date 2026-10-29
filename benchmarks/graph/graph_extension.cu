@@ -15,7 +15,7 @@ Node* create_scaled_square(Graph& graph, const GraphExpr& call) {
 // Deliberately does not inherit MEAN: Graph must use the reduction interface.
 struct ExternalAverage : Node {
     Node* input;
-    explicit ExternalAverage(Node* input_) : Node({Domain::Global, 1}), input(input_) {
+    explicit ExternalAverage(Node* input_) : Node({ValueDomain::Global, 1}), input(input_) {
         n = 1;
     }
     void forward() override { throw std::logic_error("external reduction"); }

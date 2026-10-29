@@ -1,6 +1,9 @@
 # Experimental runtime graph prototype
 
-这是运行时图编译的实验性原型（experimental prototype / proof of concept），用于功能验证和性能对比，不是正式发布版本。LAMMPS 的 `evaluate_bias` 已可通过 `EXECUTOR GRAPH` 接入本图实现。Stru_factor、化学结构因子、CSS 和 WEIGHT_CHEM 已提供该接口。
+这是运行时图编译的实验性原型（experimental prototype / proof of concept），用于功能验证和性能对比，不是正式发布版本。LAMMPS 的 `evaluate_bias` 已可通过 `EXECUTOR GRAPH` 接入本图实现。DISTANCE、Stru_factor、化学结构因子、CSS、WEIGHT_CHEM、Q 和 Local Q 已提供该接口。
+
+
+> 生产 CV、Graph/Leaf、CVAssembly 和 CVGraph 已使用通用 view/回调，完整 LAMMPS 插件已编译并完成数值验证。真实 GPUMD EnhancedSampling/Kokkos 后端仍需实现；当前范围与测试记录见 [ENGINE_ADAPTER.md](ENGINE_ADAPTER.md)。
 
 ## 文件与职责
 
@@ -84,9 +87,9 @@ run.backward({dV_dDIM1, dV_dDIM2});
 
 反向先将所有输出的种子注入 Host 图，累加共享节点贡献，再以 `g_AVE / N_global` 为 GPU 反向种子。每个 rank 接收同一组全局输出种子，不把这些种子再次求和。输入数据及节点参数从 forward 到 backward 期间必须保持不变。
 
-构图通过 `Graph(..., {}, communicator)` 指定 MPI 通信器；手工创建节点时传入 `AVE(input, communicator)`。传入的通信器必须在执行器使用期间存活，各 rank 必须构建相同的拓扑/规约顺序。省略通信器（`MPI_COMM_NULL`）表示明确的单进程规约，不自动使用 `MPI_COMM_WORLD`。MPI 初始化/结束仍由调用方负责。
+构图通过 `Graph(..., {}, sum_reducer)` 注入求和回调；手工创建节点时传入 `AVE(input, sum_reducer)`。`SumReducer` 原地处理 `double*` 和元素数，省略回调表示本地规约。生产桥接使用 `engine.sum_reducer()`，MPI 验证使用测试专用 `mpi_sum_reducer.h`。Graph 本身不包含 MPI；调用方管理通信器及初始化/结束，并保证各 rank 的拓扑和规约顺序一致。
 
-`Global` 叶子可以用 `Leaf({value}, {Domain::Global, 1})` 构造；其 `val/adj` 指向 Host 标量。只有全局标量的图不会分配节点显存或编译 kernel。`PerAtom` 的 `val/adj` 仍指向设备内存。
+`Global` 叶子可以用 `Leaf({value}, {ValueDomain::Global, 1})` 构造；其 `val/adj` 指向 Host 标量。只有全局标量的图不会分配节点显存或编译 kernel。`PerAtom` 的 `val/adj` 仍指向设备内存。
 
 当前执行器要求最终输出均为全局标量，支持一段逐原子融合计算后接 Host 规约和标量运算。暂不支持 Global 再广播回 PerAtom、多组不同本地长度或通用向量分量。图拓扑在执行器生存期间固定；本地长度改变后调用 `resize_inputs()` 更新执行缓冲，同长度的外部 GpuBuffer 地址变化会在 forward 时刷新。LAMMPS 接入层负责原子迁移后的布局更新。
 
@@ -94,15 +97,16 @@ run.backward({dV_dDIM1, dV_dDIM2});
 
 ## CV 装配表（接入的第一步）
 
-`zqc_cv_assembly.cuh` 提供 `CVAtomLayout` 和 `CVAssembly`。外部管理层根据各 CV 的 groupbit，遍历 `nlocal + nghost` 个原子，构造公共并集和每组的 `local_ids`（localtag）与 `leaf_slots`。相同 group 共享装配表。编号是本地数组下标，不是全局 atom tag；`localtag < nlocal` 为 owned，`localtag >= nlocal` 为 ghost。
+`zqc_cv_assembly.cuh` 提供 `CVAtomLayout` 和 `CVAssembly`。外部管理层从引擎取得各 CV 的 `SelectionView`，以选择集编号区分身份，构造公共并集和每组的 `local_ids`（localtag）与 `leaf_slots`。相同 group 共享装配表。编号是本地数组下标，不是全局 atom tag；`localtag < nlocal` 为 owned，`localtag >= nlocal` 为 ghost。
 
 每组的 `local_ids()` / `device_local_ids()` 都包含 owned 和组内 ghost，保持 owned 在前、ghost 在后。`group_count()` 只统计 owned，`total_count()` 包含 ghost。因此 CV 可用前 `group_count` 项作计算中心，同时保留表尾 ghost 编号。`leaf_count()` 只统计公共并集中的 owned；ghost 的 `leaf_slots` 为 -1，不装配到 Leaf，也不重复参与规约。这里只处理编号，不复制坐标；邻居表仍可访问组外原子。
 
 ```cpp
 MetaD_zqc::CVAtomLayout atoms;
-atoms.rebuild(nlocal, nghost, host_mask, {groupbit_a, groupbit_b});
-auto a_map = atoms.group(groupbit_a);
-auto b_map = atoms.group(groupbit_b);
+atoms.rebuild(nlocal, nghost, {engine.selection_members(selection_a),
+                                 engine.selection_members(selection_b)});
+auto a_map = atoms.group(selection_a);
+auto b_map = atoms.group(selection_b);
 
 GpuBuffer<double> a_values(atoms.leaf_count()), a_grad(atoms.leaf_count());
 GpuBuffer<double> b_values(atoms.leaf_count()), b_grad(atoms.leaf_count());
@@ -111,15 +115,23 @@ cv_a.bind_assembly(a_map);
 cv_b.bind_assembly(b_map);
 cv_a.base_calc();
 cv_b.base_calc();
-cv_a.assemble_values(a_values);
-cv_b.assemble_values(b_values);
-Leaf a(a_values, a_grad, atoms.leaf_count());
-Leaf b(b_values, b_grad, atoms.leaf_count());
+cv_a.assemble_values(a_values.view(atoms.leaf_count()));
+auto a_view = a_values.view(atoms.leaf_count());
+a_view.readiness = cv_a.device_readiness(); // 记录 CV 流上装配完成的位置
+cv_b.assemble_values(b_values.view(atoms.leaf_count()));
+auto b_view = b_values.view(atoms.leaf_count());
+b_view.readiness = cv_b.device_readiness();
+Leaf a(a_view, a_grad.view(atoms.leaf_count()));
+Leaf b(b_view, b_grad.view(atoms.leaf_count()));
 ```
 
 `Stru_factor` 绑定外部表后只将前 `group_count` 个 owned 编号交给中心 kernel，不再扫描 mask 筛组，也不把表尾 ghost 复制进 owned 中心缓冲区；不绑定时保留原接口。装配在 GPU 上完成，先清零公共目标区间，再填入该 CV 的 owned 值，不读取 ghost CV 值（这些值此时可以尚未计算或通信）。Leaf 读取连续数组。目标缓冲区由调用方/Leaf 持有，装配不会偷偷扩容或缓存其地址。装配与后续读取必须在相同 CUDA stream 上，或由调用方建立同步依赖；接口返回不代表 GPU 操作已完成。
 
-图反向后调用 `cv_a.apply_adjoint(a_grad)`。普通 Stru_factor 在内部使用 `gather_adjoint` 提取 A 实际计算过的中心梯度，顺序与 `a_map->local_ids()` 的前 `group_count` 项一致，调用方无需再做一次 gather。ghost 表尾不产生额外的中心梯度；缺失位置是常量零，即使图对那个槽位产生非零导数，也不会传给 CV。
+上例使用生产 CV 的 View 接口，每轮装配后通过 `device_readiness()` 发布完成事件并重新 `leaf.bind(...)`；生产桥接 `CVGraphExecution` 已负责这一步。直接使用 `CVAssembly::assemble_values(raw_buffer, leaf_buffer, stream)` 时，GpuBuffer 重载会自动登记输出事件，`Leaf(leaf_buffer, ...)` 在每次 forward 时刷新 View，因此重新装配后可以直接 forward。`gather_adjoint` 的 GpuBuffer 重载同样登记输出事件，`download_to()` 在下载流上等待它。
+
+通过 `GpuBuffer::ptr` 或借用的 ArrayView 自行启动 kernel 时，生产者负责发布依赖：先 `buffer.wait_on(stream)`，提交写入，再 `buffer.record_write(stream)`，随后取得 View。独立 ArrayView 可使用 `producer.ready()`。覆写或扩容前须保证上一轮消费者已结束；Graph 的 forward/backward 在返回前完成各自访问。
+
+图反向后调用 `cv_a.apply_adjoint(a_grad.view(atoms.leaf_count()))`。普通 Stru_factor 在内部使用 `gather_adjoint` 提取 A 实际计算过的中心梯度，顺序与 `a_map->local_ids()` 的前 `group_count` 项一致，调用方无需再做一次 gather。ghost 表尾不产生额外的中心梯度；缺失位置是常量零，即使图对那个槽位产生非零导数，也不会传给 CV。
 
 原子迁移、排序、ghost 列表或动态 group 改变后重建并重新绑定；从前向到反向期间不能更换这份布局。`shared_ptr` 保证旧表的生命周期，但不能自动判断外部原子顺序是否过期。公共表长度变化时通过 `GraphExecution::resize_inputs()` 更新缓冲并保留已编译的 kernel。组表构造的循环代价约为 `O(nlocal + nghost + union_total * distinct_groups)`，尚无性能测量；它不保证比已有共享 CV 环境的筛选更快。
 
@@ -131,17 +143,20 @@ Leaf b(b_values, b_grad, atoms.leaf_count());
 
 `Stru_fact_env::data` 是长期存在的 `StruFactorData`，集中持有 `group_count` 和五个原有 GpuBuffer：`d_group_indices`、`d_group_numneigh`、`d_neigh_in_cutoff_r`、`d_calculated_numneigh`、`d_group_dminneigh`。数组名称、元素类型和原环境的共享关系保持一致，不复制拥有显存的对象；具体 CV 的值及梯度缓冲区仍由 CV 持有。
 
-`set_context()` 统一绑定各缓冲区的名称、日志、错误处理和 LAMMPS 对象；`grow_centers()` / `grow_neighbors()` 调用已有 `GpuBuffer::grow_to()`，保留原有申请数量和容量复用策略。启动函数接收 `const StruFactorData&`，在内部提取当前指针参数包，字段也使用原名。提取过程只复制指针和数量，不分配显存、不上传数据、不增加同步；扩容后下一次启动会自动取得新指针。独立验证通过定长构造函数使用 GpuBuffer 的无 LAMMPS 分配入口。
+`set_logger()` 为各缓冲区绑定名称和通用诊断回调；LAMMPS 适配层通过 `make_lammps_logger()` 转发到输出文件。`grow_centers()` / `grow_neighbors()` 调用 `GpuBuffer::grow_to()`，保留容量复用策略。启动函数接收 `const StruFactorData&`，内部参数包沿用数组名称，按当前设备地址生成。独立验证可以直接构造、扩容缓冲区；失败通过 `GpuBufferError` 回到调用方。
 
 单组的调用顺序如下（图和执行器的创建见上文）：
 
 ```cpp
-cv.bind_assembly(atoms.group(groupbit));
+cv.bind_assembly(atoms.group(selection_id));
 cv.base_calc();
-cv.assemble_values(values);       // Leaf 借用 values 和 gradients
+cv.assemble_values(values.view(atoms.leaf_count()));
+auto input = values.view(atoms.leaf_count());
+input.readiness = cv.device_readiness();
+leaf.bind(input, gradients.view(atoms.leaf_count()));
 const auto dimensions = run.forward();
 run.backward({dV_dDIM1, dV_dDIM2});
-cv.apply_adjoint(gradients);      // 输入为 Leaf 排列的完整 GPU 梯度数组
+cv.apply_adjoint(gradients.view(atoms.leaf_count()));      // 输入为 Leaf 排列的完整 GPU 梯度数组
 ```
 
 新反向针对每个 owned 中心的 `dV/dS_i`，将物理力 `-dV/dr` 和六分量 virial 累加到所有受影响原子，包括组外邻居和 ghost。CV 调用 LAMMPS reverse communication 汇总 ghost 贡献，再将 owned 贡献加到力和 virial 数组。所有 rank 必须按相同 CV 顺序调用，包括空中心组的 rank；从前向到反向期间保持坐标、参数和装配表不变。化学结构因子与 WEIGHT_CHEM 共用该生命周期，根据各自径向定义选择设备函数。
@@ -150,12 +165,11 @@ cv.apply_adjoint(gradients);      // 输入为 Leaf 排列的完整 GPU 梯度�
 
 ## 构建与验证
 
-在仓库根目录执行。需要 CUDA Toolkit（含 NVRTC）、可用的 NVIDIA GPU、MPI、xxd，以及 LAMMPS 源码目录中的头文件和 fmt；独立目标不链接 LAMMPS 插件。
+在仓库根目录执行。需要 CUDA Toolkit（含 NVRTC）、可用的 NVIDIA GPU、xxd；fmt 随项目分发。MPI 仅用于分布式测试，`-DZQC_TEST_MPI=OFF` 可关闭；独立构建不查找 LAMMPS。各层 target 与预设见 [分层构建指南](../../cmake/README.md)。
 
 ```bash
 cmake -S . -B build/graph \
   -DZQC_GRAPH_STANDALONE=ON \
-  -DLAMMPS_SOURCE_DIR=/path/to/lammps/src \
   -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
   -DCMAKE_CUDA_ARCHITECTURES=89 \
   -DCMAKE_BUILD_TYPE=Release
@@ -192,4 +206,50 @@ LAMMPS_SOURCE_DIR=/path/to/lammps/src \
 
 ## 逐输入有限差分
 
-新增 `zqc_graph_fd_test`，通过实际前向值的双边差分检查完整 Leaf Jacobian 和多输出 VJP。覆盖 Host 标量、NVRTC、共享乘积/AVE、MPI 不均匀分配与空 rank；`zqc_graph_fd_mpi_1/2/4` 已加入 CTest。独立测试现共 19 项，详细方法与完整 LAMMPS CV 对照见 [有限差分验证](../finite_difference/README.md)。
+新增 `zqc_graph_fd_test`，通过实际前向值的双边差分检查完整 Leaf Jacobian 和多输出 VJP。覆盖 Host 标量、NVRTC、共享乘积/AVE、MPI 不均匀分配与空 rank；`zqc_graph_fd_mpi_1/2/4` 已加入 CTest。独立测试现共 25 项，详细方法与完整 LAMMPS CV 对照见 [有限差分验证](../finite_difference/README.md)。
+
+## 通用诊断与错误回传
+
+`include/utils/zqc_diagnostics.h` 只依赖 C++ 标准库。`Logger` 保存回调和最低级别，
+`Diagnostic` 包含级别、组件/缓冲区名称、消息及源码位置。回调同步调用；如需保存记录，复制整个 `Diagnostic`。
+日志支持 `%` 格式，级别过滤发生在字符串格式化之前。默认 Logger 关闭普通日志。
+
+```cpp
+MetaD_zqc::Logger logger([](const MetaD_zqc::Diagnostic& record) {
+    std::fprintf(stderr, "[%s] %s\n", record.component.c_str(), record.message.c_str());
+}, MetaD_zqc::LogLevel::Debug);
+
+MetaD_zqc::GpuBuffer<double> values;
+values.set_name("cv_values", logger);
+try {
+    values.grow_to(100, __FILE__, __LINE__);
+} catch (const MetaD_zqc::GpuBufferError& failure) {
+    // 独立程序可在这里结束本轮计算，并将失败交给自己的主流程。
+    std::fprintf(stderr, "%s\n", failure.what());
+    throw;
+}
+// GraphExecution executor(graph, logger);  // 通过同一回调接收 NVRTC 日志。
+```
+
+缓冲区的容量检查、CUDA/CUB 失败会立即抛出异常；关闭日志仍会抛出。
+主流程应停止当前计算并处理异常。析构释放数据、CUB 临时区和选择计数器，清理失败回传 Warning。
+回调失败会被 Logger 吸收，以保留原始计算异常及析构行为。
+调用方负责回调捕获资源的生命周期；应先销毁执行器、节点和缓冲区，再关闭日志文件。
+
+LAMMPS 适配层位于 `include/core/zqc_lammps_diagnostics.h` 和
+`src/core/zqc_lammps_diagnostics.cpp`。Info 在 rank 0 写 screen/logfile；Warning/Error 带发生 rank；
+DEBUG 构建下的缓冲区扩容消息写入调试文件。相同 FILE 句柄去重。
+Fix 在构造、初始化及前后向入口将缓冲区异常转交给 `error->one`，以处理单 rank 的失败。
+Graph/AVE 使用调用方提供的 `SumReducer`；MPI 通信器由宿主或测试回调持有。
+
+新增测试：`zqc_diagnostics` 检查过滤、格式化、消息上下文及异常回调；
+`zqc_gpu_buffer_release` / `zqc_gpu_buffer_debug` 只包含 utils/CUDA，验证无 LAMMPS 头文件时的
+扩容、拷贝、清零、CUB 求和/前缀和/选择，以及失败后的缓冲区状态。
+`graph_ave_mpi` 通过内存回调检查 NVRTC 成功、编译失败和扩容复用日志。
+
+## 引擎数据与邻居适配
+
+生产 CV 已覆盖 DISTANCE、Stru_factor、化学版、WEIGHT_CHEM、CSS、Q 与 Local Q。`zqc_engine_contract` 和
+`zqc_engine_geometry` 验证无 LAMMPS 的 Host 接口及 GPU AoS/SoA 几何路径。
+这两个测试同时检查对称六分量展开、非对称九分量保留和带预留槽位的 virial 数组。
+接口的内存、索引、同步、通信和当前迁移范围见 [引擎适配说明](ENGINE_ADAPTER.md)。

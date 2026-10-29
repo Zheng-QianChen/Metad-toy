@@ -64,3 +64,9 @@ compile_commands.json
 /metad_debug_logging.txt
 __pycache__/
 *.py[cod]
+
+# Local Python environment for the analysis CLI.
+/.venv-analysis/
+
+# Metadata produced by direct pip installation from tools/.
+/tools/*.egg-info/

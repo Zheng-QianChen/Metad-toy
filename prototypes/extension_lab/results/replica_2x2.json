@@ -1,0 +1,10 @@
+{
+  "status": "pass",
+  "world_ranks": 4,
+  "replicas": 2,
+  "ranks_per_replica": 2,
+  "exchange_accepted": 1,
+  "exchange_rejected": 99,
+  "replica_consistency": true,
+  "walker_permutation_preserved": true
+}

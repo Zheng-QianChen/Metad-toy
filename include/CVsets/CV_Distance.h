@@ -1,17 +1,17 @@
 #pragma once
-#include "fix_crystallize.h"
+#include "zqc_cv.h"
+#include "zqc_distance.h"
 
 namespace MetaD_zqc {
 // 两个全局原子 ID 的最小镜像距离；值及位移在所有 rank 上相同。
+// atom_ids_ 为稳定 AtomId；计算状态由 DistanceCalculation 持有，仅借用本轮 EngineAdapter。
 class Distance : public CV {
 private:
-    LAMMPS_NS::tagint atom_ids_[2];
-    int owned_indices_[2] = {-1, -1}; // 本轮 owner 的本地下标，其他 rank 为 -1
-    double displacement_[3] = {};   // 第二颗原子相对第一颗原子的最小镜像位移
+    AtomId atom_ids_[2];
+    DistanceCalculation calculation_;
 public:
-    static CV* create(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics*, FILE*, int, char**, int&);
-    Distance(LAMMPS_NS::LAMMPS*, LAMMPS_NS::FixMetadynamics*, FILE*,
-             LAMMPS_NS::tagint first_id, LAMMPS_NS::tagint second_id);
+    static CV* create(CVContext& context, int narg, char** arg, int& index);
+    Distance(CVContext& context, AtomId first_id, AtomId second_id);
     CV_Calculation set_CV_calculate(std::string method) override;
     CV_BiasForce set_CV_bias_force(std::string method) override;
     void base_calc() override;

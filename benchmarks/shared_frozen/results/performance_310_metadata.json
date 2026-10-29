@@ -1,0 +1,38 @@
+{
+  "arguments": {
+    "lammps": "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+    "mpiexec": "/usr/lib64/mpich/bin/mpiexec.hydra",
+    "plugin": "/home/saitang/work/MetadToy-shared-frozen-20261027/build/fix_crystallize_plugin.so",
+    "assets": "/home/saitang/work/MetadToy-shared-frozen-20261027/assets",
+    "table": "/home/saitang/work/MetadToy-shared-frozen-20261027/production4-host/shared.table",
+    "output": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027",
+    "ranks": [
+      1,
+      2
+    ],
+    "repeats": 3,
+    "warmup": 50,
+    "target_seconds": 6,
+    "timeout": 300
+  },
+  "hashes": {
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/build/fix_crystallize_plugin.so": "697a00c24b2dbc08394696a769ac881b906af63ac0fbaf8fa18160cb1133d7c7",
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/production4-host/shared.table": "da480bce08df316ee7605aec28f24d8c0b2bc5be8b47bbba87b40500a36f1f41",
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp": "eed9eafe2d1c4050eac23d4b5ceaee74c58b69ee0300792ff0b1a3b4628603c5",
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/assets/restart.start": "946523769ba78032bbf352aa2e1fa010717573aca58b9ff77b204490c1712ada",
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/assets/Al-Sc.library.meam": "8e19edafc72cffe2893cc5debf14d6588fa8b77731869009f7404675d1ce9700",
+    "/home/saitang/work/MetadToy-shared-frozen-20261027/assets/Al-Sc.meam": "4cb80845ac3291fdfaea0941175a93a4cfcd8dffff68f7ff06b970f4dce24690"
+  },
+  "gpu": [
+    "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 32, 210 MHz, 19.25 W",
+    ""
+  ],
+  "cpu": "Architecture:          x86_64\nCPU op-mode(s):        32-bit, 64-bit\nByte Order:            Little Endian\nCPU(s):                96\nOn-line CPU(s) list:   0-95\nThread(s) per core:    2\nCore(s) per socket:    24\nSocket(s):             2\nNUMA node(s):          2\nVendor ID:             GenuineIntel\nCPU family:            6\nModel:                 85\nModel name:            Intel(R) Xeon(R) Platinum 8163 CPU @ 2.50GHz\nStepping:              4\nCPU MHz:               999.908\nCPU max MHz:           3100.0000\nCPU min MHz:           1000.0000\nBogoMIPS:              5000.00\nVirtualization:        VT-x\nL1d cache:             32K\nL1i cache:             32K\nL2 cache:              1024K\nL3 cache:              33792K\nNUMA node0 CPU(s):     0-23,48-71\nNUMA node1 CPU(s):     24-47,72-95\nFlags:                 fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc aperfmperf eagerfpu pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch epb cat_l3 cdp_l3 invpcid_single intel_ppin ssbd mba rsb_ctxsw ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm mpx rdt_a avx512f avx512dq rdseed adx smap clflushopt clwb intel_pt avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts hwp hwp_act_window hwp_epp hwp_pkg_req pku ospke md_clear spec_ctrl intel_stibp flush_l1d arch_capabilities\n",
+  "omp_threads": "1",
+  "method": "Final Loop time; NPT 1450 K / 1 bar, dt=1 fs; frozen biases, warmup excluded",
+  "created": "2026-10-27 18:00:39 +0800",
+  "gpu_after": [
+    "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 9 %, 145 MiB, 40, 2520 MHz, 59.42 W",
+    ""
+  ]
+}

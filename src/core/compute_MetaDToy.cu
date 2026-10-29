@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "atom.h"
+#include "atom_masks.h"
 #include "comm.h"
 #include "update.h"
 #include "modify.h"
@@ -21,6 +22,10 @@ using namespace LAMMPS_NS;
 ------------------------------------------------------------------------- */
 ComputeMetaDToy::ComputeMetaDToy(LAMMPS *lmp, int narg, char **arg, FILE* f_check) :
   Compute(lmp, narg, arg), id_fix(nullptr), f_check(f_check){
+  // 输出数组在 Host 上装配；只需宿主同步 group mask。
+  execution_space = Host;
+  datamask_read = MASK_MASK;
+  datamask_modify = EMPTY_MASK;
   // 基础参数校验：至少需要 5 个参数
   ERR_COND((narg < 5),"compute metad/atom need args more than 5.");
 
@@ -67,7 +72,13 @@ void ComputeMetaDToy::init(){
   Fix *ifix = modify->get_fix_by_id(id_fix);
   ERR_COND((!ifix),"Fix ID %s specified in compute metad/atom does not exist",id_fix);
   // 2. 校验该 Fix 的注册样式是否是你的元动力学核心 (假设叫 "metad")
-  ERR_COND((strcmp(ifix->style, "metad") != 0),"Fix  %s is not a valid 'metad' style fix",std::string(id_fix));
+  ERR_COND((strcmp(ifix->style, "metad") != 0 && strcmp(ifix->style, "metad/kk") != 0 && strcmp(ifix->style, "metad/kk/device") != 0),"Fix  %s is not a valid 'metad' style fix",std::string(id_fix));
+  // 将输出依赖登记给 Fix；图未引用的 CV 也按这些请求计算。
+  for (const auto& request : requests) {
+    int dimensions = 0;
+    const std::string key = "colvar_require:" + request.cv_name;
+    ERR_COND(!ifix->extract(key.c_str(), dimensions), "Unknown CV output %s", request.cv_name.c_str());
+  }
 }
 
 /* ----------------------------------------------------------------------

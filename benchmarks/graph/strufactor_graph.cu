@@ -2,6 +2,7 @@
 #include "CV_Weighted_Chemical_Pair_Order.h"
 #include "zqc_cv_assembly.cuh"
 #include "zqc_graph.cuh"
+#include "mpi_sum_reducer.h"
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -14,7 +15,7 @@
 using namespace MetaD_zqc;
 using Position = std::array<double,3>;
 using Positions = std::vector<Position>;
-using LAMMPS_NS::tagint;
+using tagint = MetaD_zqc::LocalAtomIndex;
 constexpr double q = 1.7, cutoff = 2.5;
 const std::vector<int> selected = {1,3,5};
 // 三个目标共用独立 CPU/有限差分测试，覆盖结构因子及化学加权配位数。
@@ -155,13 +156,20 @@ void distributed_test() {
     for (int id=natoms-1;id>=0;--id) if (owner(id)==rank) ids.push_back(id);
     const int nlocal=ids.size();
     for (int id=0;id<natoms;++id) if (owner(id)!=rank) ids.push_back(id);
-    std::vector<int> local_of(natoms),mask(natoms,0);
+    std::vector<int> local_of(natoms);
+    std::vector<int> center_ids;
     for (int i=0;i<natoms;++i) {
         local_of[ids[i]]=i;
-        if (std::find(selected.begin(),selected.end(),ids[i])!=selected.end()) mask[i]=1;
+        if (std::find(selected.begin(),selected.end(),ids[i])!=selected.end())
+            center_ids.push_back(i);
     }
+    std::sort(center_ids.begin(), center_ids.end());
+    int owned_centers=0;
+    for (int local:center_ids) if (local<nlocal) ++owned_centers;
+    SelectionView centers_view{1, owned_centers,
+        {center_ids.data(), center_ids.size(), 1, 1, 1, center_ids.size(), MemorySpace::Host}};
     CVAtomLayout atoms;
-    atoms.rebuild(nlocal,natoms-nlocal,mask.data(),{1});
+    atoms.rebuild(nlocal,natoms-nlocal,{centers_view});
     auto assembly=atoms.group(1);
     require(assembly->group_count()==atoms.leaf_count(),"single-group owned extent");
     require(assembly->total_count()==3,"group ghosts were lost");
@@ -195,8 +203,10 @@ void distributed_test() {
     TestKernels kernels(data,ids);
     kernels.forward(q,cutoff*cutoff,raw.ptr);
     const auto result=download(raw,natoms+2), reference=reference_values(x);
-    for (int i=0;i<natoms;++i)
-        near(result[i],i<nlocal && mask[i]?reference[ids[i]]:0,3e-13,"raw CV forward");
+    for (int i=0;i<natoms;++i) {
+        const bool selected_center = std::binary_search(center_ids.begin(), center_ids.end(), i);
+        near(result[i],i<nlocal && selected_center?reference[ids[i]]:0,3e-13,"raw CV forward");
+    }
     require(result[natoms]==123 && result[natoms+1]==456,"raw value guard modified");
     assembly->assemble_values(raw,values);
 
@@ -229,7 +239,7 @@ void distributed_test() {
     verify_derivatives(x,weighted.first,weighted.second,weighted_energy);
 
     Leaf leaf(values,grad,nc);
-    Graph graph(Graph::Symbols{{"s",&leaf}}, {}, MPI_COMM_WORLD);
+    Graph graph(Graph::Symbols{{"s",&leaf}}, {}, mpi_sum_reducer(MPI_COMM_WORLD));
     graph.parse_expr("AVE(s*s)");graph.parse_expr("exp(AVE(s))");
     GraphExecution run(graph);
     const auto outputs=run.forward();

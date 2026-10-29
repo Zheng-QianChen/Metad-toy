@@ -1,14 +1,7 @@
-# src/cvs/CMakeLists.txt
-
-# 1. 收集当前目录下的所有源文件
-file(GLOB CVS_SOURCES CONFIGURE_DEPENDS "*.cu" "*.cpp")
-
-# 2. 将这些源文件追加到全局变量中
-# 注意：使用 才能让主目录的 CMakeLists.txt 看到更新后的变量
-set_property(GLOBAL APPEND PROPERTY PLUGIN_INCLUDES ${PLUGIN_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../include/CVsets)
-set_property(GLOBAL APPEND PROPERTY PLUGIN_INCLUDES ${PLUGIN_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../include/core)
-set_property(GLOBAL APPEND PROPERTY PLUGIN_INCLUDES ${PLUGIN_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/../../include/utils)
-set_property(GLOBAL APPEND PROPERTY PLUGIN_SOURCES ${PLUGIN_SOURCES} ${CVS_SOURCES})
-
-# 3. 如果有特定的宏定义，也可以在这里添加
-message(STATUS "Package CVS: Added ${CVS_SOURCES}")
+# OBJECT 保留每种 CV 的注册构造函数；插件链接时全部纳入，避免静态库丢掉注册项。
+add_library(zqc_cvs OBJECT
+    CVs_DISTANCE.cu CVs_Strufactor.cu CVs_Strufactor_chem.cu CVs_CSS.cu
+    CV_Weighted_Chemical_Pair_Order.cu CVs_Steinhardt.cu CVs_Steinhardt_Local.cu CVs_LocalGeom.cu
+    ../core/CVFactory.cu)
+target_include_directories(zqc_cvs PUBLIC "${PROJECT_SOURCE_DIR}/include/CVsets")
+target_link_libraries(zqc_cvs PUBLIC zqc_views zqc_cv_assembly zqc_build_options CUDA::cudart)

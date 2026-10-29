@@ -1,0 +1,9 @@
+{
+  "cpu": "Intel(R) Core(TM) i7-14700KF",
+  "logical_cpus": 8,
+  "platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2024 NVIDIA Corporation\nBuilt on Fri_Jun_14_16:34:21_PDT_2024\nCuda compilation tools, release 12.6, V12.6.20\nBuild cuda_12.6.r12.6/compiler.34431801_0\n",
+  "host_compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+  "leaf_binary_sha256": "fd1649c51442fd763866f3fcab79687d2f137057a00445b57fa7d67d3c8f4bc6",
+  "leaf_source_sha256": "b1659966bf6e8c71c4589ddceadff060cf1fbd788cb4ef04860f794118a4bc52"
+}

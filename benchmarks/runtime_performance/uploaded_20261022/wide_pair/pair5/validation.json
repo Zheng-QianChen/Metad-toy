@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "uploaded",
+    "case": "mixed",
+    "cells": 16,
+    "ranks": 1,
+    "passed": true,
+    "coordinate_error": 0.0,
+    "force_error": 0.0,
+    "cv_energy_error": 0.0,
+    "pressure_error": 0.0,
+    "maximum_force": 1.725221245407121e-05
+  },
+  {
+    "variant": "current",
+    "case": "mixed",
+    "cells": 16,
+    "ranks": 1,
+    "passed": true,
+    "coordinate_error": 0.0,
+    "force_error": 5.1880768019325896e-21,
+    "cv_energy_error": 0.0,
+    "pressure_error": 4.440892098500626e-16,
+    "maximum_force": 1.725221245407121e-05
+  }
+]

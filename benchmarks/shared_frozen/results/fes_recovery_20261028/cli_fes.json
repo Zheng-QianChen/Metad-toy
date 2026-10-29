@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "product": "fes",
+  "method": "reweight",
+  "weight_source": "static-bias",
+  "sources": [
+    {
+      "path": "/home/saitang/work/MetadToy-shared-probability-20261028/run-fes-recovery/production.csv",
+      "bytes": 93859373,
+      "mtime_ns": 1793190634033184834,
+      "sha256": "30d02c9fe5f7622fbdb32df118764e012a6818b7ef06b05df269e35a00d7d625"
+    }
+  ],
+  "thermal_energy": 1.0,
+  "energy_unit": "kBT",
+  "cv_columns": [
+    "x",
+    "y"
+  ],
+  "axes": [
+    1,
+    2
+  ],
+  "bins": [
+    32,
+    32
+  ],
+  "bounds": [
+    [
+      -3.0,
+      3.0
+    ],
+    [
+      -3.0,
+      3.0
+    ]
+  ],
+  "periods": {},
+  "columns": [
+    "x",
+    "y",
+    "fes",
+    "probability_density",
+    "log_probability_density",
+    "count",
+    "weight_ess"
+  ],
+  "observations_total": 1600000,
+  "observations_selected": 1600000,
+  "execution": {
+    "sample_batch": 8192,
+    "phase_seconds_before_publication": {
+      "initialize": 0.3706601485610008,
+      "hash_inputs": 0.2819749601185322,
+      "scan": 7.864590544253588,
+      "weights": 18.94003765657544,
+      "export": 0.005706336349248886,
+      "plot": 0.23553632944822311,
+      "validate": 0.27823352441191673
+    }
+  },
+  "observations_in_histogram": 1600000,
+  "observations_outside_histogram": 0,
+  "first_step": null,
+  "last_step": null,
+  "discard_rows": 0,
+  "from_step": null,
+  "through_step": null,
+  "weight_columns": {
+    "bias": "bias"
+  },
+  "weight_ess": 968022.7198530483,
+  "retained_weight_fraction": 1.0,
+  "empty_bins": 730,
+  "log_weight_origin": 2.0655398037374115,
+  "offset": {
+    "source": "static-bias"
+  },
+  "sampling": {
+    "clock": null,
+    "interval": null,
+    "assumption": "equal-time observations; equilibrated/quasi-stationary sampling at constant temperature"
+  },
+  "interpretation": "marginal histogram over all unplotted variables",
+  "normalization": "probability density normalized within histogram bounds; minimum populated-bin FES is zero",
+  "coordinate_measure": "CV-coordinate free energy; no radial Jacobian correction",
+  "ess_note": "weight concentration only; does not correct time correlation",
+  "missing_bins": "zero probability, undefined/infinite FES; CSV blank and plot masked"
+}

@@ -1,0 +1,16 @@
+test_empty_and_non_wt (__main__.CliTests) ... ok
+test_highdim_requires_explicit_slice_and_rejects_pb_fes (__main__.CliTests) ... ok
+test_hills_analytic_and_batch_equivalence (__main__.CliTests) ... ok
+test_invalid_records_leave_no_published_output (__main__.CliTests) ... ok
+test_legacy_int64_csv_and_variable_width (__main__.CliTests) ... ok
+test_native_versions_and_periodic_invariance (__main__.CliTests) ... ok
+test_output_protection_and_unknown_formats (__main__.CliTests) ... ok
+test_pb_combination_cutoff_and_normalization (__main__.CliTests) ... ok
+test_preview_axis_order_and_wt_fes (__main__.CliTests) ... ok
+test_production_cpp_crosscheck (__main__.CliTests) ... ok
+test_stdlib_commands_and_cli_error_status (__main__.CliTests) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 4.783s
+
+OK

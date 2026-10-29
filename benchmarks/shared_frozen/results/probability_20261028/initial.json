@@ -1,0 +1,1351 @@
+{
+  "schema_version": 1,
+  "passed": false,
+  "failures": [
+    "fixed_strong_k0_sum",
+    "fixed_strong_k2_sum"
+  ],
+  "criteria": {
+    "moment_max_abs": 0.035,
+    "moment_max_sem": 0.01,
+    "joint_total_variation": 0.035,
+    "covered_reference_mass": 0.98,
+    "fes_rmse_kbt": 0.12,
+    "bin_weight_ess": 60,
+    "confidence_multiplier": 4.0,
+    "confidence_abs_floor": 0.003
+  },
+  "scope": "Steps 1-2 only: equilibrium Metropolis sampling with fixed shared bias; no kinetic or adaptive reweighting claim.",
+  "model": "beta U=4*((x*x-1)^2+(y*y-1)^2)+coupling/2*(x-y)^2; kBT=1",
+  "sampling": {
+    "replicates": 8,
+    "samples_per_chain": 60000,
+    "burn_sweeps": 20000,
+    "stride": 8,
+    "initial_basins": "all four sign combinations",
+    "seed_rule": "910001+1000*case_index+replicate"
+  },
+  "training": {
+    "coupling": 2.0,
+    "aggregation": "mean",
+    "sweeps": 24000,
+    "pace": 200,
+    "height_per_center": 0.025,
+    "sigma": 0.45,
+    "seeds": [
+      17,
+      28
+    ],
+    "production_uses_training_samples": false
+  },
+  "history_and_tables": {
+    "zero": {
+      "depositions": 0,
+      "history_bitwise": true,
+      "table_bitwise": true,
+      "interpolation_energy_max": 0.0,
+      "interpolation_gradient_max": 0.0,
+      "finite_difference_max": 0.0,
+      "sha256": "93e7fd6a4d42ad299bb03aa112975a167742d7be88cf0a24500d359b9347e4d0",
+      "cuda": {
+        "status": "passed",
+        "pairs": 256,
+        "energy_max": 0.0,
+        "gradient_max": 0.0,
+        "permutation_max": 0.0,
+        "finite_difference_max": 0.0
+      }
+    },
+    "fixed_weak": {
+      "depositions": 2,
+      "history_bitwise": true,
+      "table_bitwise": true,
+      "interpolation_energy_max": 5.334400698941977e-10,
+      "interpolation_gradient_max": 2.6803097152861e-07,
+      "finite_difference_max": 2.7053403961474487e-10,
+      "sha256": "54a854ed0001e5e7fd52bffe756d15bfb5c8787ef7e9b9b469b103b5de84769a",
+      "cuda": {
+        "status": "passed",
+        "pairs": 256,
+        "energy_max": 2.220446049250313e-16,
+        "gradient_max": 6.938893903907228e-15,
+        "permutation_max": 0.0,
+        "finite_difference_max": 5.9440091811253926e-09
+      }
+    },
+    "fixed_strong": {
+      "depositions": 2,
+      "history_bitwise": true,
+      "table_bitwise": true,
+      "interpolation_energy_max": 1.6003203207048955e-09,
+      "interpolation_gradient_max": 8.040929273533948e-07,
+      "finite_difference_max": 8.171339160867319e-10,
+      "sha256": "ce946a0b4d0badbf328798b1b34b610c6edda03436488b36330e463f3c52bb6d",
+      "cuda": {
+        "status": "passed",
+        "pairs": 256,
+        "energy_max": 4.440892098500626e-16,
+        "gradient_max": 2.842170943040401e-14,
+        "permutation_max": 0.0,
+        "finite_difference_max": 1.783202652693664e-08
+      }
+    },
+    "learned_17": {
+      "depositions": 240,
+      "history_bitwise": true,
+      "table_bitwise": true,
+      "interpolation_energy_max": 1.278687378203358e-09,
+      "interpolation_gradient_max": 5.687659645411958e-07,
+      "finite_difference_max": 6.490901149902584e-10,
+      "sha256": "893a9043a53b62d3191bcad7d84d3e354272514665738693d09a7308ee45a9a1",
+      "cuda": {
+        "status": "passed",
+        "pairs": 256,
+        "energy_max": 1.3322676295501878e-15,
+        "gradient_max": 2.7200464103316335e-14,
+        "permutation_max": 0.0,
+        "finite_difference_max": 2.6848113507567384e-08
+      }
+    },
+    "learned_28": {
+      "depositions": 240,
+      "history_bitwise": true,
+      "table_bitwise": true,
+      "interpolation_energy_max": 1.22634613575201e-09,
+      "interpolation_gradient_max": 5.244082377509063e-07,
+      "finite_difference_max": 6.408580333072678e-10,
+      "sha256": "197a8ff4b8e8d6e4afa112336cd0e725218bdef1fa20856ca9dad28de1acffd6",
+      "cuda": {
+        "status": "passed",
+        "pairs": 256,
+        "energy_max": 1.3322676295501878e-15,
+        "gradient_max": 2.1690982343613996e-14,
+        "permutation_max": 0.0,
+        "finite_difference_max": 2.6137222192785733e-08
+      }
+    }
+  },
+  "quadrature": {
+    "0.0": {
+      "grid_error": 4.18554080283684e-14,
+      "domain_error": 2.631228568361621e-14,
+      "moments": [
+        0.4999999999999905,
+        0.4999999999999906,
+        0.49999999999999056,
+        -4.204224697192741e-18,
+        0.917670860745201,
+        0.917670860745193
+      ]
+    },
+    "2.0": {
+      "grid_error": 2.042810365310288e-14,
+      "domain_error": 2.0650148258027912e-14,
+      "moments": [
+        0.49999999999998845,
+        0.49999999999999756,
+        0.9469150581289463,
+        0.8117714463726073,
+        0.9104209707101238,
+        0.9104209707101223
+      ]
+    }
+  },
+  "restarted_chain_bitwise": true,
+  "negative_controls": {
+    "raw_detected": true,
+    "own_only_detected": true
+  },
+  "cases": [
+    {
+      "name": "zero_k0_sum",
+      "coupling": 0.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.4981625,
+          0.5009708333333334,
+          0.49930416666666666,
+          -0.0016628924226951428,
+          0.916834188281782,
+          0.9177720451615209
+        ],
+        "total_variation": 0.008366357023494263,
+        "fes_rmse_kbt": 0.022301897782378267,
+        "covered_reference_mass": 0.9973701296942641,
+        "weight_ess": 480000.0
+      },
+      "raw": {
+        "moments": [
+          0.4981625,
+          0.5009708333333334,
+          0.49930416666666666,
+          -0.0016628924226951428,
+          0.916834188281782,
+          0.9177720451615209
+        ],
+        "total_variation": 0.008366357023494263,
+        "fes_rmse_kbt": 0.022301897782378267,
+        "covered_reference_mass": 0.9973701296942641,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.4981625,
+          0.5009708333333334,
+          0.49930416666666666,
+          -0.0016628924226951428,
+          0.916834188281782,
+          0.9177720451615209
+        ],
+        "total_variation": 0.008366357023494263,
+        "fes_rmse_kbt": 0.022301897782378267,
+        "covered_reference_mass": 0.9973701296942641,
+        "weight_ess": 480000.0
+      },
+      "independent_sem": [
+        0.0030700950524295404,
+        0.002618254276488287,
+        0.002329119813822993,
+        0.004381012870520081,
+        0.0006510904468448477,
+        0.0008150128561654427
+      ],
+      "block_sem": [
+        0.003237333843189098,
+        0.0031317941575176563,
+        0.0021757511398335,
+        0.004149826516579802,
+        0.0006855053238075146,
+        0.000751566793423803
+      ],
+      "half_length": {
+        "moments": [
+          0.5047458333333333,
+          0.5027333333333334,
+          0.4970791666666667,
+          -0.006569244863091321,
+          0.9169698269808528,
+          0.9176175715486946
+        ],
+        "total_variation": 0.012415121101206194,
+        "fes_rmse_kbt": 0.03331407684527101,
+        "covered_reference_mass": 0.994485277741987,
+        "weight_ess": 240000.0
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_weak_k0_sum",
+      "coupling": 0.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.5033974262059452,
+          0.4997304187722826,
+          0.4990049811125798,
+          -0.0020771750511307616,
+          0.9177313401768731,
+          0.9189370357596743
+        ],
+        "total_variation": 0.009414304132886585,
+        "fes_rmse_kbt": 0.026933303177632588,
+        "covered_reference_mass": 0.9971152933472104,
+        "weight_ess": 325117.55718636425
+      },
+      "raw": {
+        "moments": [
+          0.7071208333333333,
+          0.7041083333333333,
+          0.5838583333333334,
+          0.15474140156672947,
+          0.9185668005482632,
+          0.9201199718111673
+        ],
+        "total_variation": 0.25455518873932015,
+        "fes_rmse_kbt": 0.6386540424643937,
+        "covered_reference_mass": 0.9971152933472104,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.5030239563948342,
+          0.7045512289869557,
+          0.5003688514150996,
+          0.0003779679209951737,
+          0.917331246864954,
+          0.9203930979168237
+        ],
+        "total_variation": 0.20505208387686566,
+        "fes_rmse_kbt": 0.44802370616993187,
+        "covered_reference_mass": 0.9971152933472104,
+        "weight_ess": 394944.6247363569
+      },
+      "independent_sem": [
+        0.0037435339366542397,
+        0.0027066083517405704,
+        0.0015648322715567365,
+        0.00295572297419184,
+        0.0004995511076641284,
+        0.0006379110447347906
+      ],
+      "block_sem": [
+        0.003243619356624643,
+        0.0025942419155588823,
+        0.0026275379096240043,
+        0.004914903732948542,
+        0.0008076712593665186,
+        0.0007232820851456193
+      ],
+      "half_length": {
+        "moments": [
+          0.5051827665025941,
+          0.4998424774642227,
+          0.4996512821184031,
+          -0.0010552322489485295,
+          0.9176112807140702,
+          0.9189033187502328
+        ],
+        "total_variation": 0.01219538053140564,
+        "fes_rmse_kbt": 0.035343813514064806,
+        "covered_reference_mass": 0.9914722790728788,
+        "weight_ess": 162518.76504891095
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_weak_k0_mean",
+      "coupling": 0.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5039396441263855,
+          0.5015370105942764,
+          0.4986560797441645,
+          -0.0021276029570461907,
+          0.9174302900697349,
+          0.9178014639352932
+        ],
+        "total_variation": 0.009374344353406755,
+        "fes_rmse_kbt": 0.025141011287082057,
+        "covered_reference_mass": 0.9968598191439771,
+        "weight_ess": 434491.60503671825
+      },
+      "raw": {
+        "moments": [
+          0.61103125,
+          0.6086729166666667,
+          0.5229208333333333,
+          0.0427517546897471,
+          0.9166581251017646,
+          0.9169476962394371
+        ],
+        "total_variation": 0.12777723345621017,
+        "fes_rmse_kbt": 0.325854605797536,
+        "covered_reference_mass": 0.9968598191439771,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.5036570524733103,
+          0.6089982758651146,
+          0.49947984446056887,
+          -0.0007394576924639556,
+          0.9174196509625079,
+          0.9171724062710518
+        ],
+        "total_variation": 0.10969795576429381,
+        "fes_rmse_kbt": 0.2290890911757232,
+        "covered_reference_mass": 0.9968598191439771,
+        "weight_ess": 456610.6630684627
+      },
+      "independent_sem": [
+        0.0024843861235401576,
+        0.0032844072945335057,
+        0.0013483007209613858,
+        0.0025311432420187974,
+        0.0010505155362938677,
+        0.000516742626503866
+      ],
+      "block_sem": [
+        0.0028313526086434647,
+        0.0029262211906545413,
+        0.0021599776802136653,
+        0.003987211192562206,
+        0.0007083323159975483,
+        0.0006061574572992251
+      ],
+      "half_length": {
+        "moments": [
+          0.5016159340938572,
+          0.4976888326048786,
+          0.5000258161308534,
+          -9.615351078812974e-05,
+          0.9172769598440672,
+          0.9177720632803484
+        ],
+        "total_variation": 0.010883011026181288,
+        "fes_rmse_kbt": 0.031829146704204656,
+        "covered_reference_mass": 0.994541650437924,
+        "weight_ess": 217160.41092536604
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_strong_k0_sum",
+      "coupling": 0.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.5009527479199423,
+          0.5031064266240345,
+          0.4990472606508298,
+          -0.0009492174779175204,
+          0.9175982745712673,
+          0.9195608567497697
+        ],
+        "total_variation": 0.022658410123619896,
+        "fes_rmse_kbt": 0.058384865534190485,
+        "covered_reference_mass": 0.9425313107472951,
+        "weight_ess": 26578.451718740333
+      },
+      "raw": {
+        "moments": [
+          0.9270145833333333,
+          0.9273208333333334,
+          0.8648229166666667,
+          0.6801600799275725,
+          0.9429397552741661,
+          0.9430366483113061
+        ],
+        "total_variation": 0.6123979377717933,
+        "fes_rmse_kbt": 1.9146551962181086,
+        "covered_reference_mass": 0.9502792537099238,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.5002159266577174,
+          0.9275420199108965,
+          0.49989988797993784,
+          -0.0003217711468264685,
+          0.9182306854902497,
+          0.9431160976961208
+        ],
+        "total_variation": 0.4277543418919598,
+        "fes_rmse_kbt": 1.3621188414321979,
+        "covered_reference_mass": 0.9457250757688482,
+        "weight_ess": 112595.98615641565
+      },
+      "independent_sem": [
+        0.006567194200268486,
+        0.00597649354082679,
+        0.006450454179060605,
+        0.011899254012913398,
+        0.001823268500767384,
+        0.0034371945272365857
+      ],
+      "block_sem": [
+        0.006292638829492499,
+        0.005763817017012471,
+        0.005301693236105111,
+        0.00991245658254452,
+        0.0019217191517085514,
+        0.0025962571012780405
+      ],
+      "half_length": {
+        "moments": [
+          0.4995538804494448,
+          0.5107298279915331,
+          0.4966533071090019,
+          -0.006975625778850602,
+          0.9137353353949258,
+          0.919664021152586
+        ],
+        "total_variation": 0.03363540863961387,
+        "fes_rmse_kbt": 0.08783153423814172,
+        "covered_reference_mass": 0.8645266268284612,
+        "weight_ess": 13572.693331311193
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": false,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": false
+      },
+      "passed": false
+    },
+    {
+      "name": "fixed_strong_k0_mean",
+      "coupling": 0.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5009566941999076,
+          0.5078260512878449,
+          0.49774719437549025,
+          -0.004689990271908888,
+          0.9175921363954338,
+          0.9152522192676089
+        ],
+        "total_variation": 0.012579843388558078,
+        "fes_rmse_kbt": 0.03167418498602044,
+        "covered_reference_mass": 0.9950080755191066,
+        "weight_ess": 206468.60864239675
+      },
+      "raw": {
+        "moments": [
+          0.7853083333333334,
+          0.7896,
+          0.6642958333333333,
+          0.30458480603681615,
+          0.9230904536447168,
+          0.9232302573156282
+        ],
+        "total_variation": 0.376053966324411,
+        "fes_rmse_kbt": 0.9644591191726911,
+        "covered_reference_mass": 0.9952335162839496,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.49973190081773755,
+          0.7904071873303221,
+          0.4984048016647231,
+          -0.002619018600065834,
+          0.9174707634437861,
+          0.9218041066389157
+        ],
+        "total_variation": 0.2908925013751473,
+        "fes_rmse_kbt": 0.6892822794286633,
+        "covered_reference_mass": 0.9950080755191066,
+        "weight_ess": 314168.48442969966
+      },
+      "independent_sem": [
+        0.003059356819678313,
+        0.0032059594643654957,
+        0.0019131218896896026,
+        0.003549461389420385,
+        0.0009380498160209749,
+        0.0009200938868767415
+      ],
+      "block_sem": [
+        0.003198095588530254,
+        0.0037816702139128865,
+        0.002912900630093041,
+        0.005444485294221134,
+        0.0009415340476854624,
+        0.0008408897128093953
+      ],
+      "half_length": {
+        "moments": [
+          0.49671857847338907,
+          0.5003281396117112,
+          0.49981119901025667,
+          -0.001558853957999365,
+          0.9164643281418267,
+          0.9154135525581472
+        ],
+        "total_variation": 0.013004405270959366,
+        "fes_rmse_kbt": 0.035946648680893895,
+        "covered_reference_mass": 0.9859527383826974,
+        "weight_ess": 102889.0798403052
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "zero_k2_sum",
+      "coupling": 2.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.49366458333333335,
+          0.4927020833333333,
+          0.9463208333333334,
+          0.8098869210438148,
+          0.9100570337375242,
+          0.9088768989904665
+        ],
+        "total_variation": 0.00951821038874542,
+        "fes_rmse_kbt": 0.025131250730740743,
+        "covered_reference_mass": 0.9973905620300968,
+        "weight_ess": 480000.0
+      },
+      "raw": {
+        "moments": [
+          0.49366458333333335,
+          0.4927020833333333,
+          0.9463208333333334,
+          0.8098869210438148,
+          0.9100570337375242,
+          0.9088768989904665
+        ],
+        "total_variation": 0.00951821038874542,
+        "fes_rmse_kbt": 0.025131250730740743,
+        "covered_reference_mass": 0.9973905620300968,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.49366458333333335,
+          0.4927020833333333,
+          0.9463208333333334,
+          0.8098869210438148,
+          0.9100570337375242,
+          0.9088768989904665
+        ],
+        "total_variation": 0.00951821038874542,
+        "fes_rmse_kbt": 0.025131250730740743,
+        "covered_reference_mass": 0.9973905620300968,
+        "weight_ess": 480000.0
+      },
+      "independent_sem": [
+        0.0039037164799906755,
+        0.004257650021473953,
+        0.0008345095865237284,
+        0.0015647665957562035,
+        0.0006550185779390489,
+        0.0006454032174653502
+      ],
+      "block_sem": [
+        0.004668879853299489,
+        0.004686881991888236,
+        0.0006837475757576744,
+        0.0012213348579475432,
+        0.0007319787849825904,
+        0.0007612446106819929
+      ],
+      "half_length": {
+        "moments": [
+          0.5010291666666666,
+          0.49985416666666665,
+          0.9469083333333334,
+          0.8106543391227694,
+          0.9095810400960403,
+          0.9104967584010594
+        ],
+        "total_variation": 0.008925262292545321,
+        "fes_rmse_kbt": 0.027064858695082256,
+        "covered_reference_mass": 0.9915824592730146,
+        "weight_ess": 240000.0
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_weak_k2_sum",
+      "coupling": 2.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.5108776649796887,
+          0.5111506300635997,
+          0.9466091967562176,
+          0.8112797214752627,
+          0.910802906894453,
+          0.91032056584666
+        ],
+        "total_variation": 0.014183262507385365,
+        "fes_rmse_kbt": 0.0344595899500387,
+        "covered_reference_mass": 0.9963102072418877,
+        "weight_ess": 241655.3810417063
+      },
+      "raw": {
+        "moments": [
+          0.84456875,
+          0.8448270833333333,
+          0.9590333333333333,
+          0.8379973445367564,
+          0.9206974593549556,
+          0.9203779948500139
+        ],
+        "total_variation": 0.35199982549297926,
+        "fes_rmse_kbt": 0.8968169402227352,
+        "covered_reference_mass": 0.9964535151095862,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.6958066772609387,
+          0.7145932703246372,
+          0.9464724823842104,
+          0.8121984445671986,
+          0.9110395446316489,
+          0.9122253851377444
+        ],
+        "total_variation": 0.2148464957574091,
+        "fes_rmse_kbt": 0.47156436860609185,
+        "covered_reference_mass": 0.9963102072418877,
+        "weight_ess": 406703.12127754453
+      },
+      "independent_sem": [
+        0.00663926356444091,
+        0.0063312804101742,
+        0.0005553095317492141,
+        0.0012979636431169708,
+        0.0008429673639703261,
+        0.0007581974200820153
+      ],
+      "block_sem": [
+        0.0061438038053564835,
+        0.006091276228363178,
+        0.0007046007533360202,
+        0.0016400355502951976,
+        0.0012053123700742777,
+        0.0010251567787928643
+      ],
+      "half_length": {
+        "moments": [
+          0.5147798093787568,
+          0.514728872290736,
+          0.9463012051048489,
+          0.8109715332873431,
+          0.9109618754673156,
+          0.9108082872160067
+        ],
+        "total_variation": 0.020795615856729056,
+        "fes_rmse_kbt": 0.05114283603211991,
+        "covered_reference_mass": 0.9852270869028787,
+        "weight_ess": 120897.34809465653
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_weak_k2_mean",
+      "coupling": 2.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5007633711327365,
+          0.5002164585966808,
+          0.9473909893628948,
+          0.812213747704621,
+          0.910661357780136,
+          0.9099175002451901
+        ],
+        "total_variation": 0.007816627246925355,
+        "fes_rmse_kbt": 0.023304789001386866,
+        "covered_reference_mass": 0.996835020455598,
+        "weight_ess": 398699.1285055625
+      },
+      "raw": {
+        "moments": [
+          0.6981895833333334,
+          0.6976875,
+          0.9502604166666667,
+          0.8179454187396188,
+          0.9121166323082563,
+          0.9118814874860477
+        ],
+        "total_variation": 0.2009857563227902,
+        "fes_rmse_kbt": 0.43861064422835655,
+        "covered_reference_mass": 0.9971076009599957,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.5990558890172024,
+          0.6081385722331073,
+          0.946977596662687,
+          0.8113205157581168,
+          0.9104712641388539,
+          0.9093009961678292
+        ],
+        "total_variation": 0.1087797938065466,
+        "fes_rmse_kbt": 0.22617734631508746,
+        "covered_reference_mass": 0.996835020455598,
+        "weight_ess": 457586.4132222474
+      },
+      "independent_sem": [
+        0.003882613092156034,
+        0.0037238634589833604,
+        0.0003307666148337473,
+        0.0005648675128507772,
+        0.0004492883270146612,
+        0.0005922819677609901
+      ],
+      "block_sem": [
+        0.005131257474960305,
+        0.005139716610301113,
+        0.0006287081171891588,
+        0.0011952496792569408,
+        0.0007199370833959753,
+        0.0007089077744910136
+      ],
+      "half_length": {
+        "moments": [
+          0.5087043499387628,
+          0.5069109568168961,
+          0.9480675294379182,
+          0.8123935499054338,
+          0.9100065611601625,
+          0.9091607856511968
+        ],
+        "total_variation": 0.014191410161499022,
+        "fes_rmse_kbt": 0.036209424107561464,
+        "covered_reference_mass": 0.992281054260973,
+        "weight_ess": 199386.36402552613
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "fixed_strong_k2_sum",
+      "coupling": 2.0,
+      "aggregation": "sum",
+      "scale": 1.0,
+      "correct": {
+        "moments": [
+          0.5260350624705076,
+          0.525830839765913,
+          0.9448007303450047,
+          0.8029245155998047,
+          0.9003402687287881,
+          0.9089295235822044
+        ],
+        "total_variation": 0.03970624482837676,
+        "fes_rmse_kbt": 0.0819989753133224,
+        "covered_reference_mass": 0.8940530225803295,
+        "weight_ess": 9230.630471619726
+      },
+      "raw": {
+        "moments": [
+          0.9889291666666666,
+          0.9888208333333334,
+          0.9878666666666667,
+          0.9101731451449775,
+          0.9558123257307172,
+          0.954221792138702
+        ],
+        "total_variation": 0.5096461051817158,
+        "fes_rmse_kbt": 2.7456483524245914,
+        "covered_reference_mass": 0.8940530225803295,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.8956969887167494,
+          0.9338932629889186,
+          0.9496367721338403,
+          0.8276139918608003,
+          0.9131913005885423,
+          0.9349373724715617
+        ],
+        "total_variation": 0.4346214614167063,
+        "fes_rmse_kbt": 1.4253395845856023,
+        "covered_reference_mass": 0.8940530225803295,
+        "weight_ess": 225596.01433397926
+      },
+      "independent_sem": [
+        0.016741242091536847,
+        0.016380625101361034,
+        0.0017622241804872792,
+        0.00610835627218322,
+        0.005278935665139898,
+        0.004753826681544449
+      ],
+      "block_sem": [
+        0.015305501638315686,
+        0.015244201046828644,
+        0.001646480328710682,
+        0.004567324133076456,
+        0.004121847218809212,
+        0.003695248493063909
+      ],
+      "half_length": {
+        "moments": [
+          0.5220716050538778,
+          0.5214006616156373,
+          0.9438496434205652,
+          0.7968632359120341,
+          0.8940316965670463,
+          0.905401918800856
+        ],
+        "total_variation": 0.05461787791214775,
+        "fes_rmse_kbt": 0.09781827681281724,
+        "covered_reference_mass": 0.7213435712279591,
+        "weight_ess": 4625.525815296809
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": false,
+        "confidence": true,
+        "joint_distribution": false,
+        "fes": true,
+        "coverage": false
+      },
+      "passed": false,
+      "cli": {
+        "density_mass_max_error": 1.096345236817342e-15,
+        "frames": 60000
+      }
+    },
+    {
+      "name": "fixed_strong_k2_mean",
+      "coupling": 2.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5001215535235728,
+          0.4987684325116686,
+          0.9470865662333291,
+          0.8108018145203137,
+          0.9076575927596072,
+          0.9103888043034873
+        ],
+        "total_variation": 0.0104764691056343,
+        "fes_rmse_kbt": 0.030526518921041856,
+        "covered_reference_mass": 0.9937192878960944,
+        "weight_ess": 119551.72872651076
+      },
+      "raw": {
+        "moments": [
+          0.9194020833333333,
+          0.91869375,
+          0.9686083333333333,
+          0.8596037191705176,
+          0.9289948372988771,
+          0.9291509239504475
+        ],
+        "total_variation": 0.4308920078334796,
+        "fes_rmse_kbt": 1.3120916693731475,
+        "covered_reference_mass": 0.9942323583894337,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.7609394561703323,
+          0.7853795607876215,
+          0.9475676900800056,
+          0.8152097498001132,
+          0.9096769651200269,
+          0.9159086616211032
+        ],
+        "total_variation": 0.285788087692471,
+        "fes_rmse_kbt": 0.6724446598809559,
+        "covered_reference_mass": 0.9937192878960944,
+        "weight_ess": 349185.31602109084
+      },
+      "independent_sem": [
+        0.007262435554554731,
+        0.0071990873687705235,
+        0.0007719388199679124,
+        0.0016477746710616124,
+        0.0006732733499600222,
+        0.0011628210235240099
+      ],
+      "block_sem": [
+        0.00664638350705004,
+        0.006539979786916872,
+        0.0007205089282439344,
+        0.001616880222195224,
+        0.0012500153482603656,
+        0.0012153960229825253
+      ],
+      "half_length": {
+        "moments": [
+          0.5098907844267765,
+          0.5074791772927931,
+          0.945916065503971,
+          0.8071947484018387,
+          0.9062048811277781,
+          0.908378149516815
+        ],
+        "total_variation": 0.01812809920207771,
+        "fes_rmse_kbt": 0.04876139566629296,
+        "covered_reference_mass": 0.9751856021474973,
+        "weight_ess": 60099.884898431985
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    },
+    {
+      "name": "learned_17_k2_mean",
+      "coupling": 2.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5009602818069309,
+          0.5008569282258801,
+          0.9468722168647594,
+          0.8111081869658748,
+          0.9097721542309608,
+          0.91021503140926
+        ],
+        "total_variation": 0.006308982357273648,
+        "fes_rmse_kbt": 0.01956180588030202,
+        "covered_reference_mass": 0.9992011005864307,
+        "weight_ess": 452421.3134769532
+      },
+      "raw": {
+        "moments": [
+          0.5674895833333333,
+          0.56739375,
+          0.934725,
+          0.7843408100564656,
+          0.8960031283232368,
+          0.8960764496224505
+        ],
+        "total_variation": 0.09521787814923025,
+        "fes_rmse_kbt": 0.23572608011811752,
+        "covered_reference_mass": 0.9992011005864307,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.5330796810746171,
+          0.5360552321229736,
+          0.940657195898789,
+          0.7972609320186457,
+          0.9076244961656841,
+          0.8986114676384206
+        ],
+        "total_variation": 0.053772093218838905,
+        "fes_rmse_kbt": 0.15033768441069773,
+        "covered_reference_mass": 0.9992011005864307,
+        "weight_ess": 468474.5520857908
+      },
+      "independent_sem": [
+        0.0026383519393200446,
+        0.002715069269022305,
+        0.00018840015179455438,
+        0.000549301412760008,
+        0.0006055305606254174,
+        0.0006778134801357564
+      ],
+      "block_sem": [
+        0.003709239568691263,
+        0.003640993308274724,
+        0.00042494220488130716,
+        0.0009189689320216385,
+        0.0006431540986621397,
+        0.0006486272024227212
+      ],
+      "half_length": {
+        "moments": [
+          0.498541145793078,
+          0.4989920560727603,
+          0.9473088117480201,
+          0.8116838321424233,
+          0.9095420471659734,
+          0.9102191870608278
+        ],
+        "total_variation": 0.008221843228356843,
+        "fes_rmse_kbt": 0.025802476620626867,
+        "covered_reference_mass": 0.9961765919341601,
+        "weight_ess": 226209.6708200604
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true,
+      "cli": {
+        "density_mass_max_error": 1.97758476261356e-15,
+        "frames": 60000
+      }
+    },
+    {
+      "name": "learned_28_k2_mean",
+      "coupling": 2.0,
+      "aggregation": "mean",
+      "scale": 0.5,
+      "correct": {
+        "moments": [
+          0.5001125861257244,
+          0.5007536369010583,
+          0.9467427613257722,
+          0.8118278669624656,
+          0.9106245595717333,
+          0.9110776173281899
+        ],
+        "total_variation": 0.006547158438641346,
+        "fes_rmse_kbt": 0.018557075037133705,
+        "covered_reference_mass": 0.9991684978087998,
+        "weight_ess": 462238.29700148205
+      },
+      "raw": {
+        "moments": [
+          0.4943875,
+          0.49504375,
+          0.93443125,
+          0.7860425206663018,
+          0.8978619261636205,
+          0.8980248380162125
+        ],
+        "total_variation": 0.07303386624947855,
+        "fes_rmse_kbt": 0.18554703460748417,
+        "covered_reference_mass": 0.9991684978087998,
+        "weight_ess": 480000.0
+      },
+      "partial": {
+        "moments": [
+          0.49729135552843107,
+          0.4978134414196615,
+          0.9406172297305372,
+          0.798947755892133,
+          0.9084870303853266,
+          0.9008166279396247
+        ],
+        "total_variation": 0.05177635038953443,
+        "fes_rmse_kbt": 0.1308514125705265,
+        "covered_reference_mass": 0.9991684978087998,
+        "weight_ess": 471141.59514766047
+      },
+      "independent_sem": [
+        0.004022720754776847,
+        0.003820132549948302,
+        0.0003932878563862571,
+        0.0005391266607801951,
+        0.0004063320134238601,
+        0.0004824346374353131
+      ],
+      "block_sem": [
+        0.004318348211495424,
+        0.004242297399398957,
+        0.00039198859225610767,
+        0.0008686197709046978,
+        0.0006916237944851937,
+        0.000648740893250899
+      ],
+      "half_length": {
+        "moments": [
+          0.4990856807782643,
+          0.5000550091462614,
+          0.94616089117216,
+          0.8119175997584546,
+          0.9114017349498659,
+          0.9121416709791405
+        ],
+        "total_variation": 0.008368215921775281,
+        "fes_rmse_kbt": 0.025995126700675095,
+        "covered_reference_mass": 0.9968202521217284,
+        "weight_ess": 231135.83345979353
+      },
+      "acceptance": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "checks": {
+        "moment_accuracy": true,
+        "precision": true,
+        "confidence": true,
+        "joint_distribution": true,
+        "fes": true,
+        "coverage": true
+      },
+      "passed": true
+    }
+  ],
+  "runtime": {
+    "seconds": 16.11528968811035,
+    "reused_samples": true,
+    "python": "3.10.6 | packaged by conda-forge | (main, Aug 22 2022, 20:35:26) [GCC 10.4.0]",
+    "numpy": "1.23.4",
+    "host": "excelsior"
+  },
+  "sources": {
+    "benchmarks/shared_frozen/probability.py": "a9b6f1b8e45964e764de0423d0932418c8688184cc4a417d48932f4ea07022f7",
+    "benchmarks/shared_frozen/probability_probe.cpp": "448248f4d81423a5a23af483becf109257045ce705cb4b03296044196c49b09b",
+    "src/sampling/zqc_hill_bias.cpp": "f2e8b2dbeebd4c97714085a1f2e4a4cccb3323c68e532256f32951cbe3176631",
+    "src/sampling/zqc_shared_bias.cu": "07ca01fbdde810e795b03250e0dd96bf32ee5696b47866607231d61cf2988845",
+    "tools/metadtoy_cli/reweight.py": "4fdb8c51a42adec1300561fb26b3e902bd9a556a938872536edd3bbc6ff2aff2"
+  },
+  "binaries": {
+    "/home/saitang/work/MetadToy-shared-probability-20261028/build/benchmarks/graph/libzqc_shared_probability_probe.so": "33195fca87a955d2e5eadca8e9e1e3e5d2c1a3bcd51065bc192578551d721c18",
+    "/home/saitang/work/MetadToy-shared-probability-20261028/build/benchmarks/graph/libzqc_shared_probability_cuda.so": "acac398d087c9c701e4c4f77bc4374413df0d5fd63979c2205de1d6464460f05"
+  }
+}

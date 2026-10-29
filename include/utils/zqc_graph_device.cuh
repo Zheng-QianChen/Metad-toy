@@ -155,4 +155,19 @@ void zqc_graph_rational_switch_bwd(double adj, double a, double r0, int power_n,
     *a_adj += adj * zqc_graph_rational_switch_df(a, r0, power_n, power_m, d0);
 }
 
+// Explicit safe division: when |b| <= epsilon return 0 with zero derivatives.
+// No silent floor/regularization outside this documented boundary.
+__host__ __device__ __forceinline__
+double zqc_graph_safe_div(double a, double b, double epsilon) {
+    return fabs(b) <= epsilon ? 0.0 : a / b;
+}
+
+__host__ __device__ __forceinline__
+void zqc_graph_safe_div_bwd(double adj, double a, double b, double epsilon,
+                            double* a_adj, double* b_adj) {
+    if (fabs(b) <= epsilon || adj == 0.0) return;
+    *a_adj += adj / b;
+    *b_adj -= (adj / b) * (a / b);
+}
+
 #endif // ZQC_GRAPH_DEVICE_CUH

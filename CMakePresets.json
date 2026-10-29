@@ -1,0 +1,214 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ZQC_GRAPH_STANDALONE": "OFF",
+        "USE_ML_CVS": "OFF"
+      }
+    },
+    {
+      "name": "cuda-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CUDA_ARCHITECTURES": "native"
+      }
+    },
+    {
+      "name": "host-tests",
+      "inherits": "base",
+      "displayName": "C++ views and diagnostics",
+      "cacheVariables": {
+        "ZQC_ENABLE_CUDA": "OFF",
+        "ZQC_BUILD_CVS": "OFF",
+        "ZQC_BUILD_LAMMPS": "OFF",
+        "ZQC_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "graph-tests",
+      "inherits": "cuda-base",
+      "displayName": "Graph, NVRTC and numerical validation",
+      "cacheVariables": {
+        "ZQC_ENABLE_CUDA": "ON",
+        "ZQC_BUILD_CVS": "OFF",
+        "ZQC_BUILD_LAMMPS": "OFF",
+        "ZQC_BUILD_TESTS": "ON",
+        "ZQC_TEST_MPI": "ON"
+      }
+    },
+    {
+      "name": "core",
+      "inherits": "cuda-base",
+      "displayName": "Graph and production CV libraries",
+      "cacheVariables": {
+        "ZQC_ENABLE_CUDA": "ON",
+        "ZQC_BUILD_CVS": "ON",
+        "ZQC_BUILD_LAMMPS": "OFF",
+        "ZQC_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "lammps",
+      "inherits": "core",
+      "displayName": "LAMMPS plugin",
+      "cacheVariables": {
+        "ZQC_BUILD_LAMMPS": "ON"
+      }
+    },
+    {
+      "name": "gpumd",
+      "inherits": "core",
+      "displayName": "GPUMD EnhancedSampling bridge",
+      "cacheVariables": {
+        "ZQC_BUILD_GPUMD": "ON"
+      }
+    },
+    {
+      "name": "gpumd-tests",
+      "inherits": "gpumd",
+      "displayName": "GPUMD DISTANCE and O2 validation",
+      "cacheVariables": {
+        "ZQC_BUILD_TESTS": "ON",
+        "ZQC_TEST_MPI": "OFF",
+        "ZQC_GPUMD_VALIDATION_MORSE": "ON"
+      }
+    },
+    {
+      "name": "gpumd-runtime",
+      "inherits": "core",
+      "displayName": "Shared runtime only; no GPUMD sources required",
+      "cacheVariables": {
+        "ZQC_BUILD_GPUMD": "OFF",
+        "ZQC_BUILD_GPUMD_RUNTIME": "ON"
+      }
+    },
+    {
+      "name": "cli",
+      "displayName": "Offline CLI only (no C++/CUDA compiler)",
+      "cacheVariables": {
+        "ZQC_CLI_ONLY": "ON"
+      },
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}"
+    },
+    {
+      "name": "lammps-kokkos",
+      "inherits": "lammps",
+      "displayName": "LAMMPS CUDA/Kokkos plugin",
+      "cacheVariables": {
+        "ZQC_LAMMPS_KOKKOS": "ON"
+      }
+    },
+    {
+      "name": "lammps-weave",
+      "inherits": "lammps-kokkos",
+      "displayName": "LAMMPS Kokkos with Weave device force batching",
+      "cacheVariables": {
+        "ZQC_LAMMPS_WEAVE": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "host-tests",
+      "configurePreset": "host-tests"
+    },
+    {
+      "name": "graph-tests",
+      "configurePreset": "graph-tests"
+    },
+    {
+      "name": "core",
+      "configurePreset": "core"
+    },
+    {
+      "name": "lammps",
+      "configurePreset": "lammps",
+      "targets": [
+        "fix_crystallize_plugin"
+      ]
+    },
+    {
+      "name": "gpumd",
+      "configurePreset": "gpumd"
+    },
+    {
+      "name": "gpumd-tests",
+      "configurePreset": "gpumd-tests",
+      "targets": [
+        "gpumd_metadtoy",
+        "zqc_gpumd_engine_test",
+        "zqc_gpumd_runtime_abi_test",
+        "zqc_gpumd_neighbors_test"
+      ]
+    },
+    {
+      "name": "gpumd-runtime",
+      "configurePreset": "gpumd-runtime",
+      "targets": [
+        "metadtoy"
+      ]
+    },
+    {
+      "name": "cli",
+      "configurePreset": "cli",
+      "targets": [
+        "metadtoy-cli"
+      ]
+    },
+    {
+      "name": "lammps-kokkos",
+      "configurePreset": "lammps-kokkos",
+      "targets": [
+        "fix_crystallize_plugin"
+      ]
+    },
+    {
+      "name": "lammps-weave",
+      "configurePreset": "lammps-weave",
+      "targets": [
+        "fix_crystallize_plugin"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host-tests",
+      "configurePreset": "host-tests",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "graph-tests",
+      "configurePreset": "graph-tests",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gpumd-tests",
+      "configurePreset": "gpumd-tests",
+      "filter": {
+        "include": {
+          "label": "gpumd"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

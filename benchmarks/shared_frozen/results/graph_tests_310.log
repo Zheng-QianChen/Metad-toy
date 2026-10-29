@@ -1,0 +1,22 @@
+Internal ctest changing into directory: /home/saitang/work/MetadToy-shared-frozen-20261027/build
+Test project /home/saitang/work/MetadToy-shared-frozen-20261027/build
+    Start  8: zqc_stream_contract
+1/5 Test  #8: zqc_stream_contract ..............   Passed    1.36 sec
+    Start  9: zqc_graph_nvrtc_smoke
+2/5 Test  #9: zqc_graph_nvrtc_smoke ............   Passed    0.33 sec
+    Start 10: zqc_graph_sw_func
+3/5 Test #10: zqc_graph_sw_func ................   Passed    2.24 sec
+    Start 11: zqc_cv_assembly
+4/5 Test #11: zqc_cv_assembly ..................   Passed    0.37 sec
+    Start 16: zqc_shared_frozen
+5/5 Test #16: zqc_shared_frozen ................   Passed    0.33 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+cuda                 =   1.69 sec*proc (2 tests)
+finite-difference    =   0.33 sec*proc (1 test)
+sampling             =   0.33 sec*proc (1 test)
+streams              =   1.36 sec*proc (1 test)
+
+Total Test time (real) =   4.65 sec

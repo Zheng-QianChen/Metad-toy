@@ -1,0 +1,33 @@
+test_empty_and_non_wt (test_cli.CliTests) ... ok
+test_highdim_requires_explicit_slice_and_rejects_pb_fes (test_cli.CliTests) ... ok
+test_hills_analytic_and_batch_equivalence (test_cli.CliTests) ... ok
+test_invalid_records_leave_no_published_output (test_cli.CliTests) ... ok
+test_legacy_int64_csv_and_variable_width (test_cli.CliTests) ... ok
+test_native_versions_and_periodic_invariance (test_cli.CliTests) ... ok
+test_output_protection_and_unknown_formats (test_cli.CliTests) ... ok
+test_pb_combination_cutoff_and_normalization (test_cli.CliTests) ... ok
+test_preview_axis_order_and_wt_fes (test_cli.CliTests) ... ok
+test_production_cpp_crosscheck (test_cli.CliTests) ... ok
+test_stdlib_commands_and_cli_error_status (test_cli.CliTests) ... ok
+test_cli_commands_and_controlled_error (test_trajectory.TrajectoryTests) ... ok
+test_dataset_csv_frame_manifest_and_split (test_trajectory.TrajectoryTests) ... ok
+test_failed_build_preserves_outputs_and_inputs (test_trajectory.TrajectoryTests) ... ok
+test_fixed_rows_require_acknowledgement_and_detect_changes (test_trajectory.TrajectoryTests) ... ok
+test_general_triclinic_and_explicit_pbc (test_trajectory.TrajectoryTests) ... ok
+test_id_reordering_int64_and_gzip (test_trajectory.TrajectoryTests) ... ok
+test_invalid_config_selection_and_split (test_trajectory.TrajectoryTests) ... ok
+test_invalid_frames (test_trajectory.TrajectoryTests) ... ok
+test_lammps_units_time_and_coordinates (test_trajectory.TrajectoryTests) ... ok
+test_missing_pbc_requires_argument_for_minimum (test_trajectory.TrajectoryTests) ... ok
+test_mixed_boundary_and_changing_cell (test_trajectory.TrajectoryTests) ... ok
+test_multiple_sources_stride_and_no_step (test_trajectory.TrajectoryTests) ... ok
+test_restricted_triclinic_scaled_extxyz_equivalence (test_trajectory.TrajectoryTests) ... ok
+test_source_change_detected (test_trajectory.TrajectoryTests) ... ok
+test_triclinic_minimum_against_independent_enumeration (test_trajectory.TrajectoryTests) ... ok
+test_units_mismatch_and_duplicate_config_keys (test_trajectory.TrajectoryTests) ... ok
+test_xyz_properties_order_time_no_invented_step (test_trajectory.TrajectoryTests) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 2.551s
+
+OK

@@ -1,5 +1,147 @@
 # 更新日志
 
+## v0.1.0 — 2026-10-29
+
+- 正式整合普通 LAMMPS、LAMMPS Kokkos/CUDA 与 GPUMD v5.9.1 的部分接入；Weave 保持可选。
+- 明确普通宿主仍使用 CUDA CV，GPUMD 当前支持 DISTANCE/StruFactor、Graph、一维 WTMetaD，
+  尚未覆盖 NPT、完整 MD 重启或全部 LAMMPS 功能。
+- 包含旧功能恢复、设备邻居和 LocalQL 优化、共享在线 WT/续算、跨流测试就绪修正及科学控制模型。
+- 支持范围、构建入口、历史证据和科学验证边界见 [版本说明](RELEASE_NOTES.md)。
+
+下列日期章节保留开发阶段的原始记录；本次发布范围以 v0.1.0 说明为准。
+
+## Graph 测试跨流就绪修正 — 2026-10-29
+
+- 复现 SUM/safe_div MPI 三条失败；仅同步测试 H2D、链接原 STATIC 库的隔离版本通过 15/15。
+- SUM/safe_div 与 AVE 测试改用 GpuBuffer 上传/下载契约；新增交替默认流/非阻塞流的延迟生产者回归。
+- 标准及全新 Graph 预设均 36/36；默认环境 SUM/safe_div 重复 150 次、AVE 60 次、流契约 20 次通过，
+  MAX_CONNECTIONS=32 附加 SUM 对照 60 次通过；Host 6/6。生产计算代码及数值容差未改。
+- 区分早期 34 项、恢复当晚 37 项与当前复验记录，见 [完整证据](docs/STREAM_READINESS_20261029.zh.md)。
+
+## 普通 LAMMPS 兼容验收 — 2026-10-29
+
+- host 构建/验证不再强制提供 Weave；仅 Kokkos/Weave 构建传入 Kokkos_DIR。
+- 全新关闭 Kokkos/GPU package 的普通宿主通过 1/2/4 ranks CV、ghost/cache、真实 MEAM、
+  共享在线 WT/续算及原生 lmp 加载测试。明确区分 CPU LAMMPS 宿主与 CUDA CV 计算。
+- 构建命令、Python 库固定方法与实际验收范围见 [普通版说明](docs/PLAIN_LAMMPS_20261029.zh.md)。
+
+## 统一候选版 — 2026-10-28 开始，2026-10-29 收口
+
+- 按 5→3→4→2→1→6 完成受测工程项；A100 10 万步、9 次续算与真实 1/2/4 GPU、跨两节点通过。
+- 合并其他工作区的 Langevin、同表配对及 FES 控制模型，保留原始通过与失败结果；统一构建上重新采样的重加权二维 RMSE=0.01454 kBT。
+- 用不加载 LAMMPS/MetaDtoy 的最小程序复现 OpenMPI 5.0.6 CUDA 延迟初始化/退出问题；提供不禁用 CUDA-aware MPI 的 early_cuda.py，在线 NPT/续算的 memcheck 与 initcheck 均 0 错误。
+- 固定源码、依赖、插件哈希与验证边界；真实 Al3Sc 形核/FES 收敛未标记为完成。见 [发布入口](docs/RELEASE_20261028.zh.md)。
+
+## 未发布 — 2026-10-28 设备路径、LocalQL 优化与在线共享偏势
+
+- 删除 LocalQL 无用球谐缓存，直接借用设备 CSR；WSL 与 A100 同机重复对照通过。
+- Q/Half 邻居准备与 Q 属性 forward 设备化，无 Weave 设备力合批仅暂存原生 reverse 边界包。
+- 固定共享表支持 SUM；新增在线 Gaussian/WT、独立的能量和沉积归约、校验历史、冻结与续算。
+- 默认一次沉积总基础高度由全局中心分摊。新增共享历史导出工具；普通 WT FES 工具不解释该格式。
+- 共享功能的 40 项 CTest、三种构建 20 项真实 NPT/重启矩阵、CUDA 内存检查与导出表参考对照通过。
+- 具体环境、误差和限制见 [共享验收](docs/SHARED_ONLINE_20261028.zh.md)、
+  [性能验收](docs/LOCALQL_PROFILE_20261028.zh.md)及[设备覆盖](docs/DEVICE_COVERAGE_20261028.zh.md)。
+
+## 未发布 — 2026-10-28 旧独有 CV 功能恢复
+
+- 新增设备 LocalGeom COORD/TET 叶，恢复软配位总数与目标配位计数的 Graph 前后向和 virial。
+- 新增 SUM 与 safe_div，恢复 LocalQL NSOLID/MEAN_SOLID/FRAC；CVGraph 的 SUM 按中心组掩蔽值和伴随，多组表达式可显式指定规约组。
+- MEAN_RNN 保持诊断接口；零邻居不进入平均分母。Global Leaf 广播伴随跨 MPI 汇总。
+- LocalGeom、LocalQL 旧统计、MPI/差分及兼容插件验证见 [恢复记录](docs/LEGACY_RESTORATION_20261028.zh.md)。
+
+## 未发布 — 2026-10-28 CSS / LocalQL 设备邻居准备
+
+- CSS/StruFactor 与 LocalQL 直接请求 Kokkos device full/ghost 邻居表，在 GPU 筛选、扫描并生成 CSR；保留 Host/全局 Q/Half 兼容路径。
+- LocalQL 将 CSR 行重排和中心标记移至 GPU，只回读 I/J 中心数、有效 pair 数；CSS 中心顺序检查按拓扑/装配版本复用。
+- 两层 halo、周期镜像 localid、动态组和每轮几何更新语义保持一致。新增设备邻居计数，扩展 ghost 缓存与 LocalQL 回归入口以支持 Kokkos/Weave。
+
+## 未发布 — 2026-10-28 科学控制模型
+
+以下科学控制模型记录保留原实验时间及数值，当前版本复验和科学边界另见发布说明。
+
+### 冻结偏势后的独立 MD FES 复原
+
+- 新增直接坐标 CV 的共享沉积、显式重新平衡与固定时长 Langevin 采样测试，重建阶段仅读取 CV、总偏势和温度。
+- 16 条独立轨迹、160 万帧的二维 FES 重加权 RMSE 为 0.01432 kBT，覆盖 99.977% 参考概率质量；原始带偏分布 RMSE 为 0.68991 kBT。
+- 一维/二维图、独立轨迹置信区间、CLI 一致性与实际 CUDA 共享表检查通过；同预算无偏 MD 的独立链精度门槛未达标，完整保留结果。
+- 复现与限制见 [FES 复原记录](benchmarks/shared_frozen/FES_RECOVERY.md)；改动限定在 benchmark 与文档。
+
+### 同一 MD 偏势表的冻结对照
+
+- 增加独立在线 MD 训练表与冻结/继续配对验证，两个 CV family 各自训练，禁止跨 CV 直接复用表。
+- 8 个训练种子、每张表每方向 16 条验证轨迹；两层配对 bootstrap 计入训练表差异。
+- 核对同表初态、力、更新前返回状态和表指纹；保留两档时间步和旧接口一致性结果。
+- 澄清旧动力学报告的冻结组来自独立 Metropolis 训练，不能据此归因冻结效果。见 [新对照](benchmarks/shared_frozen/MATCHED_MD.md)。
+
+### Langevin 动力学加速验证
+
+- 新增 BAOAB 位置/速度积分原型，统计双向首次到达、删失轨迹、核心跃迁及投影转移矩阵。
+- 对比冻结共享表与在线共同沉积，使用 128 条每方向独立轨迹、16 条平衡轨迹和实际 CPU 批次计时。
+- 增加谐振子解析时间相关、物理力有限差分及时间步细化；保留压缩偏势粗步长下的温度偏离。
+- 310 实测显示物理坐标在线沉积双向加速，而本次压缩 CV 仅正向加速、反向减慢；结果限于控制模型。
+- 完整方法、置信区间和图见 [动力学记录](benchmarks/shared_frozen/KINETICS.md)。
+
+### CV 压缩控制
+
+- 新增光滑 90%→10% 概率压缩对照，输出解析平坦势、共同沉积偏势与原坐标二维 FES 图。
+- 增加独立 CPU 采样桥接和实际 CUDA 表/链式梯度核对，继续复用 HillBias、HILLS 及 CLI。
+- 在 310 记录初轮与同链延长结果：普通 CV 和解析形状 MEAN 达标；学习压缩 MEAN 的覆盖和强 SUM 的重加权仍未达标，完整保留失败证据。
+- 方法、复现与结果见 [CV 压缩测试](benchmarks/shared_frozen/COMPRESSION.md)。
+
+## 未发布 — 2026-10-28 共享偏势平衡概率验证
+
+- 新增耦合双阱统计原型：独立数值积分对照固定共享表和共同沉积后冻结的重加权分布。
+- 复用 HillBias/HILLS 与实际 CUDA FrozenSharedBias，检查表插值、偏势导数、重启一致性和现有 CLI。
+- 增加独立链误差、联合分布、权重 ESS、FES 覆盖门槛及错误重加权对照。
+- 310 初轮 12 组中 10 组达标；两组强 SUM 在同一链延长 8 倍后达到原判据，保留初轮失败记录。
+- 提供[复现说明](benchmarks/shared_frozen/PROBABILITY.md)和[实测结果](benchmarks/shared_frozen/PROBABILITY_RESULTS_310.md)。
+  结论限于冻结平衡采样；主程序的生产 CV/偏势算法未改动。
+
+## 未发布 — 2026-10-27 Graph 力与 virial 合并回传
+
+- Graph 反向新增力输出批次：各 CV 贡献累加后统一完成一次 ghost reverse 和一次 owned 回写；Kokkos 最终力只上传一次。
+- 统一收集 DISTANCE 的 owned 贡献，支持空中心 rank、取消和重复求值；批次外直接调用保留立即提交行为。
+- 新增真实适配器通信计数与布局回归，检查六/九分量、Host/CUDA、AoS/SoA 和源数组复用。
+- Al3Sc 普通/Kokkos 单双 rank 有限差分与新旧状态对照通过。说明与性能复测见 [310 记录](benchmarks/shared_frozen/FORCE_BATCH_310.md)。
+
+## 未发布 — 2026-10-27 冻结共享原子偏势原型
+
+- 增加 SHARED_FROZEN：一张一维固定表按中心组逐原子求值，再按全局 owned 数量取 MEAN；三次 Hermite 插值同时给出能量与导数。
+- Graph 执行器支持 PerAtom 输出和数组反向种子，可与 Global 输出共同反传；CVGraph 对外提供明确的 owned 槽位选择集。
+- 共享偏势层独立于 LAMMPS，使用 CUDA 查表/规约和 SumReducer；组外梯度为零，空 rank 参与全局规约，日志记录表内容指纹。
+- Al3Sc LocalQ6×CSS：6 个普通/Kokkos 有限差分配置通过；6912 原子短积分、选择集刷新、restart 重放通过；完整 CUDA 内存检查 0 错误。
+- 提供[输入与复现指南](benchmarks/shared_frozen/README.md)、解析测试表及[310 验证记录](benchmarks/shared_frozen/RESULTS_310.md)。此阶段使用冻结表验证接口与导数。
+
+## 未发布 — 2026-10-27 LAMMPS CUDA/Kokkos 接入
+
+- 增加可选 Kokkos 桥接和 lammps-kokkos 构建预设，注册 metad/kk 与 metad/kk/device，保留普通 LAMMPS 路径。
+- 坐标/类型借用 Kokkos Device View 并保留真实 stride；输入带 CUDA event 等待钩子，力在 reverse 后回写 Device 并更新 DualView 状态。邻居候选、Host MPI 和 virial tally 沿用适配器接口。
+- Kokkos 运行时由 liblammps 唯一持有，避免插件重复静态链接；固定原生 CUDA 构建边界，compute 支持 /kk Fix，并修正工厂函数 ABI。
+- 补齐普通坐标上传 View 的就绪事件，删除未使用的 source_location 头文件。
+- 为旧版 LAMMPS 的零 cutoff trim 缺陷提供源码检测和三文件回补。当前上游已修复，用户原有 LAMMPS 源码与库未修改。
+- 310 单卡 1/2 rank：69 个有限差分配置、8 组连续积分、324 项邻居契约检查通过；最终 CUDA memcheck 为 0 错误。详情见 [接入指南](benchmarks/kokkos/README.md)和[验证记录](benchmarks/kokkos/RESULTS_310.md)。
+
+## 未发布 — 2026-10-27 可安装的 metadtoy 命令
+
+- 增加标准 Python 包及 metadtoy 命令入口；依赖清单与源码 CLI 共用。
+- CMake 增加 cli 预设、metadtoy-cli 打包目标和 cli 安装组件；ZQC_CLI_ONLY 仅配置 Python 工具，ZQC_BUILD_CLI 可随现有构建启用，默认关闭。
+- 安装前缀下管理独立 Python 环境和分析依赖；启动命令无需激活环境，支持同版本开发代码更新。首次配置、构建和安装的步骤见 [CLI 安装指南](tools/README.md)。
+- 310 上 10 项安装检查通过，包含 FES/进度输出、路径空格、前缀覆盖、增量更新及 Host 库共存；本机 WSL 已实际安装并验证入口。详见 [安装记录](benchmarks/cli/INSTALLATION_310.md)。
+
+## 未发布 — 2026-10-26 FES 批处理与终端进度
+
+- COLVAR 增加有界批读取，保持 step 的 int64 精度；范围扫描、直方图及对数权重累计按批执行。
+- 离线 c(t) 在规则网格上复用逐轴高斯因子与缓冲区，相邻沉积之间复用 offset，保持原积分网格和沉积时序。
+- FES 命令新增 --progress auto/always/never、--sample-batch；交互终端默认显示阶段进度和预计剩余时间，进度事件可供后续 TUI 复用。
+- 310 上 52 项回归测试通过，包括分批等价、周期网格核、沉积步边界、大整数步号、stdout/stderr 分离及计算取消。新旧版本交替计时与数值对照见 [FES 性能记录](benchmarks/cli/FES_PERFORMANCE_310.md)。
+
+## 未发布 — 2026-10-26 轨迹重加权 FES
+
+- FES 默认采用逐帧重加权，使用 log_weight、rbias 或 (bias-c(t))/kBT。新增 fes reconstruct，旧 hills preview --quantity fes 使用同一默认方法；原渐近估计通过 --method hills 保留。
+- 为原生 1–3D 普通 WTMetaD 增加离线 c(t) 积分，按记录时序追加 hills，显式区分积分域与绘图域；PB/高维可读取已给出的校正权重。
+- 导出 FES CSV/PNG、来源与参数 JSON、逐帧权重 CSV；保存样本数和权重 ESS，空 bin 留空，缺少动态归一化时明确报错。
+- 310 上 45 项测试通过；已有 O2 轨迹的 180001 帧完成重建和 c(t) 网格加密检查。详见 [验证记录](benchmarks/cli/FES_RESULTS_310.md)。
+
 ## 2026-10-16 — Graph CV 与安装验证更新（experimental preview）
 
 本次整合下方 Q、Local Q、DISTANCE 的 Graph 接入及数值验证，继续作为实验性功能验证版发布。

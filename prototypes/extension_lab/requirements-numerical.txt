@@ -1,0 +1,5 @@
+# Python 3.10–3.12。MPI 启动器需与 mpi4py 所链接的 MPI 实现一致。
+numpy==1.26.4
+scipy==1.14.1
+matplotlib>=3.8,<4
+mpi4py>=3.1,<5

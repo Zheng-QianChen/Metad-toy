@@ -1,0 +1,16 @@
+{
+  "passed": 10,
+  "checks": [
+    "CLI-only configuration requires no C++/CUDA compiler",
+    "unchanged builds reuse the packaged wheel",
+    "install-time prefix override and paths containing spaces",
+    "bare metadtoy works outside the repository without activation",
+    "installed dependencies execute FES and progress output",
+    "unrelated command is preserved",
+    "unsupported DESTDIR is rejected before installation",
+    "same-version source update is installed",
+    "installed runtime does not depend on the source checkout",
+    "CLI target coexists with the Host bias library"
+  ],
+  "python": "3.10.6 | packaged by conda-forge | (main, Aug 22 2022, 20:35:26) [GCC 10.4.0]"
+}

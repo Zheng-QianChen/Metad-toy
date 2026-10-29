@@ -1,6 +1,5 @@
 #pragma once  // 必须添加这一行
 #include <cstring>
-#include <source_location>
 #include <cub/cub.cuh>
 #include <cub/iterator/counting_input_iterator.cuh>
 

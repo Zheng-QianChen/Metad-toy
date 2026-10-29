@@ -1,0 +1,2254 @@
+{
+  "date": "2026-10-22",
+  "workload": "Al3Sc LocalQL x CSS production parameters",
+  "metadata": {
+    "prepared": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022",
+    "steps": 500,
+    "warmup": 100,
+    "repeats": 3,
+    "contention": "production-paused",
+    "processes_before": [
+      {
+        "pid": 355658,
+        "state": "T",
+        "start_ticks": 72107737,
+        "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+      },
+      {
+        "pid": 639495,
+        "state": "T",
+        "start_ticks": 78674148,
+        "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+      }
+    ],
+    "script_sha256": "1168bfe83bb18942d0aafc39458aa64ecb225222c81df62673d0548c8f2e54e3",
+    "checkpoint_step": 6220000,
+    "plugins": {
+      "production": {
+        "source": "/home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/fix_crystallize_plugin.so",
+        "sha256": "974145ab6e87a2a125be808c5f29cd27e67a11875aa13690b1a269b6f6667599",
+        "bytes": 18516832
+      },
+      "uploaded": {
+        "source": "/home/zqc/work/Metad-toy/build/performance/uploaded_2d9ac78/fix_crystallize_plugin.so",
+        "sha256": "67b9ca52375508986a734af1de767f1d9bbc779df42e0b73a8fa1f1db17b1ef2",
+        "bytes": 17652416
+      },
+      "current": {
+        "source": "/home/zqc/work/Metad-toy/build/layers-lammps/fix_crystallize_plugin.so",
+        "sha256": "fc34be4362139c99588470ce50c2ce68ecf3fcee333761f0f50833bfaeb4afc6",
+        "bytes": 15604136
+      }
+    },
+    "conditions": {
+      "atoms": 6912,
+      "sc_atoms": 1728,
+      "mpi_ranks": 1,
+      "temperature_K": 1450,
+      "pressure_bar": 1,
+      "timestep_ps": 0.001,
+      "neighbor_skin_A": 2,
+      "communication_cutoff_A": 12,
+      "pace": 200,
+      "wt_factor": 50
+    },
+    "timing": "Last LAMMPS Loop time; physical MEAM+NPT+WT deposition+thermo; startup/NVRTC/warmup excluded",
+    "processes_after": [
+      {
+        "pid": 355658,
+        "state": "T",
+        "start_ticks": 72107737,
+        "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+      },
+      {
+        "pid": 639495,
+        "state": "T",
+        "start_ticks": 78674148,
+        "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+      }
+    ]
+  },
+  "provenance": {
+    "checkpoint": "/mnt/f/Users/Administrator/Documents/ChatGPT/[work]Metad软件改正/localql_css_20261007/npt_zero_20261017/segments/006210000_006220000_wt",
+    "checkpoint_result": {
+      "start_step": 6210000,
+      "end_step": 6220000,
+      "wt": true,
+      "wt_biasfactor": 50.0,
+      "returncode": 0,
+      "completed_utc": "2026-10-22T05:24:52.364767+00:00",
+      "wall_seconds": 666.6251904129749,
+      "first": {
+        "Step": 6210000.0,
+        "Time": 6210.0,
+        "Atoms": 6912.0,
+        "Temp": 1436.01053990091,
+        "Volume": 142107.64390009,
+        "Lx": 52.1842139819292,
+        "Ly": 52.1842139819292,
+        "Lz": 52.1842139819292,
+        "Density": 2.54218803432975,
+        "PotEng": -24151.8239568892,
+        "KinEng": 1282.81242943963,
+        "TotEng": -22869.0115274496,
+        "Press": -1458.01180538936,
+        "c_p_phys": -2008.52534619414,
+        "c_p_bias": 550.513540804779,
+        "f_bias": 30.929350403441,
+        "f_bias[1]": 0.0076835848898222,
+        "c_av[1]": 0.180337678905479,
+        "c_av[2]": 0.386877729992881,
+        "c_av[3]": 0.0704789956154254,
+        "c_av[4]": 0.907367730776314,
+        "c_nptbath_press": -1458.01180538936,
+        "Ecouple": -529.778108411724,
+        "Econserve": -23398.7896358613,
+        "Fmax": 4.94880244185129
+      },
+      "last": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168120293,
+        "c_p_phys": -2631.00130722847,
+        "c_p_bias": 492.639626025532,
+        "f_bias": 30.5377870403549,
+        "f_bias[1]": 0.00802401913307818,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713709,
+        "c_av[3]": 0.0727420576983449,
+        "c_av[4]": 0.889903443462422,
+        "c_nptbath_press": -2138.09644862582,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685962,
+        "Fmax": 5.37039320044742
+      },
+      "hills_before_sha256": "5d53697ccbaba6d9b2c569b071de8ea8285e6ccd51dd33654769b7b1a25b776c",
+      "hills_after_sha256": "3101ec270e6c151cbad90596640b569174a12fd08f96d278deb67c8476969ba8",
+      "restart_sha256": "946523769ba78032bbf352aa2e1fa010717573aca58b9ff77b204490c1712ada"
+    },
+    "assets": {
+      "restart.start": {
+        "source": "/mnt/f/Users/Administrator/Documents/ChatGPT/[work]Metad软件改正/localql_css_20261007/npt_zero_20261017/segments/006210000_006220000_wt/restart.final",
+        "sha256": "946523769ba78032bbf352aa2e1fa010717573aca58b9ff77b204490c1712ada",
+        "bytes": 609433
+      },
+      "HILLS": {
+        "source": "/mnt/f/Users/Administrator/Documents/ChatGPT/[work]Metad软件改正/localql_css_20261007/npt_zero_20261017/segments/006210000_006220000_wt/HILLS",
+        "sha256": "3101ec270e6c151cbad90596640b569174a12fd08f96d278deb67c8476969ba8",
+        "bytes": 1788445
+      },
+      "production.so": {
+        "source": "/home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/fix_crystallize_plugin.so",
+        "sha256": "974145ab6e87a2a125be808c5f29cd27e67a11875aa13690b1a269b6f6667599",
+        "bytes": 18516832
+      },
+      "uploaded.so": {
+        "source": "/home/zqc/work/Metad-toy/build/performance/uploaded_2d9ac78/fix_crystallize_plugin.so",
+        "sha256": "67b9ca52375508986a734af1de767f1d9bbc779df42e0b73a8fa1f1db17b1ef2",
+        "bytes": 17652416
+      },
+      "current.so": {
+        "source": "/home/zqc/work/Metad-toy/build/layers-lammps/fix_crystallize_plugin.so",
+        "sha256": "fc34be4362139c99588470ce50c2ce68ecf3fcee333761f0f50833bfaeb4afc6",
+        "bytes": 15604136
+      },
+      "Al-Sc.library.meam": {
+        "source": "/home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/Al-Sc.library.meam",
+        "sha256": "8e19edafc72cffe2893cc5debf14d6588fa8b77731869009f7404675d1ce9700",
+        "bytes": 411
+      },
+      "Al-Sc.meam": {
+        "source": "/home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/Al-Sc.meam",
+        "sha256": "4cb80845ac3291fdfaea0941175a93a4cfcd8dffff68f7ff06b970f4dce24690",
+        "bytes": 1502
+      },
+      "production-input.lmp": {
+        "source": "/mnt/f/Users/Administrator/Documents/ChatGPT/[work]Metad软件改正/localql_css_20261007/npt_zero_20261017/segments/006210000_006220000_wt/input.lmp",
+        "sha256": "ffa9f2345bd7f4f2fe519538f9977e0460e6ec78d22710d7d8613f0f8e3eb90e",
+        "bytes": 1906
+      }
+    },
+    "hills_count": 31100,
+    "lammps": "/home/zqc/apps/deepmd/bin/lmp_mpi",
+    "source_status": " M CMakeLists.txt\n M README.md\n M benchmarks/README.md\n M benchmarks/finite_difference/README.md\n M benchmarks/finite_difference/graph.cu\n M benchmarks/graph/CMakeLists.txt\n M benchmarks/graph/README.md\n M benchmarks/graph/css.cu\n M benchmarks/graph/cv_assembly.cu\n M benchmarks/graph/graph_ave_mpi.cu\n M benchmarks/graph/graph_extension.cu\n M benchmarks/graph/graph_smoke.cu\n M benchmarks/graph/graph_sw_func.cu\n M benchmarks/graph/strufactor_graph.cu\n M include/CVsets/CV_CSS.h\n M include/CVsets/CV_Distance.h\n M include/CVsets/CV_Steinhardt.h\n M include/CVsets/CV_Stru_factor.h\n M include/CVsets/CV_Weighted_Chemical_Pair_Order.h\n M include/core/fix_crystallize.h\n M include/core/zqc_cv_graph.cuh\n M include/utils/zqc_cv_assembly.cuh\n M include/utils/zqc_gpu_buffer.cuh\n M include/utils/zqc_graph.cuh\n M include/utils/zqc_switch_function.h\n M src/core/CMakeLists.txt\n M src/core/CVFactory.cu\n M src/core/compute_MetaDToy.cu\n M src/core/fix_crystallize.cu\n M src/core/zqc_cv_graph.cu\n M src/cvs/CMakeLists.txt\n M src/cvs/CV_Weighted_Chemical_Pair_Order.cu\n M src/cvs/CVs_CSS.cu\n M src/cvs/CVs_DISTANCE.cu\n M src/cvs/CVs_Steinhardt.cu\n M src/cvs/CVs_Steinhardt_Local.cu\n M src/cvs/CVs_Strufactor.cu\n M src/cvs/CVs_Strufactor_chem.cu\n M src/grids/CMakeLists.txt\n M src/ml_cvs/CMakeLists.txt\n M src/utils/CMakeLists.txt\n M src/utils/zqc_cv_assembly.cu\n M src/utils/zqc_graph.cu\n M src/utils/zqc_graph_execution.cu\n M src/utils/zqc_graph_nodes.cu\n?? CMakePresets.json\n?? benchmarks/finite_difference/compute_outputs.py\n?? benchmarks/finite_difference/engine_cache.py\n?? benchmarks/finite_difference/engine_cache_probe.cu\n?? benchmarks/finite_difference/engine_lifecycle.py\n?? benchmarks/finite_difference/engine_neighbors.py\n?? benchmarks/finite_difference/engine_neighbors_probe.cu\n?? benchmarks/finite_difference/engine_virial.py\n?? benchmarks/finite_difference/engine_virial_probe.cu\n?? benchmarks/finite_difference/q_compute_outputs.py\n?? benchmarks/graph/ENGINE_ADAPTER.md\n?? benchmarks/graph/array_view.cpp\n?? benchmarks/graph/diagnostics.cpp\n?? benchmarks/graph/engine_contract.cpp\n?? benchmarks/graph/engine_geometry.cu\n?? benchmarks/graph/gpu_buffer.cu\n?? benchmarks/graph/mpi_sum_reducer.h\n?? benchmarks/graph/production_cv_views.cu\n?? benchmarks/graph/stream_contract.cu\n?? benchmarks/runtime_performance/\n?? cmake/BuildOptions.cmake\n?? cmake/GraphDependencies.cmake\n?? cmake/LammpsDependencies.cmake\n?? cmake/README.md\n?? include/core/zqc_lammps_diagnostics.h\n?? include/core/zqc_lammps_engine.h\n?? include/utils/zqc_array_view.h\n?? include/utils/zqc_collective.h\n?? include/utils/zqc_cuda_execution.cuh\n?? include/utils/zqc_cv.h\n?? include/utils/zqc_cv_debug.h\n?? include/utils/zqc_cv_parse.h\n?? include/utils/zqc_diagnostics.h\n?? include/utils/zqc_distance.h\n?? include/utils/zqc_engine.h\n?? include/utils/zqc_virial.h\n?? prototypes/\n?? src/core/zqc_lammps_diagnostics.cpp\n?? src/core/zqc_lammps_engine.cu\n?? third_party/fmt/\n"
+  },
+  "comparison": {
+    "expression": "AVE(q*c*fermi(q*c,0.35,15))",
+    "q": "raw LocalQ6 on Sc",
+    "c": "CSS Sc CHANNEL 2 SW_css 0 .45",
+    "production_expression": "JOINT.SW_MEAN = mean(p*F(p)); p=raw LocalQ6*CSS",
+    "radial_localq": {
+      "r0": 3.5,
+      "alpha": -20,
+      "epsilon": 1e-12
+    },
+    "radial_css": {
+      "r0": 3.3,
+      "alpha": -20,
+      "epsilon": 1e-12
+    },
+    "baseline": "actual active production binary",
+    "additional_baseline": "uploaded commit 2d9ac78",
+    "current": "current tree including Half/ArrayView/virial changes",
+    "measured_steps": 500,
+    "warmup_steps": 100,
+    "repeats": 3,
+    "rank_count": 1,
+    "startup_excluded": true,
+    "physical_MEAM_NPT_WT": true,
+    "notice": "Named sw_func lookup is not connected in the LAMMPS Graph wrapper; benchmark uses equivalent built-in fermi. No production source edits."
+  },
+  "summary": {
+    "production": {
+      "median_ms": 65.5938,
+      "minimum_ms": 65.5558,
+      "maximum_ms": 65.8804,
+      "samples_ms": [
+        65.8804,
+        65.5938,
+        65.5558
+      ],
+      "median_steps_per_second": 15.245343309885994,
+      "median_ns_per_day": 1.3171976619741501,
+      "median_stages_seconds": {
+        "Pair": 28.767,
+        "Neigh": 0.62265,
+        "Comm": 0.024451,
+        "Output": 0.00056283,
+        "Modify": 3.3692
+      }
+    },
+    "uploaded": {
+      "median_ms": 64.1306,
+      "minimum_ms": 63.6014,
+      "maximum_ms": 64.161,
+      "samples_ms": [
+        64.1306,
+        64.161,
+        63.6014
+      ],
+      "median_steps_per_second": 15.593180166722282,
+      "median_ns_per_day": 1.3472507664048052,
+      "median_stages_seconds": {
+        "Pair": 28.904,
+        "Neigh": 0.62532,
+        "Comm": 0.024806,
+        "Output": 0.0011811,
+        "Modify": 2.4699
+      }
+    },
+    "current": {
+      "median_ms": 63.3214,
+      "minimum_ms": 62.94,
+      "maximum_ms": 63.40760000000001,
+      "samples_ms": [
+        63.3214,
+        62.94,
+        63.40760000000001
+      ],
+      "median_steps_per_second": 15.792449314133927,
+      "median_ns_per_day": 1.3644676207411714,
+      "median_stages_seconds": {
+        "Pair": 28.813,
+        "Neigh": 0.63397,
+        "Comm": 0.025631,
+        "Output": 0.0013671,
+        "Modify": 2.146
+      },
+      "time_change_vs_production": -0.03464351813738498,
+      "speedup_vs_production": 1.035886761821438,
+      "time_change_vs_uploaded": -0.012618001390911737,
+      "speedup_vs_uploaded": 1.0127792499849972
+    }
+  },
+  "stages_ms": {
+    "production": {
+      "Pair": {
+        "median_ms": 57.534,
+        "minimum_ms": 57.488,
+        "maximum_ms": 57.756,
+        "samples_ms": [
+          57.756,
+          57.534,
+          57.488
+        ]
+      },
+      "Neigh": {
+        "median_ms": 1.2453,
+        "minimum_ms": 1.23232,
+        "maximum_ms": 1.24858,
+        "samples_ms": [
+          1.2453,
+          1.23232,
+          1.24858
+        ]
+      },
+      "Comm": {
+        "median_ms": 0.048902,
+        "minimum_ms": 0.047866,
+        "maximum_ms": 0.049234,
+        "samples_ms": [
+          0.049234,
+          0.048902,
+          0.047866
+        ]
+      },
+      "Output": {
+        "median_ms": 0.00112566,
+        "minimum_ms": 0.0010928,
+        "maximum_ms": 0.0014232,
+        "samples_ms": [
+          0.0014232,
+          0.0010928,
+          0.00112566
+        ]
+      },
+      "Modify": {
+        "median_ms": 6.7384,
+        "minimum_ms": 6.7324,
+        "maximum_ms": 6.7906,
+        "samples_ms": [
+          6.7906,
+          6.7384,
+          6.7324
+        ]
+      }
+    },
+    "uploaded": {
+      "Pair": {
+        "median_ms": 57.808,
+        "minimum_ms": 57.384,
+        "maximum_ms": 57.874,
+        "samples_ms": [
+          57.808,
+          57.874,
+          57.384
+        ]
+      },
+      "Neigh": {
+        "median_ms": 1.25064,
+        "minimum_ms": 1.2418,
+        "maximum_ms": 1.25672,
+        "samples_ms": [
+          1.25064,
+          1.25672,
+          1.2418
+        ]
+      },
+      "Comm": {
+        "median_ms": 0.049612,
+        "minimum_ms": 0.049126,
+        "maximum_ms": 0.049632,
+        "samples_ms": [
+          0.049632,
+          0.049612,
+          0.049126
+        ]
+      },
+      "Output": {
+        "median_ms": 0.0023622,
+        "minimum_ms": 0.0021978,
+        "maximum_ms": 0.0025174,
+        "samples_ms": [
+          0.0021978,
+          0.0025174,
+          0.0023622
+        ]
+      },
+      "Modify": {
+        "median_ms": 4.9398,
+        "minimum_ms": 4.8838,
+        "maximum_ms": 4.9814,
+        "samples_ms": [
+          4.9814,
+          4.9398,
+          4.8838
+        ]
+      }
+    },
+    "current": {
+      "Pair": {
+        "median_ms": 57.626,
+        "minimum_ms": 57.366,
+        "maximum_ms": 57.754,
+        "samples_ms": [
+          57.626,
+          57.366,
+          57.754
+        ]
+      },
+      "Neigh": {
+        "median_ms": 1.26794,
+        "minimum_ms": 1.26786,
+        "maximum_ms": 1.2686,
+        "samples_ms": [
+          1.26786,
+          1.26794,
+          1.2686
+        ]
+      },
+      "Comm": {
+        "median_ms": 0.051262,
+        "minimum_ms": 0.051018,
+        "maximum_ms": 0.05161,
+        "samples_ms": [
+          0.05161,
+          0.051018,
+          0.051262
+        ]
+      },
+      "Output": {
+        "median_ms": 0.0027342,
+        "minimum_ms": 0.0022246,
+        "maximum_ms": 0.0027754,
+        "samples_ms": [
+          0.0022246,
+          0.0027342,
+          0.0027754
+        ]
+      },
+      "Modify": {
+        "median_ms": 4.292,
+        "minimum_ms": 4.2148,
+        "maximum_ms": 4.3362,
+        "samples_ms": [
+          4.3362,
+          4.2148,
+          4.292
+        ]
+      }
+    }
+  },
+  "validation": {
+    "trajectory": [
+      {
+        "repeat": 0,
+        "variant": "production",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 0.0,
+          "f_bias": 0.0,
+          "Press": 0.0,
+          "c_p_phys": 0.0,
+          "c_p_bias": 0.0,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0,
+          "Temp": 0.0,
+          "Volume": 0.0,
+          "PotEng": 0.0,
+          "Fmax": 0.0
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 0,
+        "variant": "uploaded",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.4269462267921824e-14,
+          "f_bias": 4.4000358911944204e-11,
+          "Press": 6.469917934737168e-09,
+          "c_p_phys": 8.720007826923393e-09,
+          "c_p_bias": 1.5177022305579158e-08,
+          "c_av[1]": 4.9987791683747673e-14,
+          "c_av[2]": 4.710121181972227e-13,
+          "c_av[3]": 1.4220569166667474e-13,
+          "c_av[4]": 5.110356582349596e-13,
+          "Temp": 4.001776687800884e-11,
+          "Volume": 1.0186340659856796e-09,
+          "PotEng": 3.019522409886122e-10,
+          "Fmax": 6.621991843758224e-11
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.427813588530171e-14,
+          9.672167580743185e-15,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 0,
+        "variant": "current",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.235180005833893e-11,
+          "f_bias": 4.150469834485193e-08,
+          "Press": 5.4451700179924956e-06,
+          "c_p_phys": 7.860460073061404e-06,
+          "c_p_bias": 1.3305622019288421e-05,
+          "c_av[1]": 7.338901708564549e-11,
+          "c_av[2]": 5.930789748198606e-10,
+          "c_av[3]": 1.0571629682765149e-10,
+          "c_av[4]": 6.42282005358652e-10,
+          "Temp": 1.3970998224976938e-07,
+          "Volume": 2.7008354663848877e-08,
+          "PotEng": 1.992993929889053e-07,
+          "Fmax": 9.479509621712623e-09
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.2351798323615455e-11,
+          9.13158090809496e-12,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 1,
+        "variant": "production",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 0.0,
+          "f_bias": 0.0,
+          "Press": 0.0,
+          "c_p_phys": 0.0,
+          "c_p_bias": 0.0,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0,
+          "Temp": 0.0,
+          "Volume": 0.0,
+          "PotEng": 0.0,
+          "Fmax": 0.0
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 1,
+        "variant": "uploaded",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.4019662087381164e-14,
+          "f_bias": 4.369837824924616e-11,
+          "Press": 6.340087566059083e-09,
+          "c_p_phys": 8.449887900496833e-09,
+          "c_p_bias": 1.4785030089115025e-08,
+          "c_av[1]": 5.0986992405910314e-14,
+          "c_av[2]": 4.600209102534336e-13,
+          "c_av[3]": 1.3830603329267888e-13,
+          "c_av[4]": 5.060396546241464e-13,
+          "Temp": 4.001776687800884e-11,
+          "Volume": 1.0186340659856796e-09,
+          "PotEng": 2.000888343900442e-10,
+          "Fmax": 6.285016951323996e-11
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.401792736390519e-14,
+          9.59995971605565e-15,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 1,
+        "variant": "current",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.235151035951844e-11,
+          "f_bias": 4.1504300440919906e-08,
+          "Press": 5.443459940579487e-06,
+          "c_p_phys": 7.8615998972964e-06,
+          "c_p_bias": 1.3305055006185285e-05,
+          "c_av[1]": 7.338701868420117e-11,
+          "c_av[2]": 5.930400059916963e-10,
+          "c_av[3]": 1.0570661013176164e-10,
+          "c_av[4]": 6.422430365304876e-10,
+          "Temp": 1.397600044583669e-07,
+          "Volume": 2.7008354663848877e-08,
+          "PotEng": 1.9909930415451527e-07,
+          "Fmax": 9.480100260361723e-09
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.2351517298412347e-11,
+          9.131501978176804e-12,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 2,
+        "variant": "uploaded",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.383057722849969e-14,
+          "f_bias": 4.339995030022692e-11,
+          "Press": 6.740037861163728e-09,
+          "c_p_phys": 8.230017556343228e-09,
+          "c_p_bias": 1.4968009054427966e-08,
+          "c_av[1]": 4.798939023942239e-14,
+          "c_av[2]": 4.59021709531271e-13,
+          "c_av[3]": 1.3859746683664298e-13,
+          "c_av[4]": 4.879430193227563e-13,
+          "Temp": 5.002220859751105e-11,
+          "Volume": 1.0186340659856796e-09,
+          "PotEng": 2.000888343900442e-10,
+          "Fmax": 6.372058436454608e-11
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.383231195197567e-14,
+          9.547918011776346e-15,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 2,
+        "variant": "current",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 3.235308895788158e-11,
+          "f_bias": 4.150640009470408e-08,
+          "Press": 5.445890110422624e-06,
+          "c_p_phys": 7.859179959268658e-06,
+          "c_p_bias": 1.3305065010627004e-05,
+          "c_av[1]": 7.338701868420117e-11,
+          "c_av[2]": 5.930549940025287e-10,
+          "c_av[3]": 1.0570819219957173e-10,
+          "c_av[4]": 6.422740117528747e-10,
+          "Temp": 1.397500000166474e-07,
+          "Volume": 2.7008354663848877e-08,
+          "PotEng": 1.992993929889053e-07,
+          "Fmax": 9.480530138716858e-09
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          3.235308895788158e-11,
+          9.131946067386654e-12,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      },
+      {
+        "repeat": 2,
+        "variant": "production",
+        "thermo_max_absolute_errors": {
+          "f_bias[1]": 0.0,
+          "f_bias": 0.0,
+          "Press": 0.0,
+          "c_p_phys": 0.0,
+          "c_p_bias": 0.0,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0,
+          "Temp": 0.0,
+          "Volume": 0.0,
+          "PotEng": 0.0,
+          "Fmax": 0.0
+        },
+        "hill_max_absolute_errors": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_steps": [
+          6220000.0,
+          6220100.0,
+          6220200.0,
+          6220400.0,
+          6220600.0
+        ],
+        "passed": true
+      }
+    ],
+    "absolute_tolerances": {
+      "f_bias[1]": 1e-08,
+      "f_bias": 1e-05,
+      "Press": 0.01,
+      "c_p_phys": 0.01,
+      "c_p_bias": 0.01,
+      "c_av[1]": 1e-08,
+      "c_av[2]": 1e-08,
+      "c_av[3]": 1e-08,
+      "c_av[4]": 1e-08,
+      "Temp": 0.0001,
+      "Volume": 0.001,
+      "PotEng": 0.0001,
+      "Fmax": 1e-05
+    },
+    "hills_columns": [
+      "step",
+      "center",
+      "height_eV",
+      "sigma"
+    ],
+    "hills_absolute_tolerances": [
+      0,
+      1e-08,
+      1e-08,
+      0
+    ],
+    "initial": {
+      "production": {
+        "maximum_absolute_errors": {
+          "type": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "fx": 0.0,
+          "fy": 0.0,
+          "fz": 0.0,
+          "localq": 0.0,
+          "css": 0.0,
+          "product": 0.0,
+          "n_soft": 0.0
+        },
+        "thermo_differences": {
+          "f_bias": 0.0,
+          "f_bias[1]": 0.0,
+          "Press": 0.0,
+          "c_p_phys": 0.0,
+          "c_p_bias": 0.0,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0
+        },
+        "thermo": {
+          "Step": 6220000.0,
+          "Time": 6220.0,
+          "Atoms": 6912.0,
+          "Temp": 1437.22518931614,
+          "Volume": 142362.683752507,
+          "Lx": 52.2154135709624,
+          "Ly": 52.2154135709624,
+          "Lz": 52.2154135709624,
+          "Density": 2.53763375617202,
+          "PotEng": -24142.9942223907,
+          "KinEng": 1283.89749624379,
+          "TotEng": -22859.0967261469,
+          "Press": -2138.36168120259,
+          "c_p_phys": -2631.0013072285,
+          "c_p_bias": 492.639626025907,
+          "f_bias": 30.537787040356,
+          "f_bias[1]": 0.00802401913307733,
+          "c_av[1]": 0.180130668708636,
+          "c_av[2]": 0.399620998713667,
+          "c_av[3]": 0.0727420576983375,
+          "c_av[4]": 0.889903443462547,
+          "c_nptbath_press": -2138.36168120259,
+          "Ecouple": -540.244942449323,
+          "Econserve": -23399.3416685963,
+          "Fmax": 5.37039320044743
+        },
+        "passed": true,
+        "scope": "same 6912-atom production checkpoint, same 31100 hills; per-atom force and Sc descriptor comparison"
+      },
+      "uploaded": {
+        "maximum_absolute_errors": {
+          "type": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "fx": 1.2804868276816705e-11,
+          "fy": 3.157474282033945e-12,
+          "fz": 1.0137446437852304e-11,
+          "localq": 5.551115123125783e-17,
+          "css": 3.1086244689504383e-15,
+          "product": 6.661338147750939e-16,
+          "n_soft": 3.3306690738754696e-15
+        },
+        "thermo_differences": {
+          "f_bias": 0.0,
+          "f_bias[1]": 0.0,
+          "Press": 2.9299371817614883e-09,
+          "c_p_phys": 0.0,
+          "c_p_bias": 2.928004505520221e-09,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0
+        },
+        "thermo": {
+          "Step": 6220000.0,
+          "Time": 6220.0,
+          "Atoms": 6912.0,
+          "Temp": 1437.22518931614,
+          "Volume": 142362.683752507,
+          "Lx": 52.2154135709624,
+          "Ly": 52.2154135709624,
+          "Lz": 52.2154135709624,
+          "Density": 2.53763375617202,
+          "PotEng": -24142.9942223907,
+          "KinEng": 1283.89749624379,
+          "TotEng": -22859.0967261469,
+          "Press": -2138.36168119966,
+          "c_p_phys": -2631.0013072285,
+          "c_p_bias": 492.639626028835,
+          "f_bias": 30.537787040356,
+          "f_bias[1]": 0.00802401913307733,
+          "c_av[1]": 0.180130668708636,
+          "c_av[2]": 0.399620998713667,
+          "c_av[3]": 0.0727420576983375,
+          "c_av[4]": 0.889903443462547,
+          "c_nptbath_press": -2138.36168119966,
+          "Ecouple": -540.244942449323,
+          "Econserve": -23399.3416685963,
+          "Fmax": 5.37039320044748
+        },
+        "passed": true,
+        "scope": "same 6912-atom production checkpoint, same 31100 hills; per-atom force and Sc descriptor comparison"
+      },
+      "current": {
+        "maximum_absolute_errors": {
+          "type": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "fx": 1.2804868276816705e-11,
+          "fy": 3.157474282033945e-12,
+          "fz": 1.0137446437852304e-11,
+          "localq": 5.551115123125783e-17,
+          "css": 3.1086244689504383e-15,
+          "product": 6.661338147750939e-16,
+          "n_soft": 3.3306690738754696e-15
+        },
+        "thermo_differences": {
+          "f_bias": 0.0,
+          "f_bias[1]": 0.0,
+          "Press": 2.9299371817614883e-09,
+          "c_p_phys": 0.0,
+          "c_p_bias": 2.928004505520221e-09,
+          "c_av[1]": 0.0,
+          "c_av[2]": 0.0,
+          "c_av[3]": 0.0,
+          "c_av[4]": 0.0
+        },
+        "thermo": {
+          "Step": 6220000.0,
+          "Time": 6220.0,
+          "Atoms": 6912.0,
+          "Temp": 1437.22518931614,
+          "Volume": 142362.683752507,
+          "Lx": 52.2154135709624,
+          "Ly": 52.2154135709624,
+          "Lz": 52.2154135709624,
+          "Density": 2.53763375617202,
+          "PotEng": -24142.9942223907,
+          "KinEng": 1283.89749624379,
+          "TotEng": -22859.0967261469,
+          "Press": -2138.36168119966,
+          "c_p_phys": -2631.0013072285,
+          "c_p_bias": 492.639626028835,
+          "f_bias": 30.537787040356,
+          "f_bias[1]": 0.00802401913307733,
+          "c_av[1]": 0.180130668708636,
+          "c_av[2]": 0.399620998713667,
+          "c_av[3]": 0.0727420576983375,
+          "c_av[4]": 0.889903443462547,
+          "c_nptbath_press": -2138.36168119966,
+          "Ecouple": -540.244942449323,
+          "Econserve": -23399.3416685963,
+          "Fmax": 5.37039320044748
+        },
+        "passed": true,
+        "scope": "same 6912-atom production checkpoint, same 31100 hills; per-atom force and Sc descriptor comparison"
+      }
+    },
+    "passed": true
+  },
+  "records": [
+    {
+      "variant": "production",
+      "repeat": 0,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 32.9402,
+      "ms_per_step": 65.8804,
+      "wall_seconds": 40.023931819945574,
+      "stages": {
+        "Pair": {
+          "seconds": 28.878,
+          "percent": 87.67
+        },
+        "Neigh": {
+          "seconds": 0.62265,
+          "percent": 1.89
+        },
+        "Comm": {
+          "seconds": 0.024617,
+          "percent": 0.07
+        },
+        "Output": {
+          "seconds": 0.0007116,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 3.3953,
+          "percent": 10.31
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168120259,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626025907,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168120259,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044743
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.2489439345,
+        "Volume": 141492.077609169,
+        "Lx": 52.1087563073277,
+        "Ly": 52.1087563073277,
+        "Lz": 52.1087563073277,
+        "Density": 2.55324791333895,
+        "PotEng": -24178.637423097,
+        "KinEng": 1300.89173702472,
+        "TotEng": -22877.7456860722,
+        "Press": 1784.81847360652,
+        "c_p_phys": 1372.65421260993,
+        "c_p_bias": 412.164260996595,
+        "f_bias": 30.6182222723213,
+        "f_bias[1]": 0.00796397251213057,
+        "c_av[1]": 0.178824649536261,
+        "c_av[2]": 0.383658239984339,
+        "c_av[3]": 0.0697912336943341,
+        "c_av[4]": 0.902066181353274,
+        "c_nptbath_press": 1783.46155505165,
+        "Ecouple": -521.680272978361,
+        "Econserve": -23399.4259590506,
+        "Fmax": 5.32208560873723
+      },
+      "nvrtc_ms": null,
+      "nvrtc_load_ms": null,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.00802505211228348,
+          0.001364561101514765,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.00799231043863365,
+          0.001355047236724839,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512130565,
+          0.001346761086135953,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/0_production"
+    },
+    {
+      "variant": "uploaded",
+      "repeat": 0,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 32.0653,
+      "ms_per_step": 64.1306,
+      "wall_seconds": 38.833145879092626,
+      "stages": {
+        "Pair": {
+          "seconds": 28.904,
+          "percent": 90.14
+        },
+        "Neigh": {
+          "seconds": 0.62532,
+          "percent": 1.95
+        },
+        "Comm": {
+          "seconds": 0.024816,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0010989,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.4907,
+          "percent": 7.77
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894393446,
+        "Volume": 141492.07760917,
+        "Lx": 52.1087563073279,
+        "Ly": 52.1087563073279,
+        "Lz": 52.1087563073279,
+        "Density": 2.55324791333892,
+        "PotEng": -24178.6374230973,
+        "KinEng": 1300.89173702469,
+        "TotEng": -22877.7456860726,
+        "Press": 1784.81847361299,
+        "c_p_phys": 1372.65421260121,
+        "c_p_bias": 412.164261011772,
+        "f_bias": 30.6182222722773,
+        "f_bias[1]": 0.00796397251216484,
+        "c_av[1]": 0.178824649536311,
+        "c_av[2]": 0.38365823998481,
+        "c_av[3]": 0.0697912336944763,
+        "c_av[4]": 0.902066181352763,
+        "c_nptbath_press": 1783.46155505812,
+        "Ecouple": -521.680272978106,
+        "Econserve": -23399.4259590507,
+        "Fmax": 5.32208560880345
+      },
+      "nvrtc_ms": 55.137014,
+      "nvrtc_load_ms": 0.590929,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.008025052112289374,
+          0.001364561101516422,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310438645962,
+          0.001355047236728305,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512164843,
+          0.001346761086145625,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/0_uploaded"
+    },
+    {
+      "variant": "current",
+      "repeat": 0,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 31.6607,
+      "ms_per_step": 63.3214,
+      "wall_seconds": 38.40289662091527,
+      "stages": {
+        "Pair": {
+          "seconds": 28.813,
+          "percent": 91.0
+        },
+        "Neigh": {
+          "seconds": 0.63393,
+          "percent": 2.0
+        },
+        "Comm": {
+          "seconds": 0.025805,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0011123,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.1681,
+          "percent": 6.85
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894407421,
+        "Volume": 141492.077609153,
+        "Lx": 52.1087563073258,
+        "Ly": 52.1087563073258,
+        "Lz": 52.1087563073258,
+        "Density": 2.55324791333924,
+        "PotEng": -24178.6374232963,
+        "KinEng": 1300.89173714953,
+        "TotEng": -22877.7456861468,
+        "Press": 1784.81847905169,
+        "c_p_phys": 1372.65420474947,
+        "c_p_bias": 412.164274302217,
+        "f_bias": 30.618222313826,
+        "f_bias[1]": 0.00796397247977877,
+        "c_av[1]": 0.178824649462872,
+        "c_av[2]": 0.383658240577418,
+        "c_av[3]": 0.0697912338000504,
+        "c_av[4]": 0.902066180710992,
+        "c_nptbath_press": 1783.46156049495,
+        "Ecouple": -521.680272972688,
+        "Econserve": -23399.4259591195,
+        "Fmax": 5.32208559925772
+      },
+      "nvrtc_ms": 48.052536,
+      "nvrtc_load_ms": 0.257819,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.008025052112430708,
+          0.001364561101556167,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.00799231043574652,
+          0.001355047235912044,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972479778767,
+          0.001346761077004372,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/0_current"
+    },
+    {
+      "variant": "production",
+      "repeat": 1,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 32.7969,
+      "ms_per_step": 65.5938,
+      "wall_seconds": 39.63726665102877,
+      "stages": {
+        "Pair": {
+          "seconds": 28.767,
+          "percent": 87.71
+        },
+        "Neigh": {
+          "seconds": 0.61616,
+          "percent": 1.88
+        },
+        "Comm": {
+          "seconds": 0.024451,
+          "percent": 0.07
+        },
+        "Output": {
+          "seconds": 0.0005464,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 3.3692,
+          "percent": 10.27
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168120259,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626025907,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168120259,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044743
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894393449,
+        "Volume": 141492.077609169,
+        "Lx": 52.1087563073277,
+        "Ly": 52.1087563073277,
+        "Lz": 52.1087563073277,
+        "Density": 2.55324791333895,
+        "PotEng": -24178.6374230972,
+        "KinEng": 1300.89173702472,
+        "TotEng": -22877.7456860725,
+        "Press": 1784.81847360555,
+        "c_p_phys": 1372.65421260873,
+        "c_p_bias": 412.164260996823,
+        "f_bias": 30.618222272321,
+        "f_bias[1]": 0.00796397251213081,
+        "c_av[1]": 0.178824649536261,
+        "c_av[2]": 0.383658239984355,
+        "c_av[3]": 0.0697912336943391,
+        "c_av[4]": 0.902066181353262,
+        "c_nptbath_press": 1783.46155505066,
+        "Ecouple": -521.680272978336,
+        "Econserve": -23399.4259590509,
+        "Fmax": 5.32208560873835
+      },
+      "nvrtc_ms": null,
+      "nvrtc_load_ms": null,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.008025052112283455,
+          0.001364561101514757,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310438633535,
+          0.001355047236724808,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512130815,
+          0.001346761086136023,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/1_production"
+    },
+    {
+      "variant": "uploaded",
+      "repeat": 1,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 32.0805,
+      "ms_per_step": 64.161,
+      "wall_seconds": 38.78563739801757,
+      "stages": {
+        "Pair": {
+          "seconds": 28.937,
+          "percent": 90.2
+        },
+        "Neigh": {
+          "seconds": 0.62836,
+          "percent": 1.96
+        },
+        "Comm": {
+          "seconds": 0.024806,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0012587,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.4699,
+          "percent": 7.7
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894393445,
+        "Volume": 141492.07760917,
+        "Lx": 52.1087563073279,
+        "Ly": 52.1087563073279,
+        "Lz": 52.1087563073279,
+        "Density": 2.55324791333892,
+        "PotEng": -24178.6374230973,
+        "KinEng": 1300.89173702468,
+        "TotEng": -22877.7456860726,
+        "Press": 1784.81847361189,
+        "c_p_phys": 1372.65421260028,
+        "c_p_bias": 412.164261011608,
+        "f_bias": 30.6182222722773,
+        "f_bias[1]": 0.00796397251216483,
+        "c_av[1]": 0.178824649536312,
+        "c_av[2]": 0.383658239984815,
+        "c_av[3]": 0.0697912336944774,
+        "c_av[4]": 0.902066181352756,
+        "c_nptbath_press": 1783.4615550571,
+        "Ecouple": -521.680272978118,
+        "Econserve": -23399.4259590507,
+        "Fmax": 5.3220856088012
+      },
+      "nvrtc_ms": 43.982176,
+      "nvrtc_load_ms": 0.252613,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.00802505211228937,
+          0.001364561101516421,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310438645966,
+          0.001355047236728305,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512164833,
+          0.001346761086145623,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/1_uploaded"
+    },
+    {
+      "variant": "current",
+      "repeat": 1,
+      "order": [
+        "production",
+        "uploaded",
+        "current"
+      ],
+      "steps": 500,
+      "loop_seconds": 31.47,
+      "ms_per_step": 62.94,
+      "wall_seconds": 38.2803219089983,
+      "stages": {
+        "Pair": {
+          "seconds": 28.683,
+          "percent": 91.14
+        },
+        "Neigh": {
+          "seconds": 0.63397,
+          "percent": 2.01
+        },
+        "Comm": {
+          "seconds": 0.025509,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0013671,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.1074,
+          "percent": 6.7
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894407425,
+        "Volume": 141492.077609153,
+        "Lx": 52.1087563073258,
+        "Ly": 52.1087563073258,
+        "Lz": 52.1087563073258,
+        "Density": 2.55324791333923,
+        "PotEng": -24178.6374232963,
+        "KinEng": 1300.89173714957,
+        "TotEng": -22877.7456861467,
+        "Press": 1784.81847904901,
+        "c_p_phys": 1372.65420474713,
+        "c_p_bias": 412.164274301878,
+        "f_bias": 30.6182223138253,
+        "f_bias[1]": 0.0079639724797793,
+        "c_av[1]": 0.178824649462874,
+        "c_av[2]": 0.383658240577395,
+        "c_av[3]": 0.0697912338000457,
+        "c_av[4]": 0.902066180711019,
+        "c_nptbath_press": 1783.46156049222,
+        "Ecouple": -521.680272972678,
+        "Econserve": -23399.4259591194,
+        "Fmax": 5.32208559925825
+      },
+      "nvrtc_ms": 47.794955,
+      "nvrtc_load_ms": 0.262425,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.00802505211243071,
+          0.001364561101556168,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.00799231043574655,
+          0.001355047235912051,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972479779298,
+          0.001346761077004521,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/1_current"
+    },
+    {
+      "variant": "uploaded",
+      "repeat": 2,
+      "order": [
+        "uploaded",
+        "current",
+        "production"
+      ],
+      "steps": 500,
+      "loop_seconds": 31.8007,
+      "ms_per_step": 63.6014,
+      "wall_seconds": 38.600411408930086,
+      "stages": {
+        "Pair": {
+          "seconds": 28.692,
+          "percent": 90.23
+        },
+        "Neigh": {
+          "seconds": 0.6209,
+          "percent": 1.95
+        },
+        "Comm": {
+          "seconds": 0.024563,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0011811,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.4419,
+          "percent": 7.68
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894393446,
+        "Volume": 141492.07760917,
+        "Lx": 52.1087563073279,
+        "Ly": 52.1087563073279,
+        "Lz": 52.1087563073279,
+        "Density": 2.55324791333892,
+        "PotEng": -24178.6374230972,
+        "KinEng": 1300.89173702469,
+        "TotEng": -22877.7456860725,
+        "Press": 1784.81847361259,
+        "c_p_phys": 1372.65421260074,
+        "c_p_bias": 412.164261011846,
+        "f_bias": 30.6182222722764,
+        "f_bias[1]": 0.00796397251216552,
+        "c_av[1]": 0.17882464953631,
+        "c_av[2]": 0.383658239984824,
+        "c_av[3]": 0.0697912336944798,
+        "c_av[4]": 0.902066181352773,
+        "c_nptbath_press": 1783.46155505774,
+        "Ecouple": -521.680272978104,
+        "Econserve": -23399.4259590506,
+        "Fmax": 5.32208560880092
+      },
+      "nvrtc_ms": 42.709561,
+      "nvrtc_load_ms": 0.271213,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.00802505211228937,
+          0.001364561101516421,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310438646073,
+          0.001355047236728335,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512165525,
+          0.001346761086145819,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/2_uploaded"
+    },
+    {
+      "variant": "current",
+      "repeat": 2,
+      "order": [
+        "uploaded",
+        "current",
+        "production"
+      ],
+      "steps": 500,
+      "loop_seconds": 31.7038,
+      "ms_per_step": 63.40760000000001,
+      "wall_seconds": 38.433224944979884,
+      "stages": {
+        "Pair": {
+          "seconds": 28.877,
+          "percent": 91.08
+        },
+        "Neigh": {
+          "seconds": 0.6343,
+          "percent": 2.0
+        },
+        "Comm": {
+          "seconds": 0.025631,
+          "percent": 0.08
+        },
+        "Output": {
+          "seconds": 0.0013877,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 2.146,
+          "percent": 6.77
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168119966,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626028835,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168119966,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044748
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894407421,
+        "Volume": 141492.077609153,
+        "Lx": 52.1087563073258,
+        "Ly": 52.1087563073258,
+        "Lz": 52.1087563073258,
+        "Density": 2.55324791333924,
+        "PotEng": -24178.6374232963,
+        "KinEng": 1300.89173714953,
+        "TotEng": -22877.7456861467,
+        "Press": 1784.81847905174,
+        "c_p_phys": 1372.65420474979,
+        "c_p_bias": 412.164274301943,
+        "f_bias": 30.6182223138262,
+        "f_bias[1]": 0.0079639724797786,
+        "c_av[1]": 0.178824649462875,
+        "c_av[2]": 0.38365824057742,
+        "c_av[3]": 0.0697912338000494,
+        "c_av[4]": 0.902066180710987,
+        "c_nptbath_press": 1783.461560495,
+        "Ecouple": -521.680272972672,
+        "Econserve": -23399.4259591194,
+        "Fmax": 5.32208559925667
+      },
+      "nvrtc_ms": 49.451605,
+      "nvrtc_load_ms": 0.275495,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.008025052112430738,
+          0.001364561101556176,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310435746688,
+          0.001355047235912091,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972479778604,
+          0.001346761077004325,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/2_current"
+    },
+    {
+      "variant": "production",
+      "repeat": 2,
+      "order": [
+        "uploaded",
+        "current",
+        "production"
+      ],
+      "steps": 500,
+      "loop_seconds": 32.7779,
+      "ms_per_step": 65.5558,
+      "wall_seconds": 39.581729994970374,
+      "stages": {
+        "Pair": {
+          "seconds": 28.744,
+          "percent": 87.69
+        },
+        "Neigh": {
+          "seconds": 0.62429,
+          "percent": 1.9
+        },
+        "Comm": {
+          "seconds": 0.023933,
+          "percent": 0.07
+        },
+        "Output": {
+          "seconds": 0.00056283,
+          "percent": 0.0
+        },
+        "Modify": {
+          "seconds": 3.3662,
+          "percent": 10.27
+        }
+      },
+      "neighbor_builds": 17,
+      "initial": {
+        "Step": 6220000.0,
+        "Time": 6220.0,
+        "Atoms": 6912.0,
+        "Temp": 1437.22518931614,
+        "Volume": 142362.683752507,
+        "Lx": 52.2154135709624,
+        "Ly": 52.2154135709624,
+        "Lz": 52.2154135709624,
+        "Density": 2.53763375617202,
+        "PotEng": -24142.9942223907,
+        "KinEng": 1283.89749624379,
+        "TotEng": -22859.0967261469,
+        "Press": -2138.36168120259,
+        "c_p_phys": -2631.0013072285,
+        "c_p_bias": 492.639626025907,
+        "f_bias": 30.537787040356,
+        "f_bias[1]": 0.00802401913307733,
+        "c_av[1]": 0.180130668708636,
+        "c_av[2]": 0.399620998713667,
+        "c_av[3]": 0.0727420576983375,
+        "c_av[4]": 0.889903443462547,
+        "c_nptbath_press": -2138.36168120259,
+        "Ecouple": -540.244942449323,
+        "Econserve": -23399.3416685963,
+        "Fmax": 5.37039320044743
+      },
+      "final": {
+        "Step": 6220600.0,
+        "Time": 6220.6,
+        "Atoms": 6912.0,
+        "Temp": 1456.24894393446,
+        "Volume": 141492.077609169,
+        "Lx": 52.1087563073277,
+        "Ly": 52.1087563073277,
+        "Lz": 52.1087563073277,
+        "Density": 2.55324791333895,
+        "PotEng": -24178.637423097,
+        "KinEng": 1300.89173702469,
+        "TotEng": -22877.7456860723,
+        "Press": 1784.81847360585,
+        "c_p_phys": 1372.65421260897,
+        "c_p_bias": 412.164260996878,
+        "f_bias": 30.6182222723198,
+        "f_bias[1]": 0.00796397251213169,
+        "c_av[1]": 0.178824649536262,
+        "c_av[2]": 0.383658239984365,
+        "c_av[3]": 0.0697912336943412,
+        "c_av[4]": 0.902066181353261,
+        "c_nptbath_press": 1783.46155505103,
+        "Ecouple": -521.680272978336,
+        "Econserve": -23399.4259590507,
+        "Fmax": 5.3220856087372
+      },
+      "nvrtc_ms": null,
+      "nvrtc_load_ms": null,
+      "new_hills": 3,
+      "deposited_hills": [
+        [
+          6220200.0,
+          0.00802505211228345,
+          0.001364561101514754,
+          0.00125
+        ],
+        [
+          6220400.0,
+          0.007992310438633722,
+          0.001355047236724859,
+          0.00125
+        ],
+        [
+          6220600.0,
+          0.007963972512131693,
+          0.001346761086136271,
+          0.00125
+        ]
+      ],
+      "processes_before": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "processes_after": [
+        {
+          "pid": 355658,
+          "state": "T",
+          "start_ticks": 72107737,
+          "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+        },
+        {
+          "pid": 639495,
+          "state": "T",
+          "start_ticks": 78674148,
+          "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+        }
+      ],
+      "directory": "/home/zqc/work/Metad-toy/build/al3sc-production-benchmark-20261022/timing/2_production"
+    }
+  ],
+  "production_pause": {
+    "authorized": true,
+    "started": 1792650907.3521135,
+    "guard": {
+      "pid": 639870,
+      "state": "R",
+      "ppid": 639866,
+      "start_ticks": 78690773,
+      "command": "python3 build/al3sc-production-benchmark-20261022/pause_and_measure.py --user-authorized "
+    },
+    "stopped": [
+      {
+        "pid": 355658,
+        "state": "S",
+        "ppid": 355623,
+        "start_ticks": 72107737,
+        "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+      },
+      {
+        "pid": 639495,
+        "state": "R",
+        "ppid": 355658,
+        "start_ticks": 78674148,
+        "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+      }
+    ],
+    "status": "restored",
+    "benchmark_returncode": 0,
+    "restored": 1792651258.2575278,
+    "states_after_restore": [
+      {
+        "pid": 355658,
+        "state": "R",
+        "ppid": 355623,
+        "start_ticks": 72107737,
+        "command": "/usr/bin/python3 /home/zqc/work/Al3Sc-sw-large-npt-zero-20261017/campaign.py worker "
+      },
+      {
+        "pid": 639495,
+        "state": "R",
+        "ppid": 355658,
+        "start_ticks": 78674148,
+        "command": "/home/zqc/apps/deepmd/bin/lmp_mpi -in input.lmp -log log.lammps "
+      }
+    ]
+  }
+}

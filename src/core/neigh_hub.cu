@@ -210,8 +210,9 @@ void NeighHub::ensure(int id)
     nl = resolve_list(id);
   }
 
-  if (nl == nullptr || nl->numneigh == nullptr || nl->firstneigh == nullptr ||
-      nl->ilist == nullptr)
+  // Kokkos device lists own device views; their legacy Host pointers need not exist.
+  if (nl == nullptr || (!nl->kokkos && (nl->numneigh == nullptr || nl->firstneigh == nullptr ||
+      nl->ilist == nullptr)))
     lmp_->error->all(FLERR,
                      "NeighHub::ensure: perpetual/occasional list has null "
                      "numneigh/firstneigh/ilist (Neighbor not ready?)");

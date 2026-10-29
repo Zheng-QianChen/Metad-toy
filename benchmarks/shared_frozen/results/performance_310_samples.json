@@ -1,0 +1,3106 @@
+[
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 6.91771,
+    "ms_per_step": 138.3542,
+    "wall_seconds": 14.057415656745434,
+    "stages_ms": {
+      "Pair": 136.972,
+      "Neigh": 0.9859399999999999,
+      "Comm": 0.088148,
+      "Output": 0.0013957400000000001,
+      "Modify": 0.25414
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.532009431077,
+      "TotEng": -22889.63451318729,
+      "Press": -2631.0013072284996,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8785899216275,
+      "PotEng": -24190.436312456382,
+      "TotEng": -22871.115764812304,
+      "Press": -552.0492760001183,
+      "Volume": 141886.4489699025
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 32, 210 MHz, 19.25 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 32, 210 MHz, 19.05 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 7.69076,
+    "ms_per_step": 153.8152,
+    "wall_seconds": 15.874610055238008,
+    "stages_ms": {
+      "Pair": 144.474,
+      "Neigh": 3.7691999999999997,
+      "Comm": 0.09360999999999998,
+      "Output": 0.0016799,
+      "Modify": 5.4234
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.51987299065,
+      "TotEng": -22889.622376746865,
+      "Press": -2631.0960086946147,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.878795818586,
+      "PotEng": -24190.42436586151,
+      "TotEng": -22871.103634286206,
+      "Press": -552.0580062250434,
+      "Volume": 141886.43363996482,
+      "f_bias": 0.011546479350945374,
+      "f_bias[1]": 0.005590473134167499
+    },
+    "nvrtc_ms": 159.028871,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 32, 210 MHz, 19.05 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 6 %, 146 MiB, 34, 2520 MHz, 57.40 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 7.44581,
+    "ms_per_step": 148.9162,
+    "wall_seconds": 15.51751298084855,
+    "stages_ms": {
+      "Pair": 139.756,
+      "Neigh": 3.6771999999999996,
+      "Comm": 0.09333999999999999,
+      "Output": 0.0017319199999999999,
+      "Modify": 5.3344000000000005
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.484833835555,
+      "TotEng": -22889.58733759177,
+      "Press": -2630.907496830698,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.878300754808,
+      "PotEng": -24190.388854962002,
+      "TotEng": -22871.06856563552,
+      "Press": -552.0384697564159,
+      "Volume": 141886.46558967422,
+      "f_bias": 0.047631088580650495,
+      "f_bias[1]": 0.005590842595863231
+    },
+    "nvrtc_ms": 159.648249,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 6 %, 146 MiB, 34, 2520 MHz, 57.45 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 1 %, 146 MiB, 35, 2520 MHz, 56.99 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 3.615,
+    "ms_per_step": 72.3,
+    "wall_seconds": 7.389441963285208,
+    "stages_ms": {
+      "Pair": 71.32799999999999,
+      "Neigh": 0.51388,
+      "Comm": 0.28572,
+      "Output": 0.00130136,
+      "Modify": 0.139958
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.53200943157,
+      "TotEng": -22889.634513187775,
+      "Press": -2631.0013072284514,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8785899216289,
+      "PotEng": -24190.43631245634,
+      "TotEng": -22871.11576481226,
+      "Press": -552.0492760001256,
+      "Volume": 141886.4489699025
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 6 %, 146 MiB, 35, 2520 MHz, 57.05 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 34, 210 MHz, 19.22 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 3.99999,
+    "ms_per_step": 79.9998,
+    "wall_seconds": 8.653161380439997,
+    "stages_ms": {
+      "Pair": 71.406,
+      "Neigh": 2.1708,
+      "Comm": 0.25798000000000004,
+      "Output": 0.0013123400000000002,
+      "Modify": 6.126799999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.519872991143,
+      "TotEng": -22889.62237674735,
+      "Press": -2631.096008694565,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8787958185972,
+      "PotEng": -24190.42436586179,
+      "TotEng": -22871.103634286475,
+      "Press": -552.0580062249942,
+      "Volume": 141886.43363996482,
+      "f_bias": 0.011546479350945374,
+      "f_bias[1]": 0.005590473134167493
+    },
+    "nvrtc_ms": 159.113085,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 34, 210 MHz, 19.22 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 4 %, 146 MiB, 35, 2520 MHz, 58.22 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 4.01402,
+    "ms_per_step": 80.28040000000001,
+    "wall_seconds": 8.694334849715233,
+    "stages_ms": {
+      "Pair": 71.292,
+      "Neigh": 2.1452,
+      "Comm": 0.4435,
+      "Output": 0.00133548,
+      "Modify": 6.3658
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.484833836046,
+      "TotEng": -22889.587337592253,
+      "Press": -2630.9074968306477,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.878300754808,
+      "PotEng": -24190.38885496178,
+      "TotEng": -22871.068565635298,
+      "Press": -552.0384697563859,
+      "Volume": 141886.46558967422,
+      "f_bias": 0.047631088580650495,
+      "f_bias[1]": 0.005590842595863231
+    },
+    "nvrtc_ms": 161.037597,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 10 %, 146 MiB, 35, 2520 MHz, 58.16 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 10 %, 146 MiB, 35, 2520 MHz, 58.41 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_host_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 1.0139,
+    "ms_per_step": 20.278,
+    "wall_seconds": 2.4219393618404865,
+    "stages_ms": {
+      "Pair": 19.9022,
+      "Neigh": 0.021086,
+      "Comm": 0.088726,
+      "Output": 0.00124772,
+      "Modify": 0.20101999999999998
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.0013072284714,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.878589921639,
+      "PotEng": -24190.43631245647,
+      "TotEng": -22871.115764812384,
+      "Press": -552.0492760001041,
+      "Volume": 141886.4489699025
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 10 %, 146 MiB, 35, 2520 MHz, 58.42 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 59 %, 146 MiB, 36, 2520 MHz, 74.19 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 1.38385,
+    "ms_per_step": 27.677000000000003,
+    "wall_seconds": 3.3755141384899616,
+    "stages_ms": {
+      "Pair": 19.8568,
+      "Neigh": 2.5308000000000006,
+      "Comm": 0.10651999999999999,
+      "Output": 0.00156096,
+      "Modify": 5.128399999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.096008694582,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8787958185962,
+      "PotEng": -24190.42436586162,
+      "TotEng": -22871.10363428631,
+      "Press": -552.0580062251507,
+      "Volume": 141886.43363996482,
+      "f_bias": 0.011546479350945374,
+      "f_bias[1]": 0.005590473134167492
+    },
+    "nvrtc_ms": 158.614736,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 59 %, 146 MiB, 36, 2520 MHz, 72.57 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 54 %, 146 MiB, 36, 2520 MHz, 72.11 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 1.35778,
+    "ms_per_step": 27.1556,
+    "wall_seconds": 3.3824522010982037,
+    "stages_ms": {
+      "Pair": 19.705,
+      "Neigh": 2.5184,
+      "Comm": 0.088094,
+      "Output": 0.0013204199999999999,
+      "Modify": 4.7958
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.9074968306713,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8783007548166,
+      "PotEng": -24190.388854961817,
+      "TotEng": -22871.068565635327,
+      "Press": -552.0384697563915,
+      "Volume": 141886.46558967422,
+      "f_bias": 0.04763108858065048,
+      "f_bias[1]": 0.0055908425958632844
+    },
+    "nvrtc_ms": 185.753344,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 7 %, 146 MiB, 36, 2520 MHz, 71.58 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 58 %, 146 MiB, 36, 2520 MHz, 72.58 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 2.23756,
+    "ms_per_step": 44.75120000000001,
+    "wall_seconds": 4.9795227237045765,
+    "stages_ms": {
+      "Pair": 42.06400000000001,
+      "Neigh": 0.05697,
+      "Comm": 0.5591,
+      "Output": 0.0046228,
+      "Modify": 1.7213999999999998
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161438,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.001307228478,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8785899216389,
+      "PotEng": -24190.436312456466,
+      "TotEng": -22871.11576481238,
+      "Press": -552.0492760001649,
+      "Volume": 141886.4489699025
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 58 %, 146 MiB, 36, 2520 MHz, 72.58 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 45 %, 146 MiB, 37, 2520 MHz, 69.48 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 2.72868,
+    "ms_per_step": 54.573600000000006,
+    "wall_seconds": 6.0343087166547775,
+    "stages_ms": {
+      "Pair": 43.846,
+      "Neigh": 1.5981,
+      "Comm": 0.63622,
+      "Output": 0.0050482,
+      "Modify": 8.136999999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.096008694584,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.878795818596,
+      "PotEng": -24190.42436586162,
+      "TotEng": -22871.10363428631,
+      "Press": -552.0580062251906,
+      "Volume": 141886.43363996482,
+      "f_bias": 0.011546479350945374,
+      "f_bias[1]": 0.005590473134167503
+    },
+    "nvrtc_ms": 159.932049,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 45 %, 146 MiB, 37, 2520 MHz, 68.26 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 31 %, 146 MiB, 37, 2520 MHz, 69.72 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "pilot",
+    "repeat": 0,
+    "steps": 50,
+    "loop_seconds": 2.68807,
+    "ms_per_step": 53.7614,
+    "wall_seconds": 6.038839410990477,
+    "stages_ms": {
+      "Pair": 43.09,
+      "Neigh": 1.5893799999999998,
+      "Comm": 0.62488,
+      "Output": 0.005323399999999999,
+      "Modify": 8.0976
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161438,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.90749683067,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220100.0,
+      "Temp": 1476.8783007548152,
+      "PotEng": -24190.388854961817,
+      "TotEng": -22871.06856563533,
+      "Press": -552.0384697563646,
+      "Volume": 141886.46558967422,
+      "f_bias": 0.04763108858065049,
+      "f_bias[1]": 0.005590842595863289
+    },
+    "nvrtc_ms": 160.875624,
+    "neighbor_builds": 3,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 31 %, 146 MiB, 37, 2520 MHz, 68.46 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 45 %, 146 MiB, 37, 2520 MHz, 71.06 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/pilot_0_kk_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 9.10619,
+    "ms_per_step": 45.530950000000004,
+    "wall_seconds": 11.802241709083319,
+    "stages_ms": {
+      "Pair": 42.9555,
+      "Neigh": 0.0475935,
+      "Comm": 0.49793499999999996,
+      "Output": 0.00115145,
+      "Modify": 1.69875
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.0013072284723,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408555,
+      "PotEng": -24162.40610582145,
+      "TotEng": -22873.14535254889,
+      "Press": 839.5824069173461,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 45 %, 146 MiB, 37, 2520 MHz, 69.95 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 55 %, 146 MiB, 38, 2520 MHz, 70.01 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 16.0003,
+    "ms_per_step": 80.0015,
+    "wall_seconds": 20.631746284663677,
+    "stages_ms": {
+      "Pair": 71.955,
+      "Neigh": 1.636,
+      "Comm": 0.31005499999999997,
+      "Output": 0.00035621,
+      "Modify": 6.0615
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.519872991143,
+      "TotEng": -22889.62237674735,
+      "Press": -2631.096008694565,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510368,
+      "PotEng": -24162.39501485619,
+      "TotEng": -22873.133406491634,
+      "Press": 839.6070405051063,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.005904930888548436
+    },
+    "nvrtc_ms": 159.108437,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 55 %, 146 MiB, 38, 2520 MHz, 68.85 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 9 %, 146 MiB, 38, 2520 MHz, 59.02 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 300,
+    "loop_seconds": 6.336,
+    "ms_per_step": 21.12,
+    "wall_seconds": 7.694174043834209,
+    "stages_ms": {
+      "Pair": 20.788999999999998,
+      "Neigh": 0.01455,
+      "Comm": 0.07622333333333332,
+      "Output": 0.0003042633333333333,
+      "Modify": 0.19809333333333334
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.0013072284714,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7416961581052,
+      "PotEng": -24169.12512926162,
+      "TotEng": -22878.513010711857,
+      "Press": -984.8316972408273,
+      "Volume": 141939.81541276805
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 9 %, 146 MiB, 38, 2520 MHz, 59.03 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 90 %, 146 MiB, 39, 2520 MHz, 76.04 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 15.9466,
+    "ms_per_step": 79.733,
+    "wall_seconds": 20.580491103231907,
+    "stages_ms": {
+      "Pair": 71.755,
+      "Neigh": 1.6351,
+      "Comm": 0.21642499999999998,
+      "Output": 0.00032466499999999997,
+      "Modify": 6.091
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.484833836046,
+      "TotEng": -22889.587337592253,
+      "Press": -2630.9074968306477,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138416,
+      "PotEng": -24162.35768506789,
+      "TotEng": -22873.097826722344,
+      "Press": 839.5510679559364,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.0059053752325830015
+    },
+    "nvrtc_ms": 160.90609,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 30 %, 146 MiB, 39, 2520 MHz, 74.41 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 11 %, 145 MiB, 38, 2520 MHz, 59.39 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 29.6348,
+    "ms_per_step": 148.174,
+    "wall_seconds": 37.63603227213025,
+    "stages_ms": {
+      "Pair": 140.33,
+      "Neigh": 2.7285500000000003,
+      "Comm": 0.085655,
+      "Output": 0.000415455,
+      "Modify": 4.97865
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.51987299065,
+      "TotEng": -22889.622376746865,
+      "Press": -2631.0960086946147,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510338,
+      "PotEng": -24162.395014855967,
+      "TotEng": -22873.133406491415,
+      "Press": 839.6070405051872,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.0059049308885484415
+    },
+    "nvrtc_ms": 159.336153,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 11 %, 145 MiB, 38, 2520 MHz, 59.25 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 3 %, 145 MiB, 39, 2520 MHz, 58.50 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 10.6837,
+    "ms_per_step": 53.4185,
+    "wall_seconds": 13.95435195043683,
+    "stages_ms": {
+      "Pair": 43.658500000000004,
+      "Neigh": 1.2275999999999998,
+      "Comm": 0.55655,
+      "Output": 0.0011787,
+      "Modify": 7.640499999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.096008694587,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.229903151019,
+      "PotEng": -24162.39501485614,
+      "TotEng": -22873.1334064916,
+      "Press": 839.6070405055056,
+      "Volume": 141538.76450970047,
+      "f_bias": 0.011622618090561027,
+      "f_bias[1]": 0.0059049308885482
+    },
+    "nvrtc_ms": 159.593724,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 3 %, 145 MiB, 39, 2520 MHz, 58.61 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 42 %, 145 MiB, 40, 2520 MHz, 70.98 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 300,
+    "loop_seconds": 8.19299,
+    "ms_per_step": 27.309966666666664,
+    "wall_seconds": 10.1483448818326,
+    "stages_ms": {
+      "Pair": 20.685666666666666,
+      "Neigh": 1.9373999999999998,
+      "Comm": 0.07972,
+      "Output": 0.0002487933333333333,
+      "Modify": 4.565
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.0960086945865,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7409024879987,
+      "PotEng": -24169.11273888394,
+      "TotEng": -22878.501329333063,
+      "Press": -984.8103596046303,
+      "Volume": 141939.79285485274,
+      "f_bias": 0.011533660964602383,
+      "f_bias[1]": 0.005537514218757274
+    },
+    "nvrtc_ms": 158.93588,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 42 %, 145 MiB, 39, 2520 MHz, 69.64 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 48 %, 145 MiB, 40, 2520 MHz, 74.12 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 300,
+    "loop_seconds": 8.21925,
+    "ms_per_step": 27.3975,
+    "wall_seconds": 10.201293304562569,
+    "stages_ms": {
+      "Pair": 20.798333333333332,
+      "Neigh": 1.9339,
+      "Comm": 0.08069333333333334,
+      "Output": 0.00026564666666666667,
+      "Modify": 4.542666666666666
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.90749683067,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.742584759928,
+      "PotEng": -24169.078066969192,
+      "TotEng": -22878.465154616435,
+      "Press": -984.8420553643593,
+      "Volume": 141939.84033468,
+      "f_bias": 0.0476248422840994,
+      "f_bias[1]": 0.005538052702087124
+    },
+    "nvrtc_ms": 159.094444,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 16 %, 145 MiB, 40, 2520 MHz, 73.48 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 47 %, 145 MiB, 40, 2520 MHz, 73.98 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 14.3168,
+    "ms_per_step": 71.584,
+    "wall_seconds": 18.02957982942462,
+    "stages_ms": {
+      "Pair": 70.825,
+      "Neigh": 0.38389,
+      "Comm": 0.203645,
+      "Output": 0.000332265,
+      "Modify": 0.13871
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.53200943157,
+      "TotEng": -22889.634513187775,
+      "Press": -2631.0013072284514,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.228945940859,
+      "PotEng": -24162.40610582153,
+      "TotEng": -22873.145352548967,
+      "Press": 839.5824069177463,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 145 MiB, 40, 2520 MHz, 72.90 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 37, 210 MHz, 19.47 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 10.5916,
+    "ms_per_step": 52.958,
+    "wall_seconds": 13.907809413969517,
+    "stages_ms": {
+      "Pair": 43.170500000000004,
+      "Neigh": 1.21915,
+      "Comm": 0.52315,
+      "Output": 0.00122665,
+      "Modify": 7.71
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.907496830664,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2279441384362,
+      "PotEng": -24162.357685067953,
+      "TotEng": -22873.097826722387,
+      "Press": 839.5510679571045,
+      "Volume": 141538.83075470946,
+      "f_bias": 0.04759872735849418,
+      "f_bias[1]": 0.005905375232582756
+    },
+    "nvrtc_ms": 160.693797,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 37, 210 MHz, 19.47 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 67 %, 146 MiB, 40, 2520 MHz, 71.68 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_kk_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 28.2761,
+    "ms_per_step": 141.38049999999998,
+    "wall_seconds": 35.57708540558815,
+    "stages_ms": {
+      "Pair": 140.23,
+      "Neigh": 0.7686,
+      "Comm": 0.08276,
+      "Output": 0.00036993000000000003,
+      "Modify": 0.25342
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.532009431077,
+      "TotEng": -22889.63451318729,
+      "Press": -2631.0013072284996,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408557,
+      "PotEng": -24162.4061058211,
+      "TotEng": -22873.14535254854,
+      "Press": 839.5824069176645,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 67 %, 146 MiB, 40, 2520 MHz, 70.40 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 36, 210 MHz, 19.23 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 0,
+    "steps": 200,
+    "loop_seconds": 29.6149,
+    "ms_per_step": 148.0745,
+    "wall_seconds": 37.63529783114791,
+    "stages_ms": {
+      "Pair": 140.215,
+      "Neigh": 2.7388,
+      "Comm": 0.08542,
+      "Output": 0.000400355,
+      "Modify": 4.9834499999999995
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.484833835555,
+      "TotEng": -22889.58733759177,
+      "Press": -2630.907496830698,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138418,
+      "PotEng": -24162.357685067833,
+      "TotEng": -22873.09782672228,
+      "Press": 839.5510679556465,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.00590537523258303
+    },
+    "nvrtc_ms": 157.466054,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 36, 210 MHz, 19.23 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 2 %, 146 MiB, 39, 2520 MHz, 58.06 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_0_host_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 16.1469,
+    "ms_per_step": 80.73449999999998,
+    "wall_seconds": 20.780803713947535,
+    "stages_ms": {
+      "Pair": 72.53,
+      "Neigh": 1.6467,
+      "Comm": 0.4795399999999999,
+      "Output": 0.00035370999999999997,
+      "Modify": 6.039499999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.519872991143,
+      "TotEng": -22889.62237674735,
+      "Press": -2631.096008694565,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510368,
+      "PotEng": -24162.39501485619,
+      "TotEng": -22873.133406491634,
+      "Press": 839.6070405051063,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.005904930888548436
+    },
+    "nvrtc_ms": 159.720484,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 39, 2520 MHz, 58.23 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 39, 2520 MHz, 59.29 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 9.30157,
+    "ms_per_step": 46.50785,
+    "wall_seconds": 12.0033313408494,
+    "stages_ms": {
+      "Pair": 43.7775,
+      "Neigh": 0.04699899999999999,
+      "Comm": 0.6152,
+      "Output": 0.00109105,
+      "Modify": 1.7344
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.001307228469,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408612,
+      "PotEng": -24162.40610582145,
+      "TotEng": -22873.145352548887,
+      "Press": 839.5824069172097,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 9 %, 146 MiB, 39, 2520 MHz, 59.28 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 78 %, 146 MiB, 40, 2520 MHz, 69.96 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 29.6746,
+    "ms_per_step": 148.37300000000002,
+    "wall_seconds": 37.73762649297714,
+    "stages_ms": {
+      "Pair": 140.505,
+      "Neigh": 2.7369500000000007,
+      "Comm": 0.08593,
+      "Output": 0.00040958999999999993,
+      "Modify": 4.99585
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.484833835555,
+      "TotEng": -22889.58733759177,
+      "Press": -2630.907496830698,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138418,
+      "PotEng": -24162.357685067833,
+      "TotEng": -22873.09782672228,
+      "Press": 839.5510679556465,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.00590537523258303
+    },
+    "nvrtc_ms": 157.8153,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 8 %, 146 MiB, 40, 2520 MHz, 68.79 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 40, 2520 MHz, 58.51 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 10.6771,
+    "ms_per_step": 53.38549999999999,
+    "wall_seconds": 14.059647388756275,
+    "stages_ms": {
+      "Pair": 43.562000000000005,
+      "Neigh": 1.2299499999999999,
+      "Comm": 0.5644,
+      "Output": 0.00119955,
+      "Modify": 7.6935
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.0960086945865,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510272,
+      "PotEng": -24162.39501485615,
+      "TotEng": -22873.1334064916,
+      "Press": 839.607040505285,
+      "Volume": 141538.76450970047,
+      "f_bias": 0.011622618090561046,
+      "f_bias[1]": 0.005904930888548326
+    },
+    "nvrtc_ms": 159.677543,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 40, 2520 MHz, 58.49 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 71 %, 146 MiB, 40, 2520 MHz, 70.20 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 300,
+    "loop_seconds": 8.19793,
+    "ms_per_step": 27.326433333333334,
+    "wall_seconds": 10.150626882910728,
+    "stages_ms": {
+      "Pair": 20.746000000000002,
+      "Neigh": 1.9317,
+      "Comm": 0.07912,
+      "Output": 0.000365,
+      "Modify": 4.5280000000000005
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.0960086945834,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7409024879883,
+      "PotEng": -24169.112738883945,
+      "TotEng": -22878.501329333078,
+      "Press": -984.8103596049077,
+      "Volume": 141939.79285485274,
+      "f_bias": 0.011533660964602364,
+      "f_bias[1]": 0.00553751421875719
+    },
+    "nvrtc_ms": 158.232892,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 4 %, 146 MiB, 40, 2520 MHz, 68.94 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 38 %, 146 MiB, 41, 2520 MHz, 74.16 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 14.752,
+    "ms_per_step": 73.76,
+    "wall_seconds": 18.623851522803307,
+    "stages_ms": {
+      "Pair": 72.83,
+      "Neigh": 0.38591000000000003,
+      "Comm": 0.37526,
+      "Output": 0.000306545,
+      "Modify": 0.14323
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.53200943157,
+      "TotEng": -22889.634513187775,
+      "Press": -2631.0013072284514,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.228945940859,
+      "PotEng": -24162.40610582153,
+      "TotEng": -22873.145352548967,
+      "Press": 839.5824069177463,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 38 %, 146 MiB, 41, 2520 MHz, 73.71 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 38, 210 MHz, 18.92 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 16.0112,
+    "ms_per_step": 80.056,
+    "wall_seconds": 20.683842964470387,
+    "stages_ms": {
+      "Pair": 71.945,
+      "Neigh": 1.6364999999999998,
+      "Comm": 0.277535,
+      "Output": 0.000341225,
+      "Modify": 6.1605
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.484833836046,
+      "TotEng": -22889.587337592253,
+      "Press": -2630.9074968306477,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138416,
+      "PotEng": -24162.35768506789,
+      "TotEng": -22873.097826722344,
+      "Press": 839.5510679559364,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.0059053752325830015
+    },
+    "nvrtc_ms": 159.756787,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 38, 210 MHz, 18.92 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 4 %, 145 MiB, 40, 2520 MHz, 59.49 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 29.6167,
+    "ms_per_step": 148.08350000000002,
+    "wall_seconds": 37.684312626719475,
+    "stages_ms": {
+      "Pair": 140.225,
+      "Neigh": 2.7343,
+      "Comm": 0.08663499999999999,
+      "Output": 0.00047166,
+      "Modify": 4.9859
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.51987299065,
+      "TotEng": -22889.622376746865,
+      "Press": -2631.0960086946147,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510338,
+      "PotEng": -24162.395014855967,
+      "TotEng": -22873.133406491415,
+      "Press": 839.6070405051872,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.0059049308885484415
+    },
+    "nvrtc_ms": 157.939015,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 4 %, 145 MiB, 40, 2520 MHz, 59.49 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 1 %, 145 MiB, 40, 2520 MHz, 58.78 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 27.8079,
+    "ms_per_step": 139.0395,
+    "wall_seconds": 34.92883615195751,
+    "stages_ms": {
+      "Pair": 137.9,
+      "Neigh": 0.7542500000000001,
+      "Comm": 0.083855,
+      "Output": 0.000356415,
+      "Modify": 0.25211500000000003
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.532009431077,
+      "TotEng": -22889.63451318729,
+      "Press": -2631.0013072284996,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408557,
+      "PotEng": -24162.4061058211,
+      "TotEng": -22873.14535254854,
+      "Press": 839.5824069176645,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 145 MiB, 40, 2520 MHz, 58.73 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 37, 210 MHz, 19.00 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_host_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 300,
+    "loop_seconds": 8.22701,
+    "ms_per_step": 27.423366666666666,
+    "wall_seconds": 10.201357509940863,
+    "stages_ms": {
+      "Pair": 20.774,
+      "Neigh": 1.9445000000000001,
+      "Comm": 0.08153666666666666,
+      "Output": 0.00026739,
+      "Modify": 4.580666666666667
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.9074968306722,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7425847599095,
+      "PotEng": -24169.078066969163,
+      "TotEng": -22878.46515461642,
+      "Press": -984.842055365822,
+      "Volume": 141939.84033468046,
+      "f_bias": 0.04762484228409932,
+      "f_bias[1]": 0.005538052702087438
+    },
+    "nvrtc_ms": 159.503424,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 37, 210 MHz, 19.00 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 38 %, 145 MiB, 39, 2520 MHz, 72.06 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 200,
+    "loop_seconds": 10.7047,
+    "ms_per_step": 53.523500000000006,
+    "wall_seconds": 14.019311711192131,
+    "stages_ms": {
+      "Pair": 43.53150000000001,
+      "Neigh": 1.2313,
+      "Comm": 0.5776,
+      "Output": 0.0013103000000000001,
+      "Modify": 7.8454999999999995
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.907496830673,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2279441384323,
+      "PotEng": -24162.35768506795,
+      "TotEng": -22873.097826722387,
+      "Press": 839.5510679568857,
+      "Volume": 141538.83075470946,
+      "f_bias": 0.047598727358494144,
+      "f_bias[1]": 0.005905375232582885
+    },
+    "nvrtc_ms": 160.585286,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 38 %, 145 MiB, 39, 2520 MHz, 71.60 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 44 %, 146 MiB, 40, 2520 MHz, 69.72 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 1,
+    "steps": 300,
+    "loop_seconds": 6.31246,
+    "ms_per_step": 21.041533333333334,
+    "wall_seconds": 7.73842503502965,
+    "stages_ms": {
+      "Pair": 20.712,
+      "Neigh": 0.014570999999999999,
+      "Comm": 0.07492666666666667,
+      "Output": 0.00027682333333333336,
+      "Modify": 0.19788333333333333
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.0013072284664,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7416961581034,
+      "PotEng": -24169.125129261636,
+      "TotEng": -22878.51301071187,
+      "Press": -984.8316972400647,
+      "Volume": 141939.81541276784
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 44 %, 146 MiB, 40, 2520 MHz, 68.46 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 90 %, 146 MiB, 40, 2520 MHz, 74.62 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_1_kk_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 28.4243,
+    "ms_per_step": 142.1215,
+    "wall_seconds": 35.876322254538536,
+    "stages_ms": {
+      "Pair": 140.97,
+      "Neigh": 0.76875,
+      "Comm": 0.08364,
+      "Output": 0.000364695,
+      "Modify": 0.255335
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.532009431077,
+      "TotEng": -22889.63451318729,
+      "Press": -2631.0013072284996,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408557,
+      "PotEng": -24162.4061058211,
+      "TotEng": -22873.14535254854,
+      "Press": 839.5824069176645,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 15 %, 146 MiB, 40, 2520 MHz, 73.02 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 37, 210 MHz, 19.16 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 15.9752,
+    "ms_per_step": 79.87599999999999,
+    "wall_seconds": 20.579683989286423,
+    "stages_ms": {
+      "Pair": 71.81,
+      "Neigh": 1.6357499999999998,
+      "Comm": 0.240445,
+      "Output": 0.000353005,
+      "Modify": 6.153499999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.484833836046,
+      "TotEng": -22889.587337592253,
+      "Press": -2630.9074968306477,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138416,
+      "PotEng": -24162.35768506789,
+      "TotEng": -22873.097826722344,
+      "Press": 839.5510679559364,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.0059053752325830015
+    },
+    "nvrtc_ms": 160.061369,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 146 MiB, 37, 210 MHz, 19.16 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 12 %, 146 MiB, 39, 2520 MHz, 59.48 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 10.5741,
+    "ms_per_step": 52.8705,
+    "wall_seconds": 13.857261799275875,
+    "stages_ms": {
+      "Pair": 43.09,
+      "Neigh": 1.2099,
+      "Comm": 0.522,
+      "Output": 0.00118355,
+      "Modify": 7.714499999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.484833835908,
+      "TotEng": -22889.58733759212,
+      "Press": -2630.9074968306745,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.22794413844,
+      "PotEng": -24162.357685067946,
+      "TotEng": -22873.097826722376,
+      "Press": 839.5510679572071,
+      "Volume": 141538.83075470946,
+      "f_bias": 0.04759872735849417,
+      "f_bias[1]": 0.0059053752325827985
+    },
+    "nvrtc_ms": 158.113464,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 12 %, 146 MiB, 39, 2520 MHz, 59.30 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 58 %, 146 MiB, 40, 2520 MHz, 71.60 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np2_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 29.2923,
+    "ms_per_step": 146.4615,
+    "wall_seconds": 37.231328286230564,
+    "stages_ms": {
+      "Pair": 138.665,
+      "Neigh": 2.7039999999999997,
+      "Comm": 0.085595,
+      "Output": 0.00039991,
+      "Modify": 4.95565
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.51987299065,
+      "TotEng": -22889.622376746865,
+      "Press": -2631.0960086946147,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510338,
+      "PotEng": -24162.395014855967,
+      "TotEng": -22873.133406491415,
+      "Press": 839.6070405051872,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.0059049308885484415
+    },
+    "nvrtc_ms": 154.783862,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 58 %, 146 MiB, 39, 2520 MHz, 70.26 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 40, 2520 MHz, 58.72 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 300,
+    "loop_seconds": 8.26096,
+    "ms_per_step": 27.536533333333338,
+    "wall_seconds": 10.197481084614992,
+    "stages_ms": {
+      "Pair": 20.740999999999996,
+      "Neigh": 1.9703666666666668,
+      "Comm": 0.08238999999999999,
+      "Output": 0.00026064333333333334,
+      "Modify": 4.700333333333333
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.48483383591,
+      "TotEng": -22889.587337592122,
+      "Press": -2630.9074968306645,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7425847599052,
+      "PotEng": -24169.078066969152,
+      "TotEng": -22878.465154616413,
+      "Press": -984.8420553660294,
+      "Volume": 141939.84033468046,
+      "f_bias": 0.04762484228409931,
+      "f_bias[1]": 0.005538052702087504
+    },
+    "nvrtc_ms": 157.111941,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 146 MiB, 40, 2520 MHz, 58.67 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 39 %, 146 MiB, 40, 2520 MHz, 74.07 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 9.35158,
+    "ms_per_step": 46.7579,
+    "wall_seconds": 12.004777420312166,
+    "stages_ms": {
+      "Pair": 44.067,
+      "Neigh": 0.045568,
+      "Comm": 0.5842,
+      "Output": 0.0011468000000000001,
+      "Modify": 1.7283000000000002
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.0013072284755,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2289459408553,
+      "PotEng": -24162.406105821447,
+      "TotEng": -22873.145352548887,
+      "Press": 839.5824069173856,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 39 %, 146 MiB, 40, 2520 MHz, 74.07 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 89 %, 146 MiB, 41, 2520 MHz, 70.90 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 10.5298,
+    "ms_per_step": 52.648999999999994,
+    "wall_seconds": 13.816993162035942,
+    "stages_ms": {
+      "Pair": 43.06399999999999,
+      "Neigh": 1.2221,
+      "Comm": 0.5153,
+      "Output": 0.0011714000000000002,
+      "Modify": 7.513499999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.0960086945906,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510195,
+      "PotEng": -24162.39501485614,
+      "TotEng": -22873.1334064916,
+      "Press": 839.6070405035757,
+      "Volume": 141538.76450970082,
+      "f_bias": 0.011622618090561046,
+      "f_bias[1]": 0.005904930888548325
+    },
+    "nvrtc_ms": 159.904988,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 26 %, 146 MiB, 40, 2520 MHz, 69.89 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 82 %, 146 MiB, 41, 2520 MHz, 71.15 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 300,
+    "loop_seconds": 8.22315,
+    "ms_per_step": 27.4105,
+    "wall_seconds": 10.19953716546297,
+    "stages_ms": {
+      "Pair": 20.827333333333332,
+      "Neigh": 1.9230333333333336,
+      "Comm": 0.07955000000000001,
+      "Output": 0.0003151133333333333,
+      "Modify": 4.537999999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.519872991008,
+      "TotEng": -22889.62237674722,
+      "Press": -2631.096008694582,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077327
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7409024879855,
+      "PotEng": -24169.11273888392,
+      "TotEng": -22878.501329333056,
+      "Press": -984.8103596052308,
+      "Volume": 141939.79285485297,
+      "f_bias": 0.01153366096460243,
+      "f_bias[1]": 0.00553751421875747
+    },
+    "nvrtc_ms": 157.150939,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 13 %, 146 MiB, 41, 2520 MHz, 69.82 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 52 %, 146 MiB, 41, 2520 MHz, 74.16 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np1_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 14.729,
+    "ms_per_step": 73.645,
+    "wall_seconds": 18.567432396113873,
+    "stages_ms": {
+      "Pair": 72.67,
+      "Neigh": 0.39863,
+      "Comm": 0.40344499999999994,
+      "Output": 0.00030855500000000007,
+      "Modify": 0.14446
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.53200943157,
+      "TotEng": -22889.634513187775,
+      "Press": -2631.0013072284514,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.228945940859,
+      "PotEng": -24162.40610582153,
+      "TotEng": -22873.145352548967,
+      "Press": 839.5824069177463,
+      "Volume": 141538.79585305287
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 15 %, 146 MiB, 41, 2520 MHz, 73.46 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 38, 210 MHz, 18.98 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np2_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 1,
+    "mode": "shared",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 29.6141,
+    "ms_per_step": 148.0705,
+    "wall_seconds": 37.7142370454967,
+    "stages_ms": {
+      "Pair": 140.195,
+      "Neigh": 2.7372500000000004,
+      "Comm": 0.08531000000000001,
+      "Output": 0.000389795,
+      "Modify": 5.0
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.2251893161413,
+      "PotEng": -24173.484833835555,
+      "TotEng": -22889.58733759177,
+      "Press": -2630.907496830698,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.047175595522612135,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.227944138418,
+      "PotEng": -24162.357685067833,
+      "TotEng": -22873.09782672228,
+      "Press": 839.5510679556465,
+      "Volume": 141538.8307547098,
+      "f_bias": 0.04759872735849413,
+      "f_bias[1]": 0.00590537523258303
+    },
+    "nvrtc_ms": 159.195134,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 0 %, 145 MiB, 38, 210 MHz, 18.98 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 145 MiB, 40, 2520 MHz, 58.83 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np1_shared",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "kk",
+    "ranks": 1,
+    "mode": "meam",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 300,
+    "loop_seconds": 6.35165,
+    "ms_per_step": 21.17216666666667,
+    "wall_seconds": 7.738618697971106,
+    "stages_ms": {
+      "Pair": 20.839666666666666,
+      "Neigh": 0.014506666666666668,
+      "Comm": 0.07644666666666668,
+      "Output": 0.00021449333333333333,
+      "Modify": 0.1995066666666667
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316144,
+      "PotEng": -24173.532009431434,
+      "TotEng": -22889.634513187644,
+      "Press": -2631.001307228468,
+      "Volume": 142362.68375250674
+    },
+    "final": {
+      "Step": 6220350.0,
+      "Temp": 1444.7416961580977,
+      "PotEng": -24169.125129261618,
+      "TotEng": -22878.513010711857,
+      "Press": -984.8316972409915,
+      "Volume": 141939.81541276805
+    },
+    "nvrtc_ms": null,
+    "neighbor_builds": 10,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 5 %, 145 MiB, 40, 2520 MHz, 58.76 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 90 %, 145 MiB, 41, 2520 MHz, 75.81 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_kk_np1_meam",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "1",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-k",
+      "on",
+      "g",
+      "1",
+      "-sf",
+      "kk",
+      "-pk",
+      "kokkos",
+      "gpu/aware",
+      "off",
+      "neigh",
+      "half",
+      "newton",
+      "on",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  },
+  {
+    "backend": "host",
+    "ranks": 2,
+    "mode": "global",
+    "phase": "measure",
+    "repeat": 2,
+    "steps": 200,
+    "loop_seconds": 16.0037,
+    "ms_per_step": 80.01849999999999,
+    "wall_seconds": 20.682278230786324,
+    "stages_ms": {
+      "Pair": 71.805,
+      "Neigh": 1.626,
+      "Comm": 0.47025500000000003,
+      "Output": 0.00034929499999999995,
+      "Modify": 6.082999999999999
+    },
+    "initial": {
+      "Step": 6220000.0,
+      "Temp": 1437.225189316146,
+      "PotEng": -24173.519872991143,
+      "TotEng": -22889.62237674735,
+      "Press": -2631.096008694565,
+      "Volume": 142362.68375250674,
+      "f_bias": 0.012136440427110182,
+      "f_bias[1]": 0.008024019133077329
+    },
+    "final": {
+      "Step": 6220250.0,
+      "Temp": 1443.2299031510368,
+      "PotEng": -24162.39501485619,
+      "TotEng": -22873.133406491634,
+      "Press": 839.6070405051063,
+      "Volume": 141538.76450970053,
+      "f_bias": 0.011622618090561074,
+      "f_bias[1]": 0.005904930888548436
+    },
+    "nvrtc_ms": 159.540074,
+    "neighbor_builds": 7,
+    "gpu_before": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 13 %, 145 MiB, 41, 2520 MHz, 74.14 W",
+      ""
+    ],
+    "gpu_after": [
+      "NVIDIA GeForce RTX 4090 D, GPU-e1db5f6c-1bf7-00d8-69fb-2b774c3343a3, 4 %, 145 MiB, 40, 2520 MHz, 59.57 W",
+      ""
+    ],
+    "directory": "/home/saitang/work/MetadToy-shared-frozen-20261027/performance-20261027/measure_2_host_np2_global",
+    "command": [
+      "/usr/lib64/mpich/bin/mpiexec.hydra",
+      "-np",
+      "2",
+      "/home/saitang/work/MetadToy-shared-frozen-20261027/lammps-build/lmp",
+      "-in",
+      "input.lmp",
+      "-log",
+      "log.lammps"
+    ]
+  }
+]

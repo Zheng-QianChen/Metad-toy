@@ -1,4 +1,5 @@
 #include "zqc_graph.cuh"
+#include "mpi_sum_reducer.h"
 #include <mpi.h>
 #include <cmath>
 #include <iostream>
@@ -11,17 +12,18 @@ void close(double actual, double expected, const char* message) {
     if (!std::isfinite(actual) || std::abs(actual-expected) > 2e-11*(1+std::abs(expected)))
         throw std::runtime_error(std::string(message)+": "+std::to_string(actual)+" != "+std::to_string(expected));
 }
-std::vector<double> read(const double* ptr, int count) {
+std::vector<double> read(const GpuBuffer<double>& buffer, int count) {
     std::vector<double> values(count);
-    if (count) graph_check_cuda(cudaMemcpy(values.data(), ptr, count*sizeof(double), cudaMemcpyDeviceToHost));
+    if (count) buffer.download_to(values.data(), values.size());
     return values;
 }
-void put(double* ptr, const std::vector<double>& values) {
-    if (!values.empty()) graph_check_cuda(cudaMemcpy(ptr, values.data(), values.size()*sizeof(double), cudaMemcpyHostToDevice));
+void put(GpuBuffer<double>& buffer, const std::vector<double>& values) {
+    // The Graph stream is nonblocking; finish the test upload before publishing it.
+    if (!values.empty()) buffer.upload_from(values.data(), values.size());
 }
 
 void host_only() {
-    Leaf a({0.4}, {Domain::Global, 1});
+    Leaf a({0.4}, {ValueDomain::Global, 1});
     Graph graph(Graph::Symbols{{"a", &a}});
     graph.parse_expr("linear(a*a, 2, 1) + exp(-a)");
     graph.parse_expr("fermi(a, 0.5, 2)");
@@ -38,22 +40,43 @@ void host_only() {
     }
 }
 
+void host_callback_reducer() {
+    // 空回调 = 本地均值；非空回调模拟另一参与者贡献 {sum=2,count=2}。
+    Leaf x({1.0, 3.0});
+    Graph local(Graph::Symbols{{"x", &x}});
+    local.parse_expr("AVE(x)");
+    GraphExecution local_run(local);
+    close(local_run.forward()[0], 2.0, "empty reducer is local mean");
+
+    auto inject = [](double* values, size_t count) {
+        require(count == 2, "AVE must pack sum/count");
+        values[0] += 2.0;
+        values[1] += 2.0;
+    };
+    Graph graph(Graph::Symbols{{"x", &x}}, {}, inject);
+    graph.parse_expr("AVE(x)");
+    GraphExecution run(graph);
+    // 本地 {4,2} + 注入 {2,2} → {6,4} → mean=1.5。
+    close(run.forward()[0], 1.5, "host callback packed sum/count");
+}
+
 void borrowed_global_scalar() {
     GpuBuffer<double> values(1), gradients(1);
-    put(values.ptr, {.6});
-    Leaf x(values, gradients, 1, {Domain::Global, 1});
+    put(values, {.6});
+    Leaf x(values, gradients, 1, {ValueDomain::Global, 1});
     Graph graph(Graph::Symbols{{"x", &x}});
     graph.parse_expr("x*x");
     GraphExecution run(graph);
     close(run.forward()[0], .36, "borrowed Global value");
     run.backward({2});
-    close(read(gradients.ptr,1)[0], 2.4, "borrowed Global gradient");
+    close(read(gradients,1)[0], 2.4, "borrowed Global gradient");
 }
 
 // 同一套全局样本按不均匀数量划分；np>1 时 rank 0 故意没有样本。
 void distributed_graph(MPI_Comm comm) {
     int rank = 0, size = 0;
     MPI_Comm_rank(comm, &rank); MPI_Comm_size(comm, &size);
+    const auto sum = mpi_sum_reducer(comm);
     const std::vector<double> x_all = {-.3, .2, .6, 1.1, 1.4};
     const std::vector<double> y_all = {.4, -.5, .8, .3, -.2};
     std::vector<int> ids;
@@ -64,11 +87,11 @@ void distributed_graph(MPI_Comm comm) {
     const int n = static_cast<int>(ids.size());
     GpuBuffer<double> vx(n+3), vy(n+3), gx(n+3), gy(n+3);
     Leaf x(vx, gx, n), y(vy, gy, n);
-    Leaf coefficient({.75}, {Domain::Global, 1});
-    Graph graph(Graph::Symbols{{"x", &x}, {"y", &y}}, {}, comm);
+    Leaf coefficient({.75}, {ValueDomain::Global, 1});
+    Graph graph(Graph::Symbols{{"x", &x}, {"y", &y}}, {}, sum);
     Node* product = graph.make_node<Mul>(&x, &y);
-    auto* u = graph.make_node<AVE>(product, comm);
-    auto* v = graph.make_node<AVE>(&x, comm);
+    auto* u = graph.make_node<AVE>(product, sum);
+    auto* v = graph.make_node<AVE>(&x, sum);
     Node* first = graph.make_node<Add>(u, graph.make_node<Linear>(v, 2.0, .1));
     Node* second = graph.make_node<Mul>(graph.make_node<Mul>(u, graph.make_node<Exp>(v)), &coefficient);
     graph.outputs = {first, second};
@@ -81,8 +104,8 @@ void distributed_graph(MPI_Comm comm) {
     for (double offset : {0.0, .1}) {
         std::vector<double> local_x(n+3, guard), local_y(n+3, guard);
         for (int i = 0; i < n; ++i) { local_x[i]=x_all[ids[i]]+offset; local_y[i]=y_all[ids[i]]; }
-        put(vx.ptr, local_x); put(vy.ptr, local_y);
-        put(gx.ptr, std::vector<double>(n+3, guard)); put(gy.ptr, std::vector<double>(n+3, guard));
+        put(vx, local_x); put(vy, local_y);
+        put(gx, std::vector<double>(n+3, guard)); put(gy, std::vector<double>(n+3, guard));
         *coefficient.val = .75+offset;
         double expected_u=0, expected_v=0;
         for (size_t i=0; i<x_all.size(); ++i) {
@@ -95,7 +118,7 @@ void distributed_graph(MPI_Comm comm) {
         require(u->global_count == 5 && v->global_count == 5, "global count is wrong");
         for (double seed : {-.2, .3}) {
             run.backward({.7, seed});
-            const auto dx=read(gx.ptr,n+3), dy=read(gy.ptr,n+3);
+            const auto dx=read(gx,n+3), dy=read(gy,n+3);
             const double du=.7+seed*(*coefficient.val)*std::exp(expected_v);
             const double dv=1.4+seed*(*coefficient.val)*expected_u*std::exp(expected_v);
             for (int i=0;i<n;++i) {
@@ -106,39 +129,39 @@ void distributed_graph(MPI_Comm comm) {
             close(*coefficient.adj, seed*expected_u*std::exp(expected_v), "Global parameter gradient");
         }
     }
-    // 验证注册入口及规约后的非线性运算，不依赖手工构图。
-    Graph parsed(Graph::Symbols{{"x",&x},{"y",&y}}, {}, comm);
+    Graph parsed(Graph::Symbols{{"x",&x},{"y",&y}}, {}, sum);
     parsed.parse_expr("linear(AVE(x*y), 2, 1) + exp(AVE(x))");
     GraphExecution parsed_run(parsed);
     const auto output=parsed_run.forward();
     close(output[0], 2*(*u->val)+1+std::exp(*v->val), "parsed AVE output");
     parsed_run.backward({1});
-    const auto dx=read(gx.ptr,n);
+    const auto dx=read(gx,n);
     for (int i=0;i<n;++i) close(dx[i], (2*y_all[ids[i]]+std::exp(*v->val))/5, "parsed AVE gradient");
-    // 全局为空必须在所有 rank 完成 collective 后一致报错。
     Leaf empty(std::vector<double>{});
-    AVE empty_mean(&empty, comm);
+    AVE empty_mean(&empty, sum);
     bool rejected=false;
     try { empty_mean.forward(); } catch (const std::runtime_error&) { rejected=true; }
     require(rejected, "global empty average accepted");
 }
 
-// 模拟迁移：同一执行器从非空变空，再增长；核源码/module 保持不变。
 void resize_and_logging(MPI_Comm comm) {
     int rank = 0; MPI_Comm_rank(comm, &rank);
+    const auto sum = mpi_sum_reducer(comm);
     GpuBuffer<double> values(8), gradients(8);
     Leaf x(values, gradients, 1);
-    Graph graph(Graph::Symbols{{"x", &x}}, {}, comm);
+    Graph graph(Graph::Symbols{{"x", &x}}, {}, sum);
     graph.parse_expr("AVE(x*x)");
-    FILE* logfile = std::tmpfile();
-    require(logfile != nullptr, "tmpfile failed");
+    std::string log;
+    MetaD_zqc::Logger logger([&log](const MetaD_zqc::Diagnostic& diagnostic) {
+        log += diagnostic.message + "\n";
+    });
     {
-        GraphExecution run(graph, logfile, logfile); // 相同句柄只记录一次。
+        GraphExecution run(graph, logger);
         for (int phase : {1, 0, 7}) {
-            // 空 rank 仍参与均值；至少 rank 0 持有一个元素。
             const int n = phase ? phase : (rank == 0 ? 1 : 0);
             x.n = n;
-            put(values.ptr, std::vector<double>(n, 2.0));
+            put(values, std::vector<double>(n, 2.0));
+            x.refresh_buffers();
             run.resize_inputs();
             bool rejected = false;
             try { run.backward({1}); } catch (const std::logic_error&) { rejected = true; }
@@ -146,25 +169,20 @@ void resize_and_logging(MPI_Comm comm) {
             close(run.forward()[0], 4.0, "resized average");
             run.backward({1});
             int total = 0; MPI_Allreduce(&n, &total, 1, MPI_INT, MPI_SUM, comm);
-            for (double value : read(gradients.ptr, n)) close(value, 4.0/total, "resized gradient");
+            for (double value : read(gradients, n)) close(value, 4.0/total, "resized gradient");
         }
     }
-    // 编译失败也必须留下诊断，不能只有成功日志。
     graph.kernel_source += "\n#error deliberate_NVRTC_log_test\n";
     bool failed = false;
-    try { GraphExecution invalid(graph, nullptr, logfile); }
+    try { GraphExecution invalid(graph, logger); }
     catch (const std::runtime_error& e) {
         failed = std::string(e.what()).find("deliberate_NVRTC_log_test") != std::string::npos;
     }
     require(failed, "invalid source did not report its NVRTC diagnostic");
-    std::rewind(logfile);
-    std::string log; char line[1024];
-    while (std::fgets(line, sizeof(line), logfile)) log += line;
-    std::fclose(logfile);
     require(log.find("NVRTC/module failed:") != std::string::npos, "NVRTC failure was not logged");
     const auto first = log.find("NVRTC ready:");
     require(first != std::string::npos && log.find("NVRTC ready:", first+1) == std::string::npos,
-            "resize recompiled or duplicate log handles wrote twice");
+            "resize unexpectedly recompiled the graph");
 }
 
 int main(int argc, char** argv) {
@@ -172,16 +190,16 @@ int main(int argc, char** argv) {
     int rank=0; MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     try {
         host_only();
+        host_callback_reducer();
         graph_check_cuda(cudaSetDevice(0));
         borrowed_global_scalar();
         distributed_graph(MPI_COMM_WORLD);
         resize_and_logging(MPI_COMM_WORLD);
-        // 使用分割后的 communicator，防止实现偷偷使用 MPI_COMM_WORLD。
         MPI_Comm subcomm = MPI_COMM_NULL;
         MPI_Comm_split(MPI_COMM_WORLD, rank%2, rank, &subcomm);
         distributed_graph(subcomm);
         MPI_Comm_free(&subcomm);
-        if (!rank) std::cout << "AVE_MPI_PASS Host scalars, unequal partitions, empty ranks, shared DAG, backward, subcommunicators\n";
+        if (!rank) std::cout << "AVE_MPI_PASS Host scalars, host callbacks, unequal partitions, empty ranks, shared DAG, backward, subcommunicators\n";
     } catch (const std::exception& error) {
         std::cerr << "rank " << rank << ": " << error.what() << '\n';
         MPI_Abort(MPI_COMM_WORLD, 1);

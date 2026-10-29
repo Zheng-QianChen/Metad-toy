@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metadtoy-cli"
+dynamic = ["version", "dependencies"]
+description = "Offline MetaD-toy analysis for LAMMPS and GPUMD histories"
+requires-python = ">=3.9"
+
+[project.scripts]
+metadtoy = "metadtoy_cli.cli:main"
+
+[tool.setuptools]
+packages = ["metadtoy_cli"]
+
+[tool.setuptools.dynamic]
+version = {attr = "metadtoy_cli.__version__"}
+dependencies = {file = ["requirements-analysis.txt"]}

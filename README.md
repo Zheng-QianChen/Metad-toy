@@ -1,6 +1,30 @@
-# Metad-toy: LAMMPS Metadynamics Plugin
+# MetaDtoy: Metadynamics for LAMMPS and GPUMD
 
-**Metad-toy** 是一个基于 LAMMPS 插件机制开发的元动力学 (Metadynamics) 插件。它允许用户在 CUDA 加速的环境下，通过自定义集体变量 (CVs) 来驱动复杂系统的相变或化学反应模拟。
+**v0.1.0 — 2026-10-29**。本版本支持普通 LAMMPS、LAMMPS Kokkos/CUDA，
+并提供部分 GPUMD 接入。功能范围和验证边界见 [正式版本说明](RELEASE_NOTES.md)。
+
+| 宿主 / 后端 | 本版本支持范围 | 构建与使用 |
+|---|---|---|
+| 普通 LAMMPS | 不依赖 Kokkos 或 Weave；CV/Graph 仍需 CUDA GPU | [普通版说明](docs/PLAIN_LAMMPS_20261029.zh.md) |
+| LAMMPS Kokkos/CUDA | 借用设备坐标与邻居表，CV 前后向及偏置力回写；Weave 为可选优化 | [Kokkos 指南](benchmarks/kokkos/README.md)、[集成构建](benchmarks/integration/README.md) |
+| GPUMD v5.9.1（部分支持） | 单进程，DISTANCE、StruFactor、Graph 表达式、一维 WTMetaD；共享运行库/C ABI | [GPUMD 指南与限制](benchmarks/gpumd/README.md) |
+
+当前运行内核需要 NVIDIA CUDA。普通 LAMMPS 宿主可在 CPU 上运行；本版本未提供纯 CPU CV
+后端，也未验证其他 Kokkos 设备后端。GPUMD 的 NPT、完整 MD 重启及 LocalQL 尚未接入。
+
+2026-10-28 统一工作（2026-10-29 收口）：[版本来源与阶段验收](docs/RELEASE_20261028.zh.md)。
+旧功能恢复、LocalQL 优化、Q/Half 设备路径、共享 SUM/在线 WT 与 A100 多卡续算已完成相应验收；
+真实 Al3Sc 形核及 FES 收敛仍需独立科学证据。
+
+普通 LAMMPS（不编译 Kokkos/Weave）同样受支持：2026-10-29 已在独立普通宿主上验收，
+见 [普通版构建、数据路径与回归范围](docs/PLAIN_LAMMPS_20261029.zh.md)。MetaDtoy CV 仍使用 CUDA。
+
+2026-10-29 独立复验后的 SUM/safe_div 测试就绪修正：标准 Graph 预设 36/36，
+默认并发下 1/2/4 ranks 各重复 50 次全部通过；历史验收与当前证据见
+[跨流就绪复验](docs/STREAM_READINESS_20261029.zh.md)。
+
+**MetaDtoy** 通过 LAMMPS 插件或 GPUMD 桥接运行元动力学 (Metadynamics)，
+复用 CUDA 集体变量 (CV)、表达式图和偏势实现。不同宿主的可用功能以上方支持范围为准。
 
 ---
 
@@ -19,20 +43,22 @@
 
 ### 前提条件
 
-* 支持 `plugin load` 的共享库版 LAMMPS（本轮验证：29 Aug 2024）
-* CMake 3.20+
+* 支持 `plugin load` 的共享库版 LAMMPS（历史验证：29 Aug 2024；2026-10-28 整合验证：22 Jul 2025）
+* CMake 3.21+（使用构建预设时）
 * CUDA Toolkit (用于 `.cu` 源码编译)
 * MPICH 或 OpenMPI
 
 ### 编译步骤
 
-1. **准备依赖**：安装 CUDA Toolkit（含 NVRTC）、xxd，以及与 LAMMPS 一致的 MPI。Graph 使用 LAMMPS 自带的 fmt 头文件。下面的基础构建关闭可选 ML CV。
+构建已按 view、Graph、CV、LAMMPS 适配器和测试分层，独立目标与预设见 [分层构建指南](cmake/README.md)。2026-10-28 统一了主工作区与 Weave/Kokkos 联合实现；版本来源、推荐构建和当前验证边界见 [版本整合记录](docs/VERSION_CONSOLIDATION_20261028.zh.md) 与 [本轮验收](docs/INTEGRATION_VALIDATION_20261028.zh.md)。不要凭旧 build 目录中的插件判断当前源码状态。
+
+1. **准备依赖**：安装 CUDA Toolkit（含 NVRTC）、xxd，以及与 LAMMPS 一致的 MPI。Graph 使用 third_party/fmt 中随项目分发的头文件和许可证。下面的基础构建关闭可选 ML CV。
 
 2. **构建插件**：根据安装位置修改路径，并将 `89` 换成目标 GPU 架构。
 ```bash
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release -DENABLE_DEBUG=OFF -DUSE_ML_CVS=OFF \
-  -DCMAKE_CUDA_ARCHITECTURES=89 -DCLEAN_HOST_COMPILER=/usr/bin/g++ \
+  -DCMAKE_CUDA_ARCHITECTURES=89 -DCMAKE_CUDA_HOST_COMPILER=/usr/bin/g++ \
   -DLAMMPS_SOURCE_DIR=/path/to/lammps/src \
   -DLAMMPS_LIB_DIR=/path/to/lammps/lib \
   -DMPI_HOME=/path/to/mpi
@@ -127,3 +153,36 @@ fix metad all metad EXECUTOR GRAPH GAUSSIAN 0.01 0.005 10.0 &
 ## 贡献与反馈
 
 问题与建议可通过 GitHub issue 或联系 ZQC：gz1999zqc@163.com。
+
+## 偏置层与高维沉积
+
+偏置核心可独立于 LAMMPS/CUDA 构建，支持 1–3D dense/sparse 网格和任意维 HILLS/PBMetaD。默认 AUTO 在 D>3 选择 PBMetaD，可显式选择后端。接口、输入与可运行测试见 [偏置层说明](benchmarks/highdim/README.md)，正确性和性能数据见 [验证记录](benchmarks/highdim/RESULTS.md)。
+
+## 离线命令行分析
+
+CLI 也可通过 CMake 安装为 `metadtoy` 命令：
+
+```bash
+cmake --preset cli -DPython3_EXECUTABLE=/path/to/python -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --build --preset cli
+cmake --install build/cli --component cli
+export PATH="$HOME/.local/bin:$PATH"
+metadtoy --help
+```
+
+安装会在前缀内管理独立的 Python 环境和分析依赖。随 MD 构建时，可增加
+`-DZQC_BUILD_CLI=ON`。Python 打包方式、离线安装及源码入口见 [CLI 使用说明](tools/README.md)。
+
+
+
+统一入口为 `python tools/metadtoy.py hills ...`，支持 HILLS 参数检查、沉积记录 CSV 导出、
+1D/2D 偏势或 WTMetaD 自由能估计的 CSV/PNG 预览，以及高维偏势的显式切片。
+原生 LAMMPS/GPUMD HILLS 共用读取层；PBMetaD 联合 FES 需要轨迹重加权，不能仅由 hills 恢复。
+默认 FES 使用逐帧重加权，可通过 `python tools/metadtoy.py fes reconstruct COLVAR ...` 调用；原 HILLS 渐近估计需 `--method hills`。支持原生 WT 的离线 c(t) 及已给校正权重，输出包含逐帧权重与 ESS。
+安装、示例和后续轨迹/训练接口规划见 [CLI 使用说明](tools/README.md)，数值对照见
+[CLI 验证](benchmarks/cli/README.md)。
+
+### LAMMPS CUDA/Kokkos
+
+可选使用 lammps-kokkos 预设；输入仍可写 fix metad，-sf kk 选择设备桥接。
+数组同步、构建依赖、旧版 LAMMPS 补丁及测试命令见 [Kokkos 接入指南](benchmarks/kokkos/README.md)。

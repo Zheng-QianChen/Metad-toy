@@ -1,28 +1,20 @@
 #include "CV_Weighted_Chemical_Pair_Order.h"
-#include "atom.h"
-#include "comm.h"
-#include "error.h"
-#include "group.h"
-#include "neighbor.h"
-#include "zqc_debug.h"
+#include "zqc_cv_debug.h"
+#include "zqc_cv_parse.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <sstream>
 
-using namespace LAMMPS_NS;
-
 namespace MetaD_zqc {
 
-CV* Weighted_chem_pair::create(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_check,
-                               int narg, char** arg, int& i) {
-    auto* error = lmp->error;
+CV* Weighted_chem_pair::create(CVContext& context, int narg, char** arg, int& i) {
+    auto logger = context.logger;
     ERR_COND(i+1 >= narg, "WEIGHT_CHEM requires a center group");
     StruFactorRequest request{};
     request.cal_name = arg[i];
-    request.group_name = arg[i+1];
-    request.group_id = lmp->group->find(request.group_name);
-    ERR_COND(request.group_id < 0, "WEIGHT_CHEM: group %s not found", request.group_name);
+    request.selection_name = arg[i+1];
+    request.selection = context.engine.selection_id(request.selection_name);
     request.cutoff_r = 8.0;
     request.d_block_size = 128;
     request.use_chemical_lock = true;
@@ -31,19 +23,19 @@ CV* Weighted_chem_pair::create(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_c
         const std::string keyword = arg[cursor];
         if (keyword == "cutoff_r" || keyword == "Chem_ctarget" || keyword == "Chem_sigma") {
             ERR_COND(cursor+1 >= narg, "WEIGHT_CHEM: %s requires a number", arg[cursor]);
-            const double value = utils::numeric(FLERR, arg[cursor+1], false, lmp);
+            const double value = cv_number(arg[cursor+1]);
             if (keyword == "cutoff_r") request.cutoff_r = value;
             else if (keyword == "Chem_ctarget") request.c_target = value;
             else request.sigma = value;
             cursor += 2;
         } else if (keyword == "d_block_size") {
             ERR_COND(cursor+1 >= narg, "WEIGHT_CHEM: d_block_size requires an integer");
-            request.d_block_size = utils::inumeric(FLERR, arg[cursor+1], false, lmp);
+            request.d_block_size = cv_integer(arg[cursor+1]);
             cursor += 2;
         } else if (keyword == "Chem_map") {
             ++cursor;
             ERR_COND(cursor >= narg || arg[cursor][0] != '(', "WEIGHT_CHEM: Chem_map requires (type,weight) pairs");
-            // 支持 (1,1.0)、单个引号括起的 '(1 1.0)'，以及 LAMMPS 拆开的 (1 1.0)。
+            // 支持 (1,1.0)、单个引号括起的 '(1 1.0)'，以及输入拆开的 (1 1.0)。
             while (cursor < narg && arg[cursor][0] == '(') {
                 std::string mapping = arg[cursor++];
                 if (mapping.back() != ')') {
@@ -58,12 +50,12 @@ CV* Weighted_chem_pair::create(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_c
                 std::string type_text, weight_text, extra;
                 ERR_COND(!(fields >> type_text >> weight_text) || bool(fields >> extra),
                          "WEIGHT_CHEM: Chem_map expects exactly one type and weight");
-                const int atom_type = utils::inumeric(FLERR,type_text.c_str(),false,lmp);
-                const double weight = utils::numeric(FLERR,weight_text.c_str(),false,lmp);
+                const int atom_type = context.engine.atom_type_id(type_text);
+                const double weight = cv_number(weight_text.c_str());
                 request.custom_weights[atom_type] = weight;
             }
         } else if (keyword == "SW_func") {
-            error->all(FLERR,"WEIGHT_CHEM: express switching functions in Graph using the RAW input");
+            throw std::runtime_error("WEIGHT_CHEM: express switching functions in Graph using the RAW input");
         } else {
             break;
         }
@@ -76,27 +68,23 @@ CV* Weighted_chem_pair::create(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_c
              "WEIGHT_CHEM: d_block_size must be in [1,1024]");
     ERR_COND(!std::isfinite(request.c_target) || !std::isfinite(request.sigma) || request.sigma <= 0,
              "WEIGHT_CHEM: Chem_ctarget must be finite and Chem_sigma positive and finite");
+    const int type_begin = context.engine.atom_type_begin();
+    const int type_count = context.engine.atom_type_count();
     for (const auto& entry : request.custom_weights)
-        ERR_COND(entry.first < 1 || entry.first > lmp->atom->ntypes || !std::isfinite(entry.second),
+        ERR_COND(entry.first < type_begin || entry.first >= type_begin + type_count ||
+                 !std::isfinite(entry.second),
                  "WEIGHT_CHEM: Chem_map requires valid atom types and finite weights");
 
-    // CV 独立请求所需的邻居半径；ghost 坐标同时覆盖 cutoff 和 skin。
-    NeighSpec neighbor_spec;
-    neighbor_spec.full = 1;
-    neighbor_spec.ghost = 0;
-    neighbor_spec.use_cutoff = 1;
-    neighbor_spec.cutoff = request.cutoff_r;
-    lmp->comm->cutghostuser = std::max(lmp->comm->cutghostuser,request.cutoff_r+lmp->neighbor->skin);
-    auto* environment = static_cast<Stru_fact_chem_env*>(Stru_fact_env::get_or_create(lmp,Fixmetad,f_check,request));
-    environment->neigh_id = Fixmetad->neigh_hub.get_or_create(neighbor_spec);
+    auto* environment = static_cast<Stru_fact_chem_env*>(
+        Stru_fact_env::get_or_create(context, request));
     LOG("WEIGHT_CHEM: group=%s cutoff_r=%g d_block_size=%d Chem_ctarget=%g Chem_sigma=%g",
-        request.group_name,request.cutoff_r,request.d_block_size,request.c_target,request.sigma);
-    return new Weighted_chem_pair(lmp,Fixmetad,f_check,environment,request.d_block_size);
+        request.selection_name.c_str(),request.cutoff_r,request.d_block_size,request.c_target,request.sigma);
+    return new Weighted_chem_pair(context, environment, request.d_block_size);
 }
 
-Weighted_chem_pair::Weighted_chem_pair(LAMMPS* lmp, FixMetadynamics* Fixmetad, FILE* f_check,
-                                       Stru_fact_chem_env* environment, int block_size)
-    : Stru_factor(lmp,Fixmetad,f_check,environment,0.0,block_size), my_chem_env(environment) {}
+Weighted_chem_pair::Weighted_chem_pair(CVContext& context, Stru_fact_chem_env* environment,
+                                       int block_size)
+    : Stru_factor(context, environment, 0.0, block_size), my_chem_env(environment) {}
 
 auto Weighted_chem_pair::set_CV_calculate(std::string) -> CV_Calculation {
     throw std::runtime_error("WEIGHT_CHEM: use EXECUTOR GRAPH; reductions belong to the graph");
@@ -105,21 +93,27 @@ auto Weighted_chem_pair::set_CV_bias_force(std::string) -> CV_BiasForce {
     throw std::runtime_error("WEIGHT_CHEM: use EXECUTOR GRAPH for adjoint propagation");
 }
 
-// W_i 对应结构因子的 q=0 极限，实际启动只计算径向开关的编译器特化。
 void Weighted_chem_pair::call_structure_factor_cv_kernel() {
-    weighted_chem_forward(my_env->data,my_env->cutoff_r*my_env->cutoff_r,
-                          my_chem_env->d_atom_types.ptr,my_chem_env->d_type_weights.ptr,
-                          d_stru_factor.ptr,0,d_block_size);
+    const size_t nall = static_cast<size_t>(engine.total_atom_count());
+    const size_t weight_slots = my_chem_env->h_type_weights.size();
+    weighted_chem_forward(my_env->data, my_env->cutoff_r*my_env->cutoff_r,
+                          my_chem_env->device_atom_types,
+                          my_chem_env->d_type_weights.view(weight_slots),
+                          d_stru_factor.view(nall), my_env->execution.get(), d_block_size);
 }
 void Weighted_chem_pair::call_structure_factor_adjoint_kernel(
-    const double* center_adjoint, double* atom_forces, double* atom_virials) {
-    weighted_chem_backward(my_env->data,my_env->cutoff_r*my_env->cutoff_r,
-                           my_chem_env->d_atom_types.ptr,my_chem_env->d_type_weights.ptr,
-                           center_adjoint,atom_forces,atom_virials,0,d_block_size);
+    ArrayView<const double> center_adjoint, ArrayView<double> atom_forces,
+    ArrayView<double> atom_virials) {
+    const size_t weight_slots = my_chem_env->h_type_weights.size();
+    weighted_chem_backward(my_env->data, my_env->cutoff_r*my_env->cutoff_r,
+                           my_chem_env->device_atom_types,
+                           my_chem_env->d_type_weights.view(weight_slots),
+                           center_adjoint, atom_forces, atom_virials, my_env->execution.get(), d_block_size);
 }
 
-double* Weighted_chem_pair::get_peratom_ptr(const std::string& name) {
-    return name == "chem_pair_r" ? h_stru_factor : nullptr;
+ArrayView<const double> Weighted_chem_pair::peratom_values(const std::string& name) {
+    if (name != "chem_pair_r") throw std::invalid_argument("WEIGHT_CHEM: unknown property "+name);
+    return Stru_factor::peratom_values("stru_f");
 }
 
 } // namespace MetaD_zqc

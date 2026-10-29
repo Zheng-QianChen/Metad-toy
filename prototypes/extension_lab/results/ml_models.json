@@ -1,0 +1,58 @@
+{
+  "status": "pass",
+  "tensorflow": "2.17.0",
+  "onnxruntime": "1.20.1",
+  "batches": [
+    1,
+    7,
+    64
+  ],
+  "vjp_max_directional_errors": {
+    "savedmodel": 3.283313620983108e-10,
+    "frozen_pb": 3.2073588229764027e-10,
+    "onnx": 1.217517198170981e-09
+  },
+  "coordinate_chain": [
+    {
+      "backend": "savedmodel",
+      "force_max_error": 7.029259119217812e-12,
+      "virial_max_error": 7.541363367113973e-12,
+      "device": "/job:localhost/replica:0/task:0/device:GPU:0"
+    },
+    {
+      "backend": "frozen_pb",
+      "force_max_error": 7.029259119217812e-12,
+      "virial_max_error": 7.541363367113973e-12,
+      "device": "/job:localhost/replica:0/task:0/device:GPU:0"
+    },
+    {
+      "backend": "onnx",
+      "force_max_error": 7.029259119217812e-12,
+      "virial_max_error": 7.541363367113973e-12,
+      "device": "['CPUExecutionProvider']"
+    }
+  ],
+  "trajectory": {
+    "frames": 80,
+    "cv_mean": [
+      -0.2409178620893513,
+      0.5732598246113665
+    ],
+    "cv_covariance": [
+      [
+        1.6938514204861012e-05,
+        -4.37385599460171e-05
+      ],
+      [
+        -4.37385599460171e-05,
+        0.00011297863946048122
+      ]
+    ],
+    "lag_one_autocorrelation": [
+      0.9746265489804178,
+      0.9743872983885606
+    ],
+    "maximum_total_force": 6.938893903907228e-18
+  },
+  "contract": "float64 batch feature matrix and explicit multi-output VJP"
+}

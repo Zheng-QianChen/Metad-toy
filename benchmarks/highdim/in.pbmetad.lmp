@@ -1,0 +1,36 @@
+# Run in a fresh working directory; output: bias.hills and log.lammps.
+units metal
+atom_style atomic
+atom_modify map array sort 0 0.0
+boundary p p p
+region box block 0 12 0 12 0 12 units box
+create_box 1 box
+create_atoms 1 single 4 4 4 units box
+create_atoms 1 single 6 4.2 4 units box
+create_atoms 1 single 4.3 6 4.1 units box
+create_atoms 1 single 10 10 10 units box
+mass 1 30
+group moving id 2
+velocity moving set 0.8 0.1 -0.2 units box
+pair_style zero 3.0
+pair_coeff * *
+neighbor 0.5 bin
+neigh_modify every 1 delay 0 check yes
+plugin load ${plugin}
+fix m all metad EXECUTOR GRAPH BIAS PBMETAD GAUSSIAN 0.35 0.12 9 TEMP 300 PACE 2 &
+ CAL NAME D1 DISTANCE 1 2 CAL NAME D2 DISTANCE 1 3 &
+ SYMBOL d1 D1.RAW SYMBOL d2 D2.RAW &
+ CV_dim 4 SIGMAS 0.35 0.45 0.8 0.5 &
+ PERIODS 0.0 0.0 0.0 0.0 &
+ DIM_EXPR 1 "d1" &
+ DIM_EXPR 2 "d2" &
+ DIM_EXPR 3 "d1*d2" &
+ DIM_EXPR 4 "linear(d1,0.4,0)-d2" &
+ HILLS_FILE bias.hills METAD_RESTART 0 WT 1
+fix integrate all nve
+compute pressure all pressure NULL virial
+timestep 0.01
+thermo 1
+thermo_style custom step f_m f_m[1] vol c_pressure[1] c_pressure[2] c_pressure[3] c_pressure[4] c_pressure[5] c_pressure[6]
+thermo_modify norm no format float %.17g
+run 20

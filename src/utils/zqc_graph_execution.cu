@@ -1,4 +1,5 @@
 #include "zqc_graph.cuh"
+#include "zqc_cuda_execution.cuh"
 #include <cuda.h>
 #include <nvrtc.h>
 #include <stdexcept>
@@ -17,11 +18,14 @@ void rtc_check(nvrtcResult status) {
 }
 
 struct GraphExecution::Impl {
+    MetaD_zqc::CudaExecutionStream execution; // 融合前后向、Leaf 暂存和规约下载按流排序。
     Graph& graph;
     std::vector<const Node*> topo;
     std::vector<Node*> outputs;
     std::string source;
     std::vector<Node*> inputs;
+    std::vector<Node*> scalar_inputs;
+    std::vector<std::unique_ptr<MetaD_zqc::GpuBuffer<double>>> scalar_adjoints;
     std::vector<Node*> reductions;
     std::vector<std::unique_ptr<MetaD_zqc::GpuBuffer<double>>> device_outputs;
     std::vector<std::vector<double>> host_outputs;
@@ -30,49 +34,43 @@ struct GraphExecution::Impl {
     CUcontext context = nullptr;
     int n = 0;
     bool forwarded = false;
-    FILE* screen;
-    FILE* logfile;
+    MetaD_zqc::Logger logger;
 
-    void log(const std::string& message) const {
-        FILE* files[] = {screen, logfile == screen ? nullptr : logfile};
-        for (FILE* file : files) {
-            if (!file) continue;
-            std::fprintf(file, "[MetaD Graph] %s\n", message.c_str());
-            std::fflush(file); // 编译前也刷新，便于辨认耗时发生在哪一阶段。
-        }
+    void log(const std::string& message, MetaD_zqc::LogLevel level = MetaD_zqc::LogLevel::Info) const {
+        logger.printf(level, "Graph", __FILE__, __LINE__, "%s", message.c_str());
     }
 
-    explicit Impl(Graph& graph_, FILE* screen_, FILE* logfile_)
-        : graph(graph_), screen(screen_), logfile(logfile_) {
+    explicit Impl(Graph& graph_, MetaD_zqc::Logger logger_)
+        : graph(graph_), logger(std::move(logger_)) {
         if (graph.topo.empty()) graph.build();
         topo = graph.topo;
         outputs = graph.outputs;
         source = graph.kernel_source;
-        for (const Node* output : outputs)
-            if (output->value_desc.domain != Domain::Global)
-                throw std::runtime_error("GraphExecution: outputs must be Global scalars");
         for (const Node* node : topo)
-            if (node->value_desc.domain == Domain::Global && (!node->val || !node->adj))
+            if (node->value_desc.domain == ValueDomain::Global && (!node->val || !node->adj))
                 throw std::runtime_error("GraphExecution: missing Host scalar storage");
         if (graph.kernel_outputs.empty()) return;
 
         Codegen cg;
         for (const Node* node : topo)
-            if (node->value_desc.domain == Domain::PerAtom) cg.value(node);
+            if (node->value_desc.domain == ValueDomain::PerAtom) cg.value(node);
         for (const auto& input : cg.inputs) inputs.push_back(const_cast<Node*>(input.first));
+        for (const auto& input : cg.scalar_inputs) {
+            scalar_inputs.push_back(const_cast<Node*>(input.first));
+            scalar_adjoints.push_back(std::make_unique<MetaD_zqc::GpuBuffer<double>>(1));
+        }
         if (inputs.empty()) throw std::runtime_error("GraphExecution: no PerAtom inputs");
         n = inputs.front()->n;
         for (Node* input : inputs)
             if (input->n != n) throw std::runtime_error("GraphExecution: input lengths differ");
         for (const Node* node : graph.kernel_seeds) {
-            if (!node->is_reduction()) throw std::runtime_error("GraphExecution: expected a reduction boundary");
             reductions.push_back(const_cast<Node*>(node));
             device_outputs.push_back(std::make_unique<MetaD_zqc::GpuBuffer<double>>(n));
-            host_outputs.emplace_back(n);
+            host_outputs.emplace_back(node->is_reduction() ? n : 0);
         }
         compile();
     }
-    ~Impl() { if (module) cuModuleUnload(module); }
+    ~Impl() { cudaStreamSynchronize(execution.get()); if (module) cuModuleUnload(module); }
 
     void compile() {
         graph_check_cuda(cudaFree(nullptr));
@@ -87,7 +85,9 @@ struct GraphExecution::Impl {
         rtc_check(nvrtcVersion(&major, &minor));
         log("NVRTC begin: version=" + std::to_string(major) + "." + std::to_string(minor) +
             " " + arch + " source_bytes=" + std::to_string(source.size()) +
-            " inputs=" + std::to_string(inputs.size()) + " reductions=" + std::to_string(reductions.size()));
+            " inputs=" + std::to_string(inputs.size()) +
+            " scalars=" + std::to_string(scalar_inputs.size()) +
+            " reductions=" + std::to_string(reductions.size()));
         using Clock = std::chrono::steady_clock;
         const auto start = Clock::now();
         nvrtcProgram program = nullptr;
@@ -116,7 +116,7 @@ struct GraphExecution::Impl {
                 " load_ms=" + std::to_string(load_ms) + " cubin_bytes=" + std::to_string(size) +
                 " kernels=cv_forward,cv_backward (reused across timesteps)");
         } catch (const std::exception& e) {
-            log(std::string("NVRTC/module failed: ") + e.what());
+            log(std::string("NVRTC/module failed: ") + e.what(), MetaD_zqc::LogLevel::Error);
             if (program) nvrtcDestroyProgram(&program);
             if (module) { cuModuleUnload(module); module = nullptr; }
             throw;
@@ -130,12 +130,12 @@ struct GraphExecution::Impl {
         if (count < 0) throw std::logic_error("GraphExecution: negative local size");
         for (Node* input : inputs) {
             if (input->n != count) throw std::logic_error("GraphExecution: input lengths differ");
-            input->forward(); // 校验借用容量，并刷新迁移/扩容后的地址。
+            static_cast<Leaf*>(input)->refresh_buffers(); // 校验并刷新借用地址；数据在 forward 时读取。
         }
         for (size_t k = 0; k < device_outputs.size(); ++k) {
             if (device_outputs[k]->capacity < static_cast<size_t>(count))
                 device_outputs[k] = std::make_unique<MetaD_zqc::GpuBuffer<double>>(count);
-            host_outputs[k].resize(count);
+            host_outputs[k].resize(reductions[k]->is_reduction() ? count : 0);
         }
         n = count; // 编译时不展开原子数；kernel 的 n 是运行时参数。
     }
@@ -153,29 +153,38 @@ struct GraphExecution::Impl {
     void launch(CUfunction function, std::vector<void*>& args) {
         if (!n) return; // 空 rank 仍执行后面的 Host/MPI 部分。
         driver_check(cuLaunchKernel(function, (n+255)/256, 1, 1, 256, 1, 1,
-                                   0, nullptr, args.data(), nullptr));
-        driver_check(cuCtxSynchronize());
+                                   0, execution.get(), args.data(), nullptr));
     }
     std::vector<double> forward() {
         forwarded = false;
         check_graph();
         std::vector<void*> args{&n};
         for (Node* input : inputs) {
-            input->forward(); // 外部 GpuBuffer 可能更换了地址。
+            static_cast<Leaf*>(input)->forward_on(execution.get()); // 等待 CV/外部生产者。
             args.push_back(&input->val);
+        }
+        std::vector<double> scalar_values(scalar_inputs.size());
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            static_cast<Leaf*>(scalar_inputs[k])->forward_on(execution.get());
+            scalar_values[k] = *scalar_inputs[k]->val;
+            args.push_back(&scalar_values[k]);
         }
         for (auto& output : device_outputs) args.push_back(&output->ptr);
         if (module) launch(fwd, args);
+        for (auto& output : device_outputs) output->record_write(execution.get());
         for (size_t k = 0; k < reductions.size(); ++k)
-            if (n) graph_check_cuda(cudaMemcpy(host_outputs[k].data(), device_outputs[k]->ptr,
-                                               n*sizeof(double), cudaMemcpyDeviceToHost));
+            if (n && reductions[k]->is_reduction()) graph_check_cuda(cudaMemcpyAsync(host_outputs[k].data(), device_outputs[k]->ptr,
+                                               n*sizeof(double), cudaMemcpyDeviceToHost, execution.get()));
+        // Host 规约和 MPI 必须在所有本地图输出下载完成后开始。
+        execution.synchronize();
 
         // 拓扑顺序保证 MPI 规约完成后才使用全局标量；同一规约节点只执行一次。
         size_t reduction = 0;
         for (const Node* item : topo) {
             Node* node = const_cast<Node*>(item);
-            if (node->value_desc.domain != Domain::Global) continue;
+            if (node->value_desc.domain != ValueDomain::Global) continue;
             if (node->is_reduction()) {
+                while (reduction < reductions.size() && !reductions[reduction]->is_reduction()) ++reduction;
                 if (reduction >= reductions.size() || reductions[reduction] != node)
                     throw std::logic_error("GraphExecution: reduction order mismatch");
                 node->reduce_host(host_outputs[reduction].data(), n);
@@ -185,35 +194,104 @@ struct GraphExecution::Impl {
             }
         }
         std::vector<double> values;
-        for (const Node* node : outputs) values.push_back(*node->val);
+        for (const Node* node : outputs)
+            if (node->value_desc.domain == ValueDomain::Global) values.push_back(*node->val);
         forwarded = true;
         return values;
     }
-    void backward(const std::vector<double>& seeds) {
+    MetaD_zqc::ArrayView<const double> per_atom_output(size_t index) const {
+        check_graph();
+        if (!forwarded || index >= outputs.size() ||
+            outputs[index]->value_desc.domain != ValueDomain::PerAtom)
+            throw std::logic_error("GraphExecution: requested PerAtom output is unavailable");
+        size_t ordinal = 0;
+        for (size_t k = 0; k < index; ++k)
+            if (outputs[k]->value_desc.domain == ValueDomain::PerAtom) ++ordinal;
+        for (size_t boundary = 0; boundary < reductions.size(); ++boundary)
+            if (!reductions[boundary]->is_reduction() && ordinal-- == 0)
+                return device_outputs[boundary]->view(n);
+        throw std::logic_error("GraphExecution: missing PerAtom boundary");
+    }
+    void backward(const std::vector<double>& seeds,
+                  const std::vector<MetaD_zqc::ArrayView<const double>>& atom_seeds) {
         check_graph();
         if (!forwarded) throw std::logic_error("GraphExecution: forward is required before backward");
-        if (seeds.size() != outputs.size()) throw std::runtime_error("GraphExecution: output seed count mismatch");
+        size_t global_count = 0;
+        for (const Node* output : outputs)
+            if (output->value_desc.domain == ValueDomain::Global) ++global_count;
+        if (seeds.size() != global_count || atom_seeds.size() != outputs.size()-global_count)
+            throw std::runtime_error("GraphExecution: output seed count mismatch");
+        for (const auto& seed : atom_seeds) {
+            seed.validate();
+            if (seed.item_count != static_cast<size_t>(n) || seed.component_count != 1 ||
+                seed.memory != MetaD_zqc::MemorySpace::Cuda || seed.item_stride != 1)
+                throw std::invalid_argument("GraphExecution: atom seeds require contiguous CUDA scalars");
+            seed.wait_on(execution.get());
+        }
         for (const Node* node : topo)
-            if (node->value_desc.domain == Domain::Global) *node->adj = 0.0;
-        for (size_t k = 0; k < outputs.size(); ++k) *outputs[k]->adj += seeds[k];
+            if (node->value_desc.domain == ValueDomain::Global) *node->adj = 0.0;
+        size_t global_index = 0;
+        for (Node* output : outputs)
+            if (output->value_desc.domain == ValueDomain::Global) *output->adj += seeds[global_index++];
         for (auto it = topo.rbegin(); it != topo.rend(); ++it)
-            if ((*it)->value_desc.domain == Domain::Global && !(*it)->is_reduction())
+            if ((*it)->value_desc.domain == ValueDomain::Global && !(*it)->is_reduction())
                 const_cast<Node*>(*it)->backward();
 
-        std::vector<double> expanded;
-        for (Node* node : reductions) expanded.push_back(node->reduction_seed());
+        // Kernel 边界按生成顺序混合标量种子与数组种子；存储稳定到 launch 返回。
+        std::vector<double> expanded(reductions.size());
+        std::vector<const double*> pointers(reductions.size());
+        std::vector<double> scalar_values(scalar_inputs.size());
         std::vector<void*> args{&n};
         for (Node* input : inputs) args.push_back(&input->val);
-        for (double& seed : expanded) args.push_back(&seed);
-        for (Node* input : inputs) args.push_back(&input->adj);
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            scalar_values[k] = *scalar_inputs[k]->val;
+            args.push_back(&scalar_values[k]);
+        }
+        size_t atom_index = 0;
+        for (size_t k = 0; k < reductions.size(); ++k) {
+            if (reductions[k]->is_reduction()) {
+                expanded[k] = reductions[k]->reduction_seed();
+                args.push_back(&expanded[k]);
+            } else {
+                pointers[k] = atom_seeds[atom_index++].data;
+                args.push_back(&pointers[k]);
+            }
+        }
+        for (Node* input : inputs) {
+            static_cast<Leaf*>(input)->wait_gradient_on(execution.get());
+            args.push_back(&input->adj);
+        }
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            graph_check_cuda(cudaMemsetAsync(scalar_adjoints[k]->ptr, 0, sizeof(double), execution.get()));
+            args.push_back(&scalar_adjoints[k]->ptr);
+        }
         if (module) launch(bwd, args);
-        for (Node* input : inputs) input->backward();
+        for (Node* input : inputs) static_cast<Leaf*>(input)->backward_on(execution.get());
+        // Global Leaf broadcast 伴随在设备上 atomicAdd；同步后累加到 Host adjoint。
+        execution.synchronize();
+        for (size_t k = 0; k < scalar_inputs.size(); ++k) {
+            double contrib = 0.0;
+            graph_check_cuda(cudaMemcpy(&contrib, scalar_adjoints[k]->ptr, sizeof(double),
+                                        cudaMemcpyDeviceToHost));
+            // A Global Leaf is replicated on every rank. Reduce only its new
+            // PerAtom contribution; Host/global seeds already agree across ranks.
+            if(graph.sum_reducer) graph.sum_reducer(&contrib,1);
+            *scalar_inputs[k]->adj += contrib;
+            static_cast<Leaf*>(scalar_inputs[k])->backward_on(execution.get());
+        }
+        if (!scalar_inputs.empty()) execution.synchronize();
     }
 };
 
-GraphExecution::GraphExecution(Graph& graph, FILE* screen, FILE* logfile)
-    : impl_(std::make_unique<Impl>(graph, screen, logfile)) {}
+GraphExecution::GraphExecution(Graph& graph, MetaD_zqc::Logger logger)
+    : impl_(std::make_unique<Impl>(graph, std::move(logger))) {}
 void GraphExecution::resize_inputs() { impl_->resize_inputs(); }
 GraphExecution::~GraphExecution() = default;
 std::vector<double> GraphExecution::forward() { return impl_->forward(); }
-void GraphExecution::backward(const std::vector<double>& seeds) { impl_->backward(seeds); }
+void GraphExecution::backward(const std::vector<double>& seeds,
+        const std::vector<MetaD_zqc::ArrayView<const double>>& atom_seeds) {
+    impl_->backward(seeds, atom_seeds);
+}
+MetaD_zqc::ArrayView<const double> GraphExecution::per_atom_output(size_t index) const {
+    return impl_->per_atom_output(index);
+}

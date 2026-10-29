@@ -1,41 +1,84 @@
-#include <cstring>
+#include <cuda_runtime.h>
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <iomanip>
-
-#include <cuda_runtime.h>
-
-#include "lammps.h"
-#include "lammpsplugin.h"
-#include "update.h"
-#include "atom.h"
-#include "comm.h"
-#include "error.h"
-#include "command.h"
-#include "domain.h"
-#include "force.h"
-#include "group.h"
-#include "version.h"
-#include "memory.h"
-#include "modify.h"
-#include "neighbor.h"         // 完整定义Neighbor类
-#include "neigh_list.h"        // 定义NeighList结构
-#include "pair.h"
-
-#include "fix_crystallize.h"
-#include "zqc_debug.h"
 #include "CV_Steinhardt.h"
+#include "zqc_cv_debug.h"
 #include "CV_Steinhardt_math.h"
-#include "zqc_switch_function.h"
-
-using namespace LAMMPS_NS;
-
-MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp, 
-                                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
+#include "zqc_cv_parse.h"
+using namespace MetaD_zqc;
+namespace {
+__global__ void q_scatter_adjoint(int count,const int* centers,const double* source,double* dest) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if(i<count) dest[centers[i]]=source[i];
+}
+__global__ void q_property_rows(int count,int components,double* harmonics,double* value,
+                                 double* weights,double* adjoint,double* rows,bool unpack) {
+    const size_t k=size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    const int width=components+3;
+    if(k>=size_t(count)*width) return;
+    const size_t atom=k/width;const int c=k%width;
+    double* field=c<components ? harmonics+atom*components+c :
+                  c==components ? value+atom : c==components+1 ? weights+atom : adjoint+atom;
+    if(unpack) *field=rows[k]; else rows[k]=*field;
+}
+__global__ void q_map_rows(ArrayView<const int> centers, int total, int* rows, int* status) {
+    const size_t row=size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    if (row>=centers.item_count) return;
+    const int atom=centers(row);
+    if (atom<0 || atom>=total) {atomicOr(status,1);return;}
+    if (atomicCAS(rows+atom,-1,int(row))!=-1) atomicOr(status,2);
+}
+__global__ void q_row_counts(int count, const int* centers, const int* rows,
+                              ArrayView<const int> offsets, int pairs, int* counts, int* status) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    const int row=rows[centers[i]];
+    if (row<0) {counts[i]=0;atomicOr(status,4);return;}
+    const int first=offsets(row),last=offsets(row+1);
+    if (first<0 || last<first || last>pairs) {counts[i]=0;atomicOr(status,8);return;}
+    counts[i]=last-first;
+}
+__global__ void q_copy_candidates(int count, int total, const int* centers, const int* rows,
+                                    ArrayView<const int> offsets, ArrayView<const int> neighbors,
+                                    const int* packed_offsets, const AtomId* ids,
+                                    ArrayView<const int> flags, int* packed, int* half_flags, int* status) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    const int first=centers[i],row=rows[first];
+    int dest=packed_offsets[i];
+    for (int source=offsets(row);source<offsets(row+1);++source,++dest) {
+        const int second=neighbors(source);
+        if (second<0 || second>=total) {atomicOr(status,16);packed[dest]=0;half_flags[dest]=0;continue;}
+        packed[dest]=second;
+        half_flags[dest]=!flags(second) || ids[first]<=ids[second];
+    }
+}
+__global__ void q_pack_halves(int count, const int* centers, const int* offsets,
+                               const int* neighbors, const int* half_prefix,
+                               int* full_to_half, int* half_i, int* half_j) {
+    const int i=blockIdx.x*blockDim.x+threadIdx.x;
+    if (i>=count) return;
+    for (int entry=offsets[i];entry<offsets[i+1];++entry) {
+        if (full_to_half[entry]) {
+            const int half=half_prefix[entry];
+            half_i[half]=centers[i];half_j[half]=neighbors[entry];full_to_half[entry]=half;
+        } else full_to_half[entry]=-1;
+    }
+}
+__global__ void physical_force_from_gradient(const double* gradient, double* force, size_t count) {
+    const size_t i = size_t(blockIdx.x)*blockDim.x+threadIdx.x;
+    if (i < count) force[i] = -gradient[i];
+}
+template<class T> void resize_host(std::vector<T>& storage, T*& alias, size_t count) {
+    storage.resize(std::max<size_t>(count,1));
+    alias=storage.data();
+}
+}
+MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(CVContext& context,
                                             int narg, char **arg, int &i){
-    DEBUG_LOG("In STEINH settings");
-    printf("++++++++++++++++++++++++++++++im in STEINH settings, narg=%d, current arg is %s\n", narg, arg[i]);
-    LAMMPS_NS::Error *error = lmp->error;
+    const auto logger = context.logger;
 
     std::string cal_name = arg[i];
 
@@ -45,10 +88,10 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     // Usage: STEINH <Q/L> <3/4/6> <group>
     ERR_COND(i + 3 >= narg, "Error: STEINH command requires \"STEINH <Q/L> <3/4/6> <group> \".");
     req.Q_type_str = arg[i+1];
-    req.Q_num   = utils::inumeric(FLERR, arg[i+2], false, lmp);
+    req.Q_num   = cv_integer(arg[i+2]);
     req.group_name = arg[i+3];
-    req.group_id = lmp->group->find(req.group_name);
-    ERR_COND(req.group_id == -1, "Error: Steinhardt group name %s not found.", req.group_name);
+    req.group_id = context.engine.selection_id(req.group_name);
+    ERR_COND(req.group_id < all_atoms, "Error: Steinhardt group name %s not found.", req.group_name);
     //参数有效性
     ERR_COND((req.Q_num != 3 && req.Q_num != 4 && req.Q_num != 6),"Error: Steinhardt order L must be 3, 4, or 6.");
     ERR_COND((strcmp(req.Q_type_str, "Q") != 0 && strcmp(req.Q_type_str, "L") != 0), "Error: Steinhardt type must be 'Q' (per-center) or 'L' (neighbor-averaged).");
@@ -60,39 +103,30 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     req.cutoff_eps_r = 1e-6;
 
     std::string temp_name;
-    MetaD_zqc::SwitchFunction* found_sw;
 
     int iarg=4 + i;
     while (iarg < narg) {
         if (strcmp(arg[iarg], "cutoff_r") == 0) {
             ERR_COND((iarg + 1 >= narg) ,"Error: \'cutoff_r\' keyword requires a value");
-            req.cutoff_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            req.cutoff_r = cv_number(arg[iarg + 1]);
             iarg += 2;
         // } else if (strcmp(arg[iarg], "cutoff_Natoms") == 0) {
         //     ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_Natoms\' keyword requires an integer");
-        //     req.cutoff_Natoms = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+        //     req.cutoff_Natoms = cv_integer(arg[iarg + 1]);
         //     iarg += 2;
         } else if (strcmp(arg[iarg], "cutoff_eps_r") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'cutoff_eps_r\' keyword requires a value");
-            req.cutoff_eps_r = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
+            req.cutoff_eps_r = cv_number(arg[iarg + 1]);
             iarg += 2;
         } else if (strcmp(arg[iarg], "d_block_size") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'d_block_size\' keyword requires an integer");
-            req.d_block_size = utils::inumeric(FLERR, arg[iarg + 1], false, lmp);
+            req.d_block_size = cv_integer(arg[iarg + 1]);
             ERR_COND(req.d_block_size <= 0, "Error: \'d_block_size\' must be > 0");
             iarg += 2;
         } else if (strcmp(arg[iarg], "SW_FUNC_r") == 0) {
             ERR_COND((iarg + 1 >= narg), "Error: \'SW_FUNC_r\' keyword requires a value");
             temp_name = arg[iarg + 1];
-            auto it = Fixmetad->sw_registry.find(temp_name);
-            if (it != Fixmetad->sw_registry.end()) {
-                found_sw = it->second;
-            } else {
-                found_sw = nullptr;
-            }
-            ERR_COND(found_sw == nullptr, "Error: SwitchFunction named %s not found in registry!", temp_name.c_str());
-            // 将找到的实例指针存入你的 req 请求结构体中
-            req.SW_FUNC_r = found_sw;
+            req.SW_FUNC_r = context.switching_function(temp_name);
             iarg += 2;
         } else if (strcmp(arg[iarg], "SW_FUNC_cv") == 0) {
             ERR_COND(1,
@@ -120,71 +154,32 @@ MetaD_zqc::CV* MetaD_zqc::Steinhardt::create(LAMMPS_NS::LAMMPS *lmp,
     }
     ERR_COND(!std::isfinite(req.cutoff_r) || !(req.cutoff_r > 0.0),
              "Error: STEINH effective radial cutoff must be finite and positive.");
-    ERR_COND(!std::isfinite(lmp->neighbor->skin) || lmp->neighbor->skin < 0.0,
-             "Error: STEINH neighbor skin must be finite and nonnegative.");
-    // LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_Natoms=%d d_block_size=%d.",
-    //                     req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_Natoms, req.d_block_size);
-    LOG("Logging: set STEINH as Q_type_str=%s Q_num=%d group_name=%s cutoff_r=%f cutoff_eps_r=%g d_block_size=%d.",
-                        req.Q_type_str, req.Q_num, req.group_name, req.cutoff_r, req.cutoff_eps_r, req.d_block_size);
-
-    // NeighHub: full list + custom cutoff; Local needs ghost (→ perpetual under BIN)
-    MetaD_zqc::NeighSpec nspec;
-    nspec.full = 1;
-    nspec.use_cutoff = 1;
-    const bool local_q = strcmp(req.Q_type_str, "L") == 0;
-    nspec.occasional = local_q ? 0 : 1;
-    // LAMMPS adds skin to perpetual custom lists, but not occasional ones.
-    // Keep the effective radius in req/env; only the candidate request is padded.
-    nspec.cutoff = req.cutoff_r + (local_q ? 0.0 : lmp->neighbor->skin);
-    double temp_neigh_cutoff;
-    if (strcmp(req.Q_type_str, "Q") == 0){
-        temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
-    } else if (strcmp(req.Q_type_str, "L") == 0){
-        temp_neigh_cutoff = (2.0 * req.cutoff_r + lmp->neighbor->skin);
-        nspec.ghost = 1;
-    } else {
-        temp_neigh_cutoff = (req.cutoff_r + lmp->neighbor->skin);
-    }
-    if (lmp->comm->get_comm_cutoff() < temp_neigh_cutoff) {
-        lmp->comm->cutghostuser = temp_neigh_cutoff;
-        LOG_COND(lmp->comm->me == 0, "Increasing communication cutoff to %g for GPU pair style",
-                  lmp->comm->cutghostuser);
-    }
-    const int neigh_id = Fixmetad->neigh_hub.get_or_create(nspec);
-
-    // steinh_requests.push_back(req);
-    // // 创建 CV 对象
-    // TODO: 需要处理相同envs的合并问题
-    MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(lmp, 
-                            Fixmetad, f_check, req);
-    temp_env->neigh_id = neigh_id;
-    DEBUG_LOG("Steinhardt_env is %p neigh_id=%d", temp_env, neigh_id);
+    MetaD_zqc::Steinhardt_env *temp_env = MetaD_zqc::Steinhardt_env::get_or_create(context, req);
+    DEBUG_LOG("Steinhardt_env is %p neigh_id=%d", temp_env, temp_env->neigh_id);
     std::string env_setNum = temp_env->get_env_key();
     i = iarg;
-    return MetaD_zqc::create_steinhardt_cv(lmp, Fixmetad, f_check, 
-                            env_setNum, req.group_id, req.Q_num, temp_env, req);
+    return MetaD_zqc::create_steinhardt_cv(context, env_setNum, req.group_id, req.Q_num, temp_env, req);
 }
 
-MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
-                                LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
+MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(CVContext& context,
                                 std::string env_setNum, int group_id, int Q_num,
                                 MetaD_zqc::Steinhardt_env* my_env,
                                 MetaD_zqc::SteinhardtRequest req){
     if (strcmp(req.Q_type_str, "Q") == 0){
         if (Q_num==3){
-            return new MetaD_zqc::STEIN_QL<3>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_QL<3>(context, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         } else if (Q_num==4){
-            return new MetaD_zqc::STEIN_QL<4>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_QL<4>(context, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         } else if (Q_num==6){
-            return new MetaD_zqc::STEIN_QL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, Q_num, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_QL<6>(context, env_setNum, group_id, Q_num, my_env, req.d_block_size);
         }
     } else if (strcmp(req.Q_type_str,"L") == 0){
         if (Q_num==3){
-            return new MetaD_zqc::STEIN_LocalQL<3>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_LocalQL<3>(context, env_setNum, group_id, my_env, req.d_block_size);
         } else if (Q_num==4){
-            return new MetaD_zqc::STEIN_LocalQL<4>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_LocalQL<4>(context, env_setNum, group_id, my_env, req.d_block_size);
         } else if (Q_num==6){
-            return new MetaD_zqc::STEIN_LocalQL<6>(lmp, Fixmetad, f_check, env_setNum, group_id, my_env, req.d_block_size);
+            return new MetaD_zqc::STEIN_LocalQL<6>(context, env_setNum, group_id, my_env, req.d_block_size);
         }
     }
     return nullptr;
@@ -193,10 +188,10 @@ MetaD_zqc::Steinhardt* MetaD_zqc::create_steinhardt_cv(LAMMPS_NS::LAMMPS *lmp,
 std::map<std::string, MetaD_zqc::Steinhardt_env*> MetaD_zqc::Steinhardt_env::env_pool;
 
 namespace {
-std::string steinhardt_env_key(int group_id, double cutoff_r, double cutoff_eps_r,
+std::string steinhardt_env_key(const EngineAdapter* owner, int group_id, double cutoff_r, double cutoff_eps_r,
                                bool loc_flag, const MetaD_zqc::SwitchFunction* sw) {
     std::ostringstream oss;
-    oss << group_id << "_"
+    oss << owner << "_" << group_id << "_"
         << std::setprecision(17) << cutoff_r << "_"
         << cutoff_eps_r << "_"
         << (loc_flag ? 1 : 0) << "_";
@@ -212,8 +207,7 @@ std::string steinhardt_env_key(int group_id, double cutoff_r, double cutoff_eps_
 }
 }
 
-MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::LAMMPS *lmp,
-                                            LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
+MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(CVContext& context,
                                             MetaD_zqc::SteinhardtRequest req
                                             ) {
     int group_id = req.group_id;
@@ -221,18 +215,16 @@ MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::L
     double cutoff_eps_r= req.cutoff_eps_r;
     bool LOC_flag = (strcmp(req.Q_type_str,"L") == 0);
     // Radial switch is part of the environment: different r0/d0/n/m/alpha must not share one env.
-    std::string key = steinhardt_env_key(group_id, cutoff_r, cutoff_eps_r, LOC_flag, req.SW_FUNC_r);
+    std::string key = steinhardt_env_key(&context.engine, group_id, cutoff_r, cutoff_eps_r, LOC_flag, req.SW_FUNC_r);
     // 2. check if the environment already exist in the pool
     if (!(env_pool.count(key))) {
         if (LOC_flag){
             // 3. new environment and store it in the pool if not exist
-            MetaD_zqc::STEIN_LocalQL_env *new_env = new MetaD_zqc::STEIN_LocalQL_env(lmp, Fixmetad, f_check, 
-                                                        req);
+            MetaD_zqc::STEIN_LocalQL_env *new_env = new MetaD_zqc::STEIN_LocalQL_env(context, req);
             env_pool[key] = new_env; // store the new environment in the pool
         } else {
             // 3. new environment and store it in the pool if not exist
-            MetaD_zqc::Steinhardt_env *new_env = new MetaD_zqc::Steinhardt_env(lmp, Fixmetad, f_check, 
-                                                        req);
+            MetaD_zqc::Steinhardt_env *new_env = new MetaD_zqc::Steinhardt_env(context, req);
             env_pool[key] = new_env; // store the new environment in the pool
         }
     }
@@ -242,543 +234,144 @@ MetaD_zqc::Steinhardt_env* MetaD_zqc::Steinhardt_env::get_or_create(LAMMPS_NS::L
 
 
 std::string MetaD_zqc::Steinhardt_env::get_env_key(){
-    return steinhardt_env_key(group_id, cutoff_r, cutoff_eps_r, LOC_flag, my_r_SWfunc);
+    return steinhardt_env_key(&engine, group_id, cutoff_r, cutoff_eps_r, LOC_flag, my_r_SWfunc);
 }
 
-MetaD_zqc::Steinhardt_env::Steinhardt_env(LAMMPS_NS::LAMMPS *lmp, 
-             LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check,
-             MetaD_zqc::SteinhardtRequest req)
-    : CV_info(lmp, Fixmetad, f_check),
-      group_id(req.group_id),
-      cutoff_r(req.cutoff_r),
-      cutoff_eps_r(req.cutoff_eps_r){
-    this->lmp = lmp;
-    this->f_check = f_check;
-    this->Fixmetad = Fixmetad;
 
-    this->error = lmp->error;
-
-    this->my_r_SWfunc = req.SW_FUNC_r;
-    this->LOC_flag = (req.Q_type_str != nullptr && strcmp(req.Q_type_str, "L") == 0);
-
-    pbc_x = (lmp->domain->xperiodic == 1);
-    pbc_y = (lmp->domain->yperiodic == 1);
-    pbc_z = (lmp->domain->zperiodic == 1);
-    // 这里可以添加一些初始化代码，例如分配内存、设置默认值等
-    DEBUG_LOG("Steinhardt_env initialized with cutoff_r=%g and cutoff_eps_r=%g", cutoff_r, cutoff_eps_r);
-
-    // const char *group_name = arg[1];
-    groupbit = lmp->group->bitmask[group_id]; // 关键：存储原子组位 掩码
-    init_flag = false;
-    
-    // group_dminneigh = new double [2]; //inintial
-    // neigh_in_cutoff_r = new int [2]; //inintial
-    // neigh_both_in_r_N = new int [2]; //inintial
-    lmp->memory->create(h_neigh_in_switching, ((lmp->atom)->nmax), "metad:STEIN_QL:h_neigh_in_switching");
-    lmp->memory->create(h_calculated_firstneigh_ptrs, ((lmp->atom)->nmax), "metad:STEIN_QL:h_calculated_firstneigh_ptrs");
-    lmp->memory->create(h_group_numneigh, 0, "metad:STEIN_QL:h_group_numneigh");
-    lmp->memory->create(h_x_flat, 0, "metad:STEIN_QL:h_x_flat");
-    lmp->memory->create(h_group_indices, 0, "metad:STEIN_QL:h_group_indices");
-    lmp->memory->create(h_firstneigh_ptrs, 0, "metad:STEIN_QL:h_firstneigh_ptrs");
-    // lmp->memory->create(group_dminneigh, 0, "metad:STEIN_QL:group_dminneigh");
-    lmp->memory->create(h_full_to_half, 0, "metad:STEIN_QL:h_full_to_half");
-    lmp->memory->create(neigh_in_cutoff_r, 0, "metad:STEIN_QL:neigh_in_cutoff_r");
-    lmp->memory->create(neigh_both_in_r_N, 0, "metad:STEIN_QL:neigh_both_in_r_N");
-    lmp->memory->create(calculated_numneigh, 0, "metad:STEIN_QL:calculated_numneigh");
-
-    std::memset(h_neigh_in_switching, 0, (lmp->atom)->nmax * sizeof(double));
-    std::memset(h_calculated_firstneigh_ptrs, 0, (lmp->atom)->nmax * sizeof(LAMMPS_NS::tagint));
-
-    // comment name
-    register_buffer(d_group_numneigh,"d_group_numneigh");
-    register_buffer(d_x_flat,"d_x_flat");
-    register_buffer(d_mask, "d_mask");
-    register_buffer(d_group_indices,"d_group_indices");
-    register_buffer(d_firstneigh_ptrs,"d_firstneigh_ptrs");
-    // register_buffer(d_group_dminneigh,"d_group_dminneigh");
-    register_buffer(d_neigh_in_cutoff_r,"d_neigh_in_cutoff_r");
-    register_buffer(d_neigh_both_in_r_N,"d_neigh_both_in_r_N");
-    register_buffer(d_half_pair_i,"d_half_pair_i");
-    register_buffer(d_half_pair_j,"d_half_pair_j");
-    register_buffer(d_half_to_full,"d_half_to_full");
-    register_buffer(d_active_pair_mask,"d_active_pair_mask");
-    register_buffer(d_active_pair_ids,"d_active_pair_ids");
-    register_buffer(d_full_to_half,"d_full_to_half");
-    register_buffer(d_calculated_numneigh,"d_calculated_numneigh");
-    register_buffer(d_neigh_in_switching,"d_neigh_in_switching");
-    register_buffer(d_calculated_firstneigh_ptrs,"d_calculated_firstneigh_ptrs");
-
-    d_neigh_in_switching.grow_to(lmp->atom->nmax, __FILE__, __LINE__);
-    d_calculated_firstneigh_ptrs.grow_to(lmp->atom->nmax, __FILE__, __LINE__);
+Steinhardt_env::Steinhardt_env(CVContext& context, SteinhardtRequest request)
+    : CV_info(context), my_r_SWfunc(request.SW_FUNC_r), cutoff_r(request.cutoff_r),
+      cutoff_eps_r(request.cutoff_eps_r), group_id(request.group_id), d_block_size(request.d_block_size) {
+    LOC_flag = std::strcmp(request.Q_type_str,"L")==0;
+    // Local Q 需要所有 I/J 的完整行；两层 halo 由引擎根据 ghost_centers 准备。
+    NeighborRequest neighbors;
+    neighbors.cutoff=cutoff_r;
+    neighbors.centers=LOC_flag ? all_atoms : group_id;
+    neighbors.ghost_centers=LOC_flag;
+    neighbors.host_csr=false;
+    neigh_id=engine.neighbors().request(neighbors);
 }
 
-MetaD_zqc::Steinhardt_env::~Steinhardt_env(){
-    atoms = nullptr;
-    // release all alloc
-    nlist = nullptr;
-    // delete[] h_group_numneigh;
-    lmp->memory->destroy(h_group_numneigh);
-    // SAFE_CUDA_FREE(d_group_numneigh.ptr);
-    numneigh = nullptr;
-    firstneigh = nullptr;
-    mask = nullptr;
-    lmp->memory->destroy(h_x_flat);
-    lmp->memory->destroy(h_full_to_half);
-    lmp->memory->destroy(h_group_indices);
-    lmp->memory->destroy(h_firstneigh_ptrs);
-    // lmp->memory->destroy(group_dminneigh);
-    lmp->memory->destroy(neigh_in_cutoff_r);
-    lmp->memory->destroy(neigh_both_in_r_N);
-    lmp->memory->destroy(calculated_numneigh);
-    lmp->memory->destroy(h_neigh_in_switching);
-    lmp->memory->destroy(h_calculated_firstneigh_ptrs);
-}
-
-template <int L>
-MetaD_zqc::STEIN_QL<L>::STEIN_QL(LAMMPS_NS::LAMMPS *lmp, LAMMPS_NS::FixMetadynamics *Fixmetad, FILE *f_check, 
-                             std::string env_setNum, int group_id, int stein_l, 
-                             MetaD_zqc::Steinhardt_env* my_env,
-                             int d_block_size)
-                        : Steinhardt(lmp, Fixmetad, f_check),
-                            env_setNum(env_setNum),
-                        //   group_id(group_id),
-                            stein_l(stein_l),
-                            my_env(my_env),
-                            d_block_size(d_block_size){
-    
-    this->lmp = lmp;
-    this->f_check = f_check;
-    this->Fixmetad = Fixmetad;
-    this->error = lmp->error;
-
-    num_elements = 2*(L+1); // Qlm needs 2*(l+1)
-    DEBUG_LOG("Logging: New a Stein_Q%d file, will generate %d lines in GPU,\n     with cutoff_r=%g, cutoff_eps_r=%g",
-                stein_l,d_block_size, my_env->cutoff_r, my_env->cutoff_eps_r);
-    my_env->d_block_size = d_block_size;
-    // gpu device settings
-    cudaGetLastError(); // clear history error
-    GPU_number = 0;
-    cudaGetDevice(&GPU_number);
-    DEBUG_LOG("GPU_number is %d",GPU_number);
-    my_env->GPU_number = GPU_number;
-    
-
-    // Q_per_atoms_value = new double [2]; //inintial
-    // stein_q = nullptr;
-    int Threads_own_atoms = lmp->atom->nlocal;
-    lmp->memory->create(stein_q, 0, "metad:STEIN_QL:stein_q");
-    lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_QL:stein_q");
-    lmp->memory->create(h_stein_qlm, 0, "metad:STEIN_QL:h_stein_qlm");
-    lmp->memory->grow(h_stein_qlm, Threads_own_atoms*num_elements, "metad:STEIN_QL:h_stein_qlm");
-    lmp->memory->create(h_dcvdx_x, 0, "metad:STEIN_QL:h_dcvdx_x");
-    lmp->memory->create(h_dcvdx_y, 0, "metad:STEIN_QL:h_dcvdx_y");
-    lmp->memory->create(h_dcvdx_z, 0, "metad:STEIN_QL:h_dcvdx_z");
-
-    
-    // comment name
-    register_buffer(d_stein_ql,"d_stein_ql");
-    register_buffer(d_stein_Ylm,"d_stein_Ylm");
-    register_buffer(d_dcvdx,"d_dcvdx");
-    register_buffer(d_stein_qlm,"d_stein_qlm");
-    register_buffer(d_stein_LQlm,"d_stein_LQlm");
-    register_buffer(d_a_virial,"d_a_virial");
-    register_buffer(d_center_adjoint,"q_center_adjoint");
-    register_buffer(d_atom_adjoint,"q_atom_adjoint");
-}
-
-template <int L>
-MetaD_zqc::STEIN_QL<L>::~STEIN_QL(){
-    // delete[] stein_q;
-    lmp->memory->destroy(stein_q);
-    // delete[] h_stein_Ylm;
-    // SAFE_CUDA_FREE(d_stein_Ylm.ptr);
-    // delete[] h_dcvdx;
-    lmp->memory->destroy(h_dcvdx);
-    // SAFE_CUDA_FREE(d_dcvdx.ptr);
-    // delete[] h_stein_qlm;
-    lmp->memory->destroy(h_stein_qlm);
-    // SAFE_CUDA_FREE(d_stein_qlm.ptr);
-    lmp->memory->destroy(h_stein_LQlm);
-    lmp->memory->destroy(h_a_virial);
-    // release all alloc
-    // the GpuBuffer will automatically release its memory, 
-    // so we don't need to manually free it here
-    lmp->memory->destroy(h_dcvdx_x);
-    lmp->memory->destroy(h_dcvdx_y);
-    lmp->memory->destroy(h_dcvdx_z);
-}
-
-void MetaD_zqc::Steinhardt_env::refresh_lmpbox(){
-    
-    // clear the h_group_indices
-    atom = lmp->atom;
-    mask = (atom)->mask;     // 原子组掩码
-
-    // delete[] h_group_indices;
-    // h_group_indices = nullptr;
-    // DEBUG_LOG("free h_group_indices");
-    // h_group_indices = new int [((atom)->nlocal)];
-
-    lmp->memory->grow(h_group_indices, ((atom)->nlocal), "STEIN_QL:h_group_indices");
-    // group_count = how many aim atoms in local
-    last_group_count = group_count;
-    group_count = 0; // 当前local中有
-    if (atom_assembly) {
-        group_count = atom_assembly->group_count();
-        std::copy_n(atom_assembly->local_ids().begin(), group_count, h_group_indices);
-    } else {
-        for (int localid = 0; localid < atom->nlocal; ++localid)
-            if (mask[localid] & groupbit) h_group_indices[group_count++] = localid;
+void Steinhardt_env::refresh_centers() {
+    const auto members=engine.selection_members(group_id);
+    members.local_ids.wait_host();
+    const int total=engine.total_atom_count();
+    centers_changed=!members.generation || members.generation!=center_generation ||
+        group_count!=members.owned_count || center_storage.size()!=size_t(total);
+    group_count=members.owned_count;
+    if (centers_changed) {
+        resize_host(center_storage,h_group_indices,total);
+        for(int center=0;center<group_count;++center) h_group_indices[center]=members.local_ids(center);
+        center_generation=members.generation;
     }
-    // printf("group_count=%d", group_count);
-
-    // SAFE_CUDA_FREE((d_mask));
-    // SAFE_CUDA_MALLOC(&(d_mask), (group_count)*sizeof(int), f_check);
-    d_mask.grow_to(((atom)->nlocal+(atom)->nghost), __FILE__, __LINE__);
-    // SAFE_CUDA_MEMCPY((d_mask.ptr),(mask),(((atom)->nlocal+(atom)->nghost))*sizeof(int),cudaMemcpyHostToDevice,f_check);
-    d_mask.upload_from(mask, ((atom)->nlocal+(atom)->nghost));
-
-    // set up nvidia thread number
-    block_num = ((group_count) + d_block_size - 1)/d_block_size;
-    N = d_block_size*block_num;
-    // LOG_COND(((group_count)<(cutoff_Natoms)),"Warning: group_count(%lld) < cutoff_Natoms(%lld), please check your system !",(long long)group_count, (long long)cutoff_Natoms);
-    LOG_COND((((box_x)<2*(cutoff_r))||((box_y)<2*(cutoff_r))||((box_z)<2*(cutoff_r))),"Warning: box < cutoff_r, please check your system !");
+    positions=engine.positions(MemorySpace::Cuda);
+    positions.validate();
+    positions.wait_on(execution.get());
+    ERR_COND(positions.memory!=MemorySpace::Cuda || positions.component_count!=3 || positions.item_count<size_t(total),
+             "STEINH: invalid device coordinates");
+    // Q 的 half-pair 反向需要两端的组成员资格；Local Q 使用自己的 I/J/K 标记。
+    if (!LOC_flag) {
+        selection_flags=engine.selection_flags(group_id,MemorySpace::Cuda);
+        selection_flags.validate();
+        selection_flags.wait_on(execution.get());
+        ERR_COND(selection_flags.memory!=MemorySpace::Cuda || selection_flags.component_count!=1 || selection_flags.item_count<size_t(total),
+                 "STEINH: invalid selection flags");
+    }
+    block_num=(group_count+d_block_size-1)/d_block_size;
 }
 
-void MetaD_zqc::Steinhardt_env::get_env(){
-    // DEBUG_LOG("im in get_env, current step is %lld, last_update_step is %lld", (long long)lmp->update->ntimestep, (long long)this->last_update_step);
-    // if (lmp->update->ntimestep == this->last_update_step){
-    //     return;
-    // }
-    size_t datalen = 0;
-    atom = lmp->atom;
-    LAMMPS_NS::tagint atom_all = atom->nlocal + atom->nghost;
-    // =======从 NeighHub 取已 ensure 的 list=========
-    ERR_COND((neigh_id < 1),"STEIN_QL env has invalid neigh_id.");
-    Fixmetad->neigh_hub.ensure(neigh_id);
-    nlist = Fixmetad->neigh_hub.list(neigh_id);
-    ERR_COND((nlist == nullptr),"STEIN_QL CV failed to find neighbor list now.");
-    numneigh = nlist->numneigh;
-    firstneigh = nlist->firstneigh;
-    // =======防止lammps运行过程体积更改==========
-    ERR_COND((lmp->domain == NULL),"domain list not initialized");
-    box_x = (pbc_x) ? lmp->domain->xprd : INFINITY;
-    box_y = (pbc_y) ? lmp->domain->yprd : INFINITY;
-    box_z = (pbc_z) ? lmp->domain->zprd : INFINITY;
+void Steinhardt_env::get_env() {
+    const auto candidates=engine.neighbors().prepare(neigh_id);
+    candidates.centers.validate();candidates.offsets.validate();candidates.neighbors.validate();
+    candidates.centers.wait_on(execution.get());candidates.offsets.wait_on(execution.get());
+    candidates.neighbors.wait_on(execution.get());
+    ERR_COND(candidates.coordinates!=NeighborCoordinates::PeriodicImages,
+             "STEINH requires image-resolved neighbor coordinates");
+    const int total=engine.total_atom_count();
+    ERR_COND(candidates.centers.memory!=MemorySpace::Cuda || candidates.offsets.memory!=MemorySpace::Cuda ||
+             candidates.neighbors.memory!=MemorySpace::Cuda || candidates.offsets.item_count!=candidates.centers.item_count+1 ||
+             candidates.centers.item_count>size_t(INT_MAX) || candidates.neighbors.item_count>size_t(INT_MAX),
+             "STEINH Q requires device CSR candidates within int range");
+    if(!init_flag || !candidates.topology_generation || centers_changed ||
+       cached_neigh_generation!=candidates.topology_generation) {
+        const auto stream=execution.get();
+        d_group_indices.grow_to(group_count,__FILE__,__LINE__);
+        d_group_indices.upload_from(h_group_indices,group_count,stream);
+        d_q_row_by_atom.grow_to(std::max(total,1),__FILE__,__LINE__);
+        execution_check(cudaMemsetAsync(d_q_row_by_atom.ptr,0xff,size_t(total)*sizeof(int),stream));
+        d_q_status.grow_to(1,__FILE__,__LINE__);d_q_status.clear_async(stream);
+        const int rows=int(candidates.centers.item_count);
+        if (rows) q_map_rows<<<(rows+255)/256,256,0,stream>>>(
+            candidates.centers,total,d_q_row_by_atom.ptr,d_q_status.ptr);
+        d_q_counts.grow_to(group_count,__FILE__,__LINE__);
+        if (group_count) q_row_counts<<<block_num,d_block_size,0,stream>>>(
+            group_count,d_group_indices.ptr,d_q_row_by_atom.ptr,candidates.offsets,
+            int(candidates.neighbors.item_count),d_q_counts.ptr,d_q_status.ptr);
+        CUDA_LAUNCH_CHECK();
+        int invalid=0;
+        d_q_status.download_to(&invalid,1,stream);
+        ERR_COND(invalid,"STEINH Q: invalid or missing device neighbor row");
+        d_group_numneigh.grow_to(size_t(group_count)+1,__FILE__,__LINE__);
+        d_q_counts.scan_to(d_group_numneigh,group_count,stream);
+        execution_check(cudaMemcpyAsync(&n_full_candidates,d_group_numneigh.ptr+group_count,
+                                       sizeof(int),cudaMemcpyDeviceToHost,stream));
+        execution.synchronize();
+        ERR_COND(n_full_candidates<0 || size_t(n_full_candidates)>candidates.neighbors.item_count,
+                 "STEINH Q: candidate count overflow");
 
-    // utilize different environment set
-    // such as neighbor list, atom position, box size, to get the local structure information for each atom in the group
-    // 昂贵展平只在 Neighbor 重建时做（与旧逻辑一致）；勿用 last_update_step 每步触发。
-    const bool skip_neigh_flatten =
-        (lmp->update->ntimestep > lmp->neighbor->lastcall) &&
-        (lmp->update->ntimestep != 1) &&
-        (numneigh != nullptr) &&
-        init_flag &&
-        (neigh_lastcall_ == (long long)lmp->neighbor->lastcall) &&
-        (cached_neigh_generation == Fixmetad->neigh_hub.generation()) &&
-        (cached_nlocal == atom->nlocal) && (cached_nghost == atom->nghost);
-    if (skip_neigh_flatten) {
-        DEBUG_LOG("we skip rebuild in environment when %lld.", (long long)lmp->neighbor->lastcall);
-    } else {
-        // =========================================================================
-        // neighbour list and its copy to devise
-        // h_group_indices / d_group_indices: where the group atoms in locals' tag
-        // =========================================================================
-        DEBUG_LOG("cutoff_eps_r is %g",cutoff_eps_r);
-        DEBUG_LOG("cutoff_r is %f",cutoff_r);
-        DEBUG_LOG("group_count is %d",group_count);
-        // =========================================================================
-        // neighbour list and its copy to devise
-        // h_group_indices / d_group_indices: where the group atoms in locals' tag
-        // =========================================================================
-        // DEBUG_LOG("lastcall = %d", lmp->neighbor->lastcall);
-        // int *d_group_indices;
-        // SAFE_CUDA_FREE(d_group_indices);
-        // SAFE_CUDA_MALLOC(&d_group_indices, (atom_all)*sizeof(int), f_check);
-        d_group_indices.grow_to(atom_all, __FILE__, __LINE__);
-        d_group_indices.upload_from(h_group_indices, group_count);
-        // alloc
-        DEBUG_LOG_COND((d_group_indices.ptr == NULL),"d_group_indices list not initialized");
-        if (group_count > 0) DEBUG_LOG("first Q center localid=%d", h_group_indices[0]);
-        // =========================================================================
-        // h_group_numneigh / d_group_numneigh :
-        //      flatten index of the neighbour list. such as we have 20 neighbour
-        //      for atom 1, then the list will be : [0, 20, ...]
-        // =========================================================================
-        // int *numneigh = nlist->numneigh;
-        // int **firstneigh = nlist->firstneigh;
-        numneigh = nlist->numneigh;
-        firstneigh = nlist->firstneigh;
-        DEBUG_LOG_COND((numneigh == NULL),"numneigh list not initialized");
-        DEBUG_LOG_COND((firstneigh == NULL),"firstneigh list not initialized");
-        ERR_COND((nlist->ilist == NULL),"ilist not initialized");
-        // Ghost full lists: only inum+gnum entries are valid (via ilist).
-        // Blindly scanning atom_all caused 2nd-run segfaults (wild firstneigh[i]).
-        const int nlist_n = nlist->inum + nlist->gnum;
-        ERR_COND((nlist_n <= 0 && group_count > 0),"neighbor list empty for owned Q centers");
-        ERR_COND((nlist_n > atom_all),"neighbor list inum+gnum > nlocal+nghost");
-        // 2. creating number array of start num in different c_atom's neighbor
-        // LAMMPS_NS::tagint *h_group_numneigh = new LAMMPS_NS::tagint[group_count + 1];
-        // LAMMPS_NS::tagint *d_group_numneigh;
-        datalen = atom_all + 1;
-        lmp->memory->grow(h_group_numneigh, datalen, "STEIN_QL:h_group_numneigh");
-        d_group_numneigh.grow_to(datalen, __FILE__, __LINE__);
-        DEBUG_LOG_COND((h_group_numneigh == NULL),"h_group_numneigh list not initialized");
-        // 3. 逐原子拷贝邻居列表数据到GPU,现在更改为将所有原子的邻居拷贝到显存
-        //    （经 ilist 填充；不在 list 中的 local index jnum=0）
-        DEBUG_LOG("group_count=%d nlist_n=%d inum=%d gnum=%d", group_count, nlist_n, nlist->inum, nlist->gnum);
-        std::vector<int> jnum_of((size_t)atom_all, 0);
-        for (int ii = 0; ii < nlist_n; ++ii) {
-            const int i = nlist->ilist[ii];
-            ERR_COND((i < 0 || i >= atom_all),"ilist[%d]=%d out of range atom_all=%d", ii, i, (int)atom_all);
-            ERR_COND((numneigh[i] > 0 && firstneigh[i] == nullptr),
-                     "firstneigh[%d] is null with jnum=%d", i, numneigh[i]);
-            jnum_of[(size_t)i] = numneigh[i];
-            DEBUG_LOG("ii=%d, tag=%d, jnum=%d", ii, i, numneigh[i]);
-        }
-        h_group_numneigh[0] = 0;
-        for (int gr_i = 0; gr_i < group_count; gr_i++) {
-            int i = h_group_indices[gr_i]; // 获取原子索引
-            // TODO: 询问：这个jnum_of是什么数组？为什么要加这个？
-            int jnum = jnum_of[i]; // 仅访问本轮 ilist 中的候选段。
-            h_group_numneigh[gr_i+1] = h_group_numneigh[gr_i] + jnum;
-            DEBUG_LOG("gr_i=%d, tag=%d, jnum=%d, sum=%d", gr_i, i,jnum,h_group_numneigh[gr_i+1]);
-        }
-        d_group_numneigh.upload_from(h_group_numneigh, group_count + 1);
-        // SAFE_CUDA_MEMCPY(d_group_numneigh.ptr,h_group_numneigh,(atom_all + 1)*sizeof(LAMMPS_NS::tagint),cudaMemcpyHostToDevice,f_check);
-        LAMMPS_NS::tagint all_neigh_pairs = h_group_numneigh[group_count];
-        // =========================================================================
-        // h_group_numneigh / d_group_numneigh :
-        //      flatten index of the neighbour list. such as we have 20 neighbour
-        //      for atom 1, then the list will be : [0, 20, ...]
-        // h_firstneigh_ptrs / d_firstneigh_ptrs :
-        //      flatten neighbour list
-        // =========================================================================
-        /* delete[] h_firstneigh_ptrs;
-        h_firstneigh_ptrs = nullptr; */
-        // int *h_firstneigh_ptrs = new int [h_group_numneigh[group_count]];
-        // int *d_firstneigh_ptrs; // 设备端二级指针
-        // h_firstneigh_ptrs = new int [h_group_numneigh[group_count]];
-        // grow(0) → null; keep at least 1 slot for safe grow/upload
-        const LAMMPS_NS::tagint grow_pairs = (all_neigh_pairs > 0) ? all_neigh_pairs : 1;
-        lmp->memory->grow(h_firstneigh_ptrs, grow_pairs, "STEIN_QL:h_firstneigh_ptrs");
-        lmp->memory->grow(h_full_to_half, grow_pairs, "STEIN_QL:h_full_to_half");
-        std::fill(h_full_to_half, h_full_to_half + grow_pairs, (LAMMPS_NS::tagint)-1);
-        
-        LAMMPS_NS::tagint ba_i;
-        LAMMPS_NS::tagint nnumber;
-        std::vector<LAMMPS_NS::tagint> half_i;
-        std::vector<LAMMPS_NS::tagint> half_j;
-        std::vector<LAMMPS_NS::tagint> h_half_to_full;
-        n_half_candidates = 0;
-        d_full_to_half.grow_to(grow_pairs, __FILE__, __LINE__);
-        // SAFE_CUDA_FREE(d_firstneigh_ptrs);
-        // SAFE_CUDA_MALLOC(&d_firstneigh_ptrs, (all_neigh_pairs) * sizeof(int),f_check); // 分配设备端指针数组
-        d_firstneigh_ptrs.grow_to(grow_pairs, __FILE__, __LINE__);
-        DEBUG_LOG("generate d_firstneigh_ptrs, h_group_numneigh[atom_all]=%d", (int)all_neigh_pairs);
-        for (int gr_i = 0; gr_i < group_count; gr_i++) {
-            int loc_i = h_group_indices[gr_i]; // 获取原子索引
-            ba_i = h_group_numneigh[gr_i];
-            nnumber = h_group_numneigh[gr_i+1]-h_group_numneigh[gr_i];
-            DEBUG_LOG("h_group_numneigh=%d, num=%d" ,ba_i,nnumber);
-            if (nnumber <= 0) continue;
-            // LAMMPS firstneigh 高位可能编码 special bond 标志，必须剥掉 NEIGHMASK
-            ERR_COND((firstneigh[loc_i] == nullptr),"firstneigh[%d] null", loc_i);
-            for (LAMMPS_NS::tagint jj = 0; jj < nnumber; ++jj) {
-                int loc_j = firstneigh[loc_i][jj] & NEIGHMASK;
-                int e = ba_i + jj;
-                const auto tag_i = lmp->atom->tag[loc_i];
-                const auto tag_j = lmp->atom->tag[loc_j];
-                h_firstneigh_ptrs[e] = loc_j;
-                if (((lmp->atom->mask[loc_j] & groupbit) == 0) || (tag_i <= tag_j)){
-                    half_i.push_back(loc_i);
-                    half_j.push_back(loc_j);
-                    h_half_to_full.push_back(e);
-                    h_full_to_half[e] = n_half_candidates;
-                    n_half_candidates++;
-                } else {
-                    h_full_to_half[e] = -1;
-                }
-            }
-        }
-        if (all_neigh_pairs > 0) {
-            d_firstneigh_ptrs.upload_from(h_firstneigh_ptrs, all_neigh_pairs);
-            d_full_to_half.upload_from(h_full_to_half, all_neigh_pairs);
-        }
-        // n_half_candidates = half_i.size();
-        // 完成ij的half_pair对
-        d_half_pair_i.grow_to(n_half_candidates, __FILE__, __LINE__);
-        d_half_pair_j.grow_to(n_half_candidates, __FILE__, __LINE__);
-        d_half_to_full.grow_to(n_half_candidates, __FILE__, __LINE__);
-        d_active_pair_mask.grow_to(n_half_candidates, __FILE__, __LINE__);
-        d_active_pair_ids.grow_to(n_half_candidates, __FILE__, __LINE__);
-        d_half_pair_i.upload_from(half_i.data(), n_half_candidates);
-        d_half_pair_j.upload_from(half_j.data(), n_half_candidates);
-        d_half_to_full.upload_from(h_half_to_full.data(), n_half_candidates);
-
-        // SAFE_CUDA_MEMCPY(d_firstneigh_ptrs.ptr,h_firstneigh_ptrs,
-        //     (all_neigh_pairs) * sizeof(int),cudaMemcpyHostToDevice,f_check);
-        DEBUG_LOG_COND((d_firstneigh_ptrs.ptr == NULL),"d_firstneigh_ptrs list not initialized");
-        if (all_neigh_pairs >= 4) {
-            DEBUG_LOG("d_firstneigh_ptrs list %d %d %d" ,h_firstneigh_ptrs[1],h_firstneigh_ptrs[2],h_firstneigh_ptrs[3]);
-        }
-        DEBUG_LOG("generate end d_firstneigh_ptrs");
-        if (!init_flag) {init_flag = true;}
-        neigh_lastcall_ = (long long)lmp->neighbor->lastcall;
-        cached_neigh_generation = Fixmetad->neigh_hub.generation();
-        cached_nlocal = atom->nlocal;
-        cached_nghost = atom->nghost;
+        // Atom IDs are layout metadata. Only this topology rebuild uploads them;
+        // candidate rows, pair selection, and half-pair compaction stay on device.
+        const auto ids=engine.atom_ids();
+        ids.validate();ids.wait_host();
+        ERR_COND(ids.memory!=MemorySpace::Host || ids.component_count!=1 || ids.item_count<size_t(total),
+                 "STEINH Q: invalid atom IDs");
+        q_id_storage.resize(total);
+        for(int i=0;i<total;++i) q_id_storage[i]=ids(i);
+        d_q_atom_ids.grow_to(total,__FILE__,__LINE__);
+        d_q_atom_ids.upload_from(q_id_storage.data(),total,stream);
+        d_firstneigh_ptrs.grow_to(n_full_candidates,__FILE__,__LINE__);
+        d_full_to_half.grow_to(n_full_candidates,__FILE__,__LINE__);
+        if(group_count) q_copy_candidates<<<block_num,d_block_size,0,stream>>>(
+            group_count,total,d_group_indices.ptr,d_q_row_by_atom.ptr,candidates.offsets,candidates.neighbors,
+            d_group_numneigh.ptr,d_q_atom_ids.ptr,selection_flags,d_firstneigh_ptrs.ptr,d_full_to_half.ptr,d_q_status.ptr);
+        CUDA_LAUNCH_CHECK();
+        d_q_status.download_to(&invalid,1,stream);
+        ERR_COND(invalid,"STEINH Q: invalid device neighbor atom index");
+        d_q_half_prefix.grow_to(size_t(n_full_candidates)+1,__FILE__,__LINE__);
+        d_full_to_half.scan_to(d_q_half_prefix,n_full_candidates,stream);
+        execution_check(cudaMemcpyAsync(&n_half_candidates,d_q_half_prefix.ptr+n_full_candidates,
+                                       sizeof(int),cudaMemcpyDeviceToHost,stream));
+        execution.synchronize();
+        ERR_COND(n_half_candidates<0 || n_half_candidates>n_full_candidates,"STEINH Q: half-pair count overflow");
+        d_half_pair_i.grow_to(n_half_candidates,__FILE__,__LINE__);
+        d_half_pair_j.grow_to(n_half_candidates,__FILE__,__LINE__);
+        d_active_pair_mask.grow_to(n_half_candidates,__FILE__,__LINE__);
+        d_active_pair_ids.grow_to(n_half_candidates,__FILE__,__LINE__);
+        if(group_count) q_pack_halves<<<block_num,d_block_size,0,stream>>>(
+            group_count,d_group_indices.ptr,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr,d_q_half_prefix.ptr,
+            d_full_to_half.ptr,d_half_pair_i.ptr,d_half_pair_j.ptr);
+        CUDA_LAUNCH_CHECK();
+        cached_neigh_generation=candidates.topology_generation;init_flag=true;
     }
-    ERR_COND((h_group_numneigh == nullptr),"h_group_numneigh null before use");
-    LAMMPS_NS::tagint all_neigh_pairs = h_group_numneigh[group_count];
-    // =========================================================================
-    // h_x / h_x_flat / d_x_flat :
-    //      atoms coordinate position
-    // =========================================================================
-    // int *h_tag = atom->tag;       // 原子全局ID数组(主机)
-    // int *d_tag;             // 设备端坐标二级指针
-    double **h_x = atom->x;      // 原子坐标数组(主机)
-    // delete[] h_x_flat;
-    // h_x_flat = nullptr;
-    // DEBUG_LOG("free h_x_flat");
-    // h_x_flat = new double [(atom->nlocal + atom->nghost) * 3];
-    DEBUG_LOG("d_x_flat=%p",d_x_flat.ptr);
-    lmp->memory->grow(h_x_flat, (atom->nlocal + atom->nghost) * 3, "STEIN_QL:h_x_flat");
-    for (int i = 0; i < (atom->nlocal + atom->nghost); i++) {
-        memcpy(&(h_x_flat[i*3]), h_x[i], 3*sizeof(double));
-    }
-    DEBUG_LOG("Q coordinate buffer contains %d local and ghost atoms", atom->nlocal + atom->nghost);
-    // SAFE_CUDA_FREE(d_x_flat); 
-    // SAFE_CUDA_MALLOC(&d_x_flat, ((atom->nlocal + atom->nghost) * 3)*sizeof(double),f_check);
-    d_x_flat.grow_to((atom->nlocal + atom->nghost) * 3, __FILE__, __LINE__);
-    // SAFE_CUDA_MEMCPY(d_x_flat.ptr,h_x_flat,((atom->nlocal + atom->nghost) * 3)*sizeof(double),cudaMemcpyHostToDevice, f_check);
-    d_x_flat.upload_from(h_x_flat, ((atom->nlocal + atom->nghost) * 3));
-    // check the pointer
-    // DEBUG_LOG("alloc h_x,h_tag.....");
-    DEBUG_LOG_COND((h_x == NULL),"h_x list not initialized");
-    DEBUG_LOG_COND((h_x_flat == NULL),"h_x_flat list not initialized");
-    DEBUG_LOG_COND((d_x_flat.ptr == NULL),"d_x_flat list not initialized");
-    DEBUG_LOG("d_x_flat Allocated at: %p", d_x_flat.ptr);
-    cudaDeviceSynchronize(); // waiting memory
-
-    // =========================================================================
-    // create output address
-    // d_group_dminneigh : (dx, dy, dz, r2) * pairs
-    // d_neigh_in_cutoff_r : neighbour atoms that satisfied cutoff_r
-    // d_neigh_both_in_r_N : neighbour atoms that satisfied both cutoff_r and N
-    // =========================================================================
-    DEBUG_LOG("release gpu");
-    atom_all = (atom_all > N) ? atom_all : N;
-    d_neigh_in_cutoff_r.grow_to(atom_all, __FILE__, __LINE__);
-    d_neigh_in_cutoff_r.clear_async();
-    d_neigh_in_switching.grow_to(atom_all, __FILE__, __LINE__);
-    d_neigh_in_switching.clear_async();
-    lmp->memory->grow(h_neigh_in_switching, atom_all, "STEIN_QL:h_stein_qlm");
-    d_calculated_numneigh.grow_to(all_neigh_pairs, __FILE__, __LINE__);
-    d_calculated_numneigh.clear_async();
-    d_active_pair_ids.clear_async();
-    d_active_pair_mask.clear_async();
-    // d_is_pure_J.grow_to(atom_all, __FILE__, __LINE__);
-    // d_is_pure_J.clear_async();
-    DEBUG_LOG("release end");
-
-    // =========================================================================
-    // start kernel for calculate 
-    // d_neigh_in_cutoff_r  : how many neigh atoms in cutoff_r (\sigma r_cut less than)
-    // d_neigh_in_switching : sum of sigma(rij) for j in neigh(i)
-    // =========================================================================
-    DEBUG_LOG("box_lim x:%f y:%f z:%f max:%f" ,box_x,box_y,box_z,box_x+box_y+box_z );
-    DEBUG_LOG("neigh finding .......");
-    DEBUG_LOG("i will start a kernel");
-    // kernel function will run
-    cudaError_t launchErr = cudaGetLastError();
-    cudaStream_t lmp_stream = 0;
-    cudaDeviceSynchronize(); // waiting memory
-    double cutoff_rsq = cutoff_r*cutoff_r;
-
-    // cudaDeviceSynchronize(); //catch kernel done
-    launchErr = cudaGetLastError();
-    if (group_count > 0) get_environment_Steinhardt_Q<<<block_num,d_block_size>>>
-      ( my_r_SWfunc->params,
-        group_count, 0,
-        cutoff_r, cutoff_eps_r,
-        // in
-        d_group_indices.ptr, d_group_numneigh.ptr, d_firstneigh_ptrs.ptr, 
-        d_x_flat.ptr, d_full_to_half.ptr,
-        //   out
-        d_neigh_in_cutoff_r.ptr, d_active_pair_mask.ptr, 
-        d_neigh_in_switching.ptr, d_calculated_numneigh.ptr) ;
-    DEBUG_LOG("env refresh out, kernel launched");
-
-    cudaError_t syncErr = cudaDeviceSynchronize();
-    ERR_COND((syncErr != cudaSuccess),"Kernel execution error: %s\n", cudaGetErrorString(syncErr));
-
-    DEBUG_LOG("group_count=%d, atom_all=%d, all_neigh_pairs=%lld, group_count=%d", 
-           group_count, atom_all, (long long)all_neigh_pairs, group_count);
-
-    // 清空，全写0
-    d_calculated_firstneigh_ptrs.grow_to(atom->nmax+1, __FILE__, __LINE__);
-    d_calculated_firstneigh_ptrs.clear_async();
-    lmp->memory->grow(h_calculated_firstneigh_ptrs, atom->nmax+1, "STEIN_LocalQL:h_calculated_firstneigh_ptrs");
-    // a[n+1] = b[0]+...+b[n], a[0]=0
-    d_neigh_in_cutoff_r.scan_to(d_calculated_firstneigh_ptrs, 
-                            group_count, lmp_stream);
-    d_active_pair_mask.flag_to(d_active_pair_ids, 
-                            n_half_candidates, &n_active_pairs, lmp_stream);
-    d_calculated_firstneigh_ptrs.download_to(h_calculated_firstneigh_ptrs, 
-                            group_count+1, lmp_stream, __FILE__, __LINE__);
-    cudaStreamSynchronize(lmp_stream);
-    num_of_all_calc_fullpair = h_calculated_firstneigh_ptrs[group_count];
-
-    DEBUG_LOG("num_of_all_calc_fullpair=%lld (from scan of %d elements), last raw d_neigh_in_cutoff_r[group_count]=?",
-            (long long)num_of_all_calc_fullpair, group_count);
-
-    syncErr = cudaDeviceSynchronize();
-    ERR_COND((syncErr != cudaSuccess),"Kernel execution error: %s\n", cudaGetErrorString(syncErr));
-
-    DEBUG_LOG("im out");
-    DEBUG_LOG("neigh find finished");
-
-
-    // return the array for neigh
-    DEBUG_LOG("copy result array to cpu: group_dminneigh, neigh_in_cutoff_r, neigh_both_in_r_N");
-    // DEBUG_LOG_COND((group_dminneigh == NULL),"group_dminneigh list not initialized");
-    DEBUG_LOG_COND((neigh_in_cutoff_r == NULL),"group_dminneigh list not initialized");
-    DEBUG_LOG_COND((neigh_both_in_r_N == NULL),"group_dminneigh list not initialized");
-    lmp->memory->grow(neigh_in_cutoff_r, (group_count), "STEIN_QL:neigh_in_cutoff_r");
-    d_neigh_in_cutoff_r.download_to(neigh_in_cutoff_r,group_count, lmp_stream, __FILE__, __LINE__);
-    // SAFE_CUDA_MEMCPY(neigh_in_cutoff_r, d_neigh_in_cutoff_r.ptr,
-    //   (group_count) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
-    lmp->memory->grow(h_neigh_in_switching, atom->nlocal + atom->nghost, "STEIN_QL:h_neigh_in_switching");
-    d_neigh_in_switching.download_to(h_neigh_in_switching, atom->nlocal + atom->nghost, lmp_stream, __FILE__, __LINE__);
-    // SAFE_CUDA_MEMCPY(h_neigh_in_switching, d_neigh_in_switching.ptr,
-    //   (atom_all) * sizeof(int), cudaMemcpyDeviceToHost,f_check);
-    lmp->memory->grow(calculated_numneigh, (all_neigh_pairs), "STEIN_QL:calculated_numneigh");
-    d_calculated_numneigh.download_to(calculated_numneigh, all_neigh_pairs, lmp_stream, __FILE__, __LINE__);
-    // SAFE_CUDA_MEMCPY(calculated_numneigh, d_calculated_numneigh.ptr,
-    //   (all_neigh_pairs) * sizeof(LAMMPS_NS::tagint), cudaMemcpyDeviceToHost,f_check);
-    cudaDeviceSynchronize(); //catch kernel done
-    DEBUG_LOG("copy end");
-    this->last_update_step = lmp->update->ntimestep;
+    d_neigh_in_cutoff_r.grow_to(std::max(total,1),__FILE__,__LINE__);
+    d_neigh_in_switching.grow_to(std::max(total,1),__FILE__,__LINE__);
+    d_calculated_numneigh.grow_to(n_full_candidates,__FILE__,__LINE__);
+    d_neigh_in_cutoff_r.clear_async(execution.get());d_neigh_in_switching.clear_async(execution.get());d_active_pair_mask.clear_async(execution.get());
+    if(group_count) get_environment_Steinhardt_Q<<<block_num,d_block_size,0,execution.get()>>>(
+        my_r_SWfunc->params,group_count,0,cutoff_r,cutoff_eps_r,
+        d_group_indices.ptr,d_group_numneigh.ptr,d_firstneigh_ptrs.ptr,positions,d_full_to_half.ptr,
+        d_neigh_in_cutoff_r.ptr,d_active_pair_mask.ptr,d_neigh_in_switching.ptr,d_calculated_numneigh.ptr);
+    CUDA_LAUNCH_CHECK();
+    n_active_pairs=0;
+    if(n_half_candidates) d_active_pair_mask.flag_to(d_active_pair_ids,n_half_candidates,&n_active_pairs, execution.get());
+    geometry_evaluation=engine.evaluation_id();
 }
 
-
-
-template <int L>
-void MetaD_zqc::STEIN_QL<L>::environment(){
-    DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
-    const bool neigh_rebuilt_now =
-        (lmp->update->ntimestep <= lmp->neighbor->lastcall) ||
-        (lmp->update->ntimestep == 1) || !init_flag;
-    const bool env_not_ready_this_step =
-        (lmp->update->ntimestep > my_env->last_update_step);
-    if (neigh_rebuilt_now || env_not_ready_this_step) {
-        my_env->get_env();
-    }
-    // DEBUG_LOG("environment function in, env_setNum is %s, get_env done",env_setNum);
-    DEBUG_LOG("last_update_step is %lld in %d, group_count=%d", (long long)my_env->last_update_step, L, my_env->group_count);
+template<int L> STEIN_QL<L>::STEIN_QL(CVContext& context,std::string key,int,int,
+                                    Steinhardt_env* environment,int block_size)
+    : Steinhardt(context),d_block_size(block_size),env_setNum(std::move(key)),my_env(environment) {
+    num_elements=2*(L+1);
 }
-
+template<int L> STEIN_QL<L>::~STEIN_QL() { my_env->unregister_env(); }
 // CV 基类保留标量回调槽；Q 的规约与值变换由 Graph 构建。
 template <int L>
 auto MetaD_zqc::STEIN_QL<L>::set_CV_calculate(std::string) -> CV_Calculation {
@@ -792,8 +385,8 @@ auto MetaD_zqc::STEIN_QL<L>::set_CV_bias_force(std::string) -> CV_BiasForce {
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::bind_assembly(std::shared_ptr<const CVAssembly> assembly) {
-    if (!assembly || assembly->groupbit() != my_env->groupbit ||
-        assembly->nlocal() != lmp->atom->nlocal || assembly->nghost() != lmp->atom->nghost)
+    if (!assembly || assembly->selection_id() != my_env->group_id ||
+        assembly->nlocal() != engine.owned_atom_count() || assembly->nghost() != (engine.total_atom_count()-engine.owned_atom_count()))
         throw std::invalid_argument("STEINH: incompatible atom assembly");
     if (my_env->atom_assembly != assembly) {
         my_env->atom_assembly = assembly;
@@ -801,217 +394,131 @@ void MetaD_zqc::STEIN_QL<L>::bind_assembly(std::shared_ptr<const CVAssembly> ass
         my_env->graph_geometry_dirty = true;
     }
     graph_values_ready = false;
-    graph_evaluation_prepared = false;
     CV::bind_assembly(std::move(assembly));
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::prepare_graph_evaluation() {
     graph_values_ready = false;
-    graph_evaluation_prepared = true;
     my_env->graph_geometry_dirty = true;
 }
 
 template <int L>
 void MetaD_zqc::STEIN_QL<L>::check_graph_values() const {
-    if (!assembly_ || !graph_values_ready || graph_value_step != lmp->update->ntimestep)
+    if (!assembly_ || !graph_values_ready || graph_value_evaluation != engine.evaluation_id())
         throw std::logic_error("STEINH: prepare and base_calc before assembly/backward");
-    if (assembly_->nlocal() != lmp->atom->nlocal || assembly_->nghost() != lmp->atom->nghost ||
+    if (assembly_->nlocal() != engine.owned_atom_count() || assembly_->nghost() != (engine.total_atom_count()-engine.owned_atom_count()) ||
         assembly_->group_count() != my_env->group_count)
         throw std::logic_error("STEINH: rebuild atom assembly after localid layout changes");
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::assemble_values(GpuBuffer<double>& values) {
+void MetaD_zqc::STEIN_QL<L>::assemble_values(ArrayView<double> values) {
     check_graph_values();
-    assembly_->assemble_values(d_stein_ql, values);
+    assembly_->assemble_values(d_stein_ql.view(engine.total_atom_count()), values, my_env->execution.get());
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::apply_adjoint(const GpuBuffer<double>& leaf_adjoint) {
+void MetaD_zqc::STEIN_QL<L>::apply_adjoint(ArrayView<const double> leaf_adjoint) {
     check_graph_values();
     const int center_count = assembly_->group_count();
-    const int atom_count = lmp->atom->nlocal + lmp->atom->nghost;
+    const int atom_count = engine.total_atom_count();
     d_center_adjoint.grow_to(center_count, __FILE__, __LINE__);
-    assembly_->gather_adjoint(leaf_adjoint, d_center_adjoint);
+    assembly_->gather_adjoint(leaf_adjoint, d_center_adjoint.view(center_count), my_env->execution.get());
+    d_atom_adjoint.grow_to(atom_count,__FILE__,__LINE__);
+    d_atom_adjoint.clear_async(my_env->execution.get());
+    if(center_count) q_scatter_adjoint<<<(center_count+255)/256,256,0,my_env->execution.get()>>>(
+        center_count,my_env->d_group_indices.ptr,d_center_adjoint.ptr,d_atom_adjoint.ptr);
+    const size_t property_size=size_t(atom_count)*size_t(num_elements+3);
+    d_forward_properties.grow_to(property_size,__FILE__,__LINE__);
+    if(property_size) q_property_rows<<<(property_size+255)/256,256,0,my_env->execution.get()>>>(
+        atom_count,num_elements,d_stein_qlm.ptr,d_stein_ql.ptr,my_env->d_neigh_in_switching.ptr,
+        d_atom_adjoint.ptr,d_forward_properties.ptr,false);
+    CUDA_LAUNCH_CHECK();
+    d_forward_properties.record_write(my_env->execution.get());
+    const bool device_forward=engine.communicate_forward_device(d_forward_properties.view(atom_count,num_elements+3));
+    if(device_forward) {
+        if(property_size) q_property_rows<<<(property_size+255)/256,256,0,my_env->execution.get()>>>(
+            atom_count,num_elements,d_stein_qlm.ptr,d_stein_ql.ptr,my_env->d_neigh_in_switching.ptr,
+            d_atom_adjoint.ptr,d_forward_properties.ptr,true);
+        CUDA_LAUNCH_CHECK();
+    } else {
     h_center_adjoint.resize(center_count);
     h_atom_adjoint.assign(atom_count, 0.0);
     if (center_count) {
-        d_center_adjoint.download_to(h_center_adjoint.data(), center_count);
+        d_center_adjoint.download_to(h_center_adjoint.data(), center_count, my_env->execution.get());
         for (int center = 0; center < center_count; ++center)
             h_atom_adjoint[assembly_->local_ids()[center]] = h_center_adjoint[center];
     }
 
     // 半对只在一端所在 rank 计算，先取得另一端的 qlm、q、邻居权重和及图梯度。
     // 空中心 rank 同样参加通信，接收或转发其 owned/ghost 原子的贡献。
-    Fixmetad->communicate_forward(*this);
+    // MPI 即将访问 Host 球谐和值，只等待本环境的前向完成。
+    if (atom_count) {
+        d_stein_ql.download_to(stein_q, atom_count, my_env->execution.get());
+        d_stein_qlm.download_to(h_stein_qlm, size_t(atom_count)*num_elements, my_env->execution.get());
+        resize_host(my_env->weight_storage,my_env->h_neigh_in_switching,atom_count);
+        my_env->d_neigh_in_switching.download_to(my_env->h_neigh_in_switching,atom_count,my_env->execution.get());
+    }
+    engine.communicate_forward(*this);
     d_atom_adjoint.grow_to(atom_count, __FILE__, __LINE__);
     if (atom_count) {
-        d_atom_adjoint.upload_from(h_atom_adjoint.data(), atom_count);
-        d_stein_qlm.upload_from(h_stein_qlm, size_t(atom_count)*num_elements);
-        d_stein_ql.upload_from(stein_q, atom_count);
-        my_env->d_neigh_in_switching.upload_from(my_env->h_neigh_in_switching, atom_count);
+        d_atom_adjoint.upload_from(h_atom_adjoint.data(), atom_count, my_env->execution.get());
+        d_stein_qlm.upload_from(h_stein_qlm, size_t(atom_count)*num_elements, my_env->execution.get());
+        d_stein_ql.upload_from(stein_q, atom_count, my_env->execution.get());
+        my_env->d_neigh_in_switching.upload_from(my_env->h_neigh_in_switching, atom_count, my_env->execution.get());
+    }
     }
 
-    // localid 连续存储：梯度 [3*localid+c]，virial [6*localid+c]。
-    // 梯度已含 dV/dq_i，反向通信后以负号累加到 LAMMPS 力。
+    // localid 连续存储：梯度 [3*localid+c]，完整 virial [9*localid+c]。
+    // 梯度已含 dV/dq_i；提交时转成物理力，由引擎完成 ghost 归并及累加。
     d_dcvdx.grow_to(size_t(atom_count)*3, __FILE__, __LINE__);
-    d_a_virial.grow_to(size_t(atom_count)*6, __FILE__, __LINE__);
-    d_dcvdx.clear_async();
-    d_a_virial.clear_async();
-    lmp->memory->grow(h_dcvdx, size_t(atom_count)*3, "STEIN_QL:graph_dVdx");
-    lmp->memory->grow(h_a_virial, size_t(atom_count)*6, "STEIN_QL:graph_virial");
+    d_a_virial.grow_to(size_t(atom_count)*9, __FILE__, __LINE__);
+    d_dcvdx.clear_async(my_env->execution.get());
+    d_a_virial.clear_async(my_env->execution.get());
+    resize_host(gradient_storage,h_dcvdx,size_t(atom_count)*3);
+    resize_host(virial_storage,h_a_virial,size_t(atom_count)*9);
     if (my_env->n_active_pairs > 0) {
         const int pair_blocks = (my_env->n_active_pairs+d_block_size-1)/d_block_size;
-        steinhardt_dcv_kernel<L><<<pair_blocks,d_block_size>>>(
+        steinhardt_dcv_kernel<L><<<pair_blocks,d_block_size,0,my_env->execution.get()>>>(
             my_env->my_r_SWfunc->params,
-            my_env->n_active_pairs, my_env->groupbit, my_env->d_mask.ptr,
+            my_env->n_active_pairs, 1, my_env->selection_flags,
             my_env->d_active_pair_ids.ptr, my_env->d_half_pair_i.ptr, my_env->d_half_pair_j.ptr,
-            my_env->d_x_flat.ptr,
+            my_env->positions,
             my_env->d_neigh_in_switching.ptr, d_stein_ql.ptr, d_stein_qlm.ptr,
             d_dcvdx.ptr, d_a_virial.ptr, d_atom_adjoint.ptr);
         const auto status = cudaGetLastError();
         if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
     }
-    if (atom_count) {
-        d_dcvdx.download_to(h_dcvdx, size_t(atom_count)*3);
-        d_a_virial.download_to(h_a_virial, size_t(atom_count)*6);
-    }
-    Fixmetad->communicate_reverse(*this);
-    for (int localid = 0; localid < lmp->atom->nlocal; ++localid) {
-        for (int component = 0; component < 3; ++component)
-            lmp->atom->f[localid][component] -= h_dcvdx[3*localid+component];
-        if (Fixmetad->a_virial)
-            for (int component = 0; component < 6; ++component)
-                Fixmetad->a_virial[6*localid+component] += h_a_virial[6*localid+component];
-    }
+    commit_coordinate_adjoint();
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::base_calc(){
-    ERR_COND(my_env->neigh_id < 1, "STEIN_QL env has invalid neigh_id.");
-    Fixmetad->neigh_hub.ensure(my_env->neigh_id);
-    my_env->nlist = Fixmetad->neigh_hub.list(my_env->neigh_id);
-    ERR_COND(my_env->nlist == nullptr, "STEIN_QL CV failed to find neighbor list now.");
-    my_env->numneigh = my_env->nlist->numneigh;
-    my_env->firstneigh = my_env->nlist->firstneigh;
-    my_env->mask = lmp->atom->mask;
-    
-    graph_values_ready = false;
-    if (assembly_ && !graph_evaluation_prepared) my_env->graph_geometry_dirty = true;
-    graph_evaluation_prepared = false;
+void MetaD_zqc::STEIN_QL<L>::base_calc() {
+    graph_values_ready=false;
     compute_Q_peratoms();
-    graph_value_step = lmp->update->ntimestep;
-    graph_values_ready = true;
+    graph_value_evaluation=engine.evaluation_id();
+    graph_values_ready=true;
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms(){
-    // TODO: 这里到底是干什么？
-    if (assembly_) {
-        if (my_env->graph_geometry_dirty) {
-            my_env->refresh_lmpbox();
-            my_env->get_env();
-            my_env->graph_geometry_dirty = false;
-        }
-        block_num = (my_env->group_count + d_block_size - 1) / d_block_size;
-        N = size_t(block_num) * d_block_size;
-        init_flag = true;
-        steinhardt_param_calc(stein_q);
-        return;
+void MetaD_zqc::STEIN_QL<L>::compute_Q_peratoms() {
+    if(my_env->graph_geometry_dirty || my_env->geometry_evaluation!=engine.evaluation_id()) {
+        my_env->refresh_centers();my_env->get_env();my_env->graph_geometry_dirty=false;
     }
-    // =======接受邻居更新消息,进行与设备端通信===========
-    // 仅 Neighbor 重建步 refresh；勿用 last_update_step 每步触发。
-    const bool neigh_rebuilt_now =
-        (lmp->update->ntimestep <= lmp->neighbor->lastcall) ||
-        (lmp->update->ntimestep == 1) || !this->init_flag;
-    const bool env_not_ready_this_step =
-        (lmp->update->ntimestep > my_env->last_update_step);
-    if (neigh_rebuilt_now || env_not_ready_this_step) {
-        my_env->refresh_lmpbox();
-        block_num = (my_env->group_count + d_block_size - 1) / d_block_size;
-        N = size_t(block_num) * d_block_size;
-        this->init_flag = true;
-        DEBUG_LOG("refresh_lmpbox done, group_count=%d",my_env->group_count);
-    }
-    {
-        int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-        lmp->memory->grow(stein_q, Threads_own_atoms, "metad:STEIN_locQL:cv_bound");
-    }
-    DEBUG_LOG("group_count=%lld",(long long)my_env->group_count);
-
-    // 2. calculate atoms' environment
-    DEBUG_LOG("environment function in, env_setNum is %s",env_setNum.c_str());
-    environment();
-    DEBUG_LOG("environment function out");
-
-    // 3. calculate atoms' other things
-    // steinhardt_param(Q_hybrid);
+    block_num=(my_env->group_count+d_block_size-1)/d_block_size;
     steinhardt_param_calc(stein_q);
-    
-    // 输出group中每个原子的ql值
-    DEBUG_RUN(for(int c_atom=0;c_atom<my_env->group_count;c_atom++)
-                {
-                    DEBUG_LOG("stein_ql[%lld] = %f",(long long)c_atom,stein_q[c_atom]);
-                });
-    DEBUG_LOG("post_force function end");
 }
 
 template <int L>
-void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double *stein_ql){
-    double cutoff_eps_r = my_env->cutoff_eps_r;
-    int last_group_count = my_env->last_group_count;
-    int group_count = my_env->group_count;
-    int Threads_own_atoms = lmp->atom->nlocal + lmp->atom->nghost;
-    // TODO: we can change the cuda stream to lammps stream, 
-    // but we need to make sure that the stream is synchronized before we copy data back to host. 
-    // For now, we will use the default stream.
-    cudaStream_t lammps_stream = 0; // Assuming you want to use the default stream. Adjust if you have a specific stream.
-    // in class protect
-    // result array
-    // every q has <2*L + 1> qlm, with complex we will times 2
-    // double *h_stein_qlm = new double [group_count*(L + 1)*2];
-    // for the further concentrate we need to calculate qlm*Neigh, with comple
+void MetaD_zqc::STEIN_QL<L>::steinhardt_param_calc(double*) {
+    const size_t total=engine.total_atom_count(), harmonics=total*num_elements;
+    d_stein_ql.grow_to(total,__FILE__,__LINE__);d_stein_ql.clear_async(my_env->execution.get());
+    d_stein_qlm.grow_to(harmonics,__FILE__,__LINE__);d_stein_qlm.clear_async(my_env->execution.get());
+    call_steinhardt_cv_ql_i_kernel();CUDA_LAUNCH_CHECK();
+    resize_host(value_storage,stein_q,total);
+    resize_host(harmonic_storage,h_stein_qlm,harmonics);
 
-
-    // SAFE_CUDA_FREE(d_stein_ql);
-    // SAFE_CUDA_MALLOC(&d_stein_ql, Threads_own_atoms*sizeof(double), f_check);
-    d_stein_ql.grow_to(Threads_own_atoms, __FILE__, __LINE__);
-    d_stein_ql.clear_async();
-    d_stein_qlm.grow_to((Threads_own_atoms*(L + 1)*2), __FILE__, __LINE__);
-    d_stein_qlm.clear_async();
-    d_a_virial.grow_to((Threads_own_atoms*6), __FILE__, __LINE__);
-    d_a_virial.clear_async();
-
-    DEBUG_LOG("i will start a kernel of ql");
-    cudaDeviceSynchronize(); // waiting memory
-    call_steinhardt_cv_ql_i_kernel();
-    // steinhardt_param_calc_kernel_q4<<<block_num,d_block_size>>>(
-    //     group_count, cutoff_Natoms,
-    //     d_neigh_both_in_r_N, d_group_dminneigh,
-    //     d_stein_qlm, d_stein_Ylm,
-    //     d_stein_ql) ;
-    cudaDeviceSynchronize(); //catch kernel done
-    cudaError_t launchErr = cudaGetLastError();
-    if (launchErr != cudaSuccess) {
-        fprintf(f_check, "Kernel launch failed: %s\n", cudaGetErrorString(launchErr));
-        error->all(FLERR, "Kernel launch failed\n");
-    }
-    cudaError_t syncErr = cudaDeviceSynchronize();
-    if (syncErr != cudaSuccess) {
-        fprintf(f_check, "Kernel execution error: %s\n", cudaGetErrorString(syncErr));
-        error->all(FLERR, "Kernel execution error\n");
-    }
-    DEBUG_LOG("im out");
-    DEBUG_LOG("ql calculated find finished");
-
-    // prepare for forward
-    // 扩容更新持有指针，供 Graph 装配与 MPI 打包继续访问。
-    lmp->memory->grow(stein_q, Threads_own_atoms, "STEIN_QL:stein_ql");
-    stein_ql = stein_q;
-    lmp->memory->grow(h_stein_qlm, (Threads_own_atoms)*num_elements, "STEIN_QL:h_stein_qlm");
-    d_stein_ql.download_to(stein_ql, (Threads_own_atoms), 0, __FILE__, __LINE__);
-    d_stein_qlm.download_to(h_stein_qlm, (Threads_own_atoms)*num_elements, 0, __FILE__, __LINE__);
 }
 
 
@@ -1023,15 +530,15 @@ template <int L>
 void MetaD_zqc::STEIN_QL<L>::call_steinhardt_cv_ql_i_kernel(){
     ERR_COND((my_env == nullptr),"my_env is NULL! Cannot launch kernel.");
     if (my_env->group_count == 0) return;
-    steinhardt_cv_kernel<L> <<<block_num,d_block_size>>>(
+    steinhardt_cv_kernel<L> <<<block_num,d_block_size,0,my_env->execution.get()>>>(
         (my_env)->my_r_SWfunc->params,
-        (my_env->group_count),  (my_env->cutoff_r), (my_env->cutoff_eps_r), 
+        (my_env->group_count),  (my_env->cutoff_r), (my_env->cutoff_eps_r),
         (my_env->d_group_indices.ptr),
-        (my_env->d_neigh_in_cutoff_r.ptr), 
+        (my_env->d_neigh_in_cutoff_r.ptr),
         (my_env->d_group_numneigh.ptr),
         (my_env->d_calculated_firstneigh_ptrs.ptr),
         (my_env->d_calculated_numneigh.ptr),
-        (my_env->d_x_flat.ptr),
+        (my_env->positions),
         (my_env->d_neigh_in_switching.ptr),
         d_stein_qlm.ptr, nullptr,
         d_stein_ql.ptr) ;
@@ -1048,7 +555,7 @@ template <int L>
 int MetaD_zqc::STEIN_QL<L>::pack_comm_forward_ubuf(
     int n, int *list, double *buf, int offset, int stride) {
     if (n > 0 && (!h_stein_qlm || !stein_q || !my_env->h_neigh_in_switching ||
-                  h_atom_adjoint.size() < size_t(lmp->atom->nlocal + lmp->atom->nghost)))
+                  h_atom_adjoint.size() < size_t(engine.total_atom_count())))
         throw std::logic_error("STEIN_QL: forward communication data is not ready");
     for (int k = 0; k < n; ++k) {
         const int atom = list[k];
@@ -1066,7 +573,7 @@ template <int L>
 void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(
     int n, int first, double *buf, int offset, int stride) {
     if (n > 0 && (!h_stein_qlm || !stein_q || !my_env->h_neigh_in_switching ||
-                  h_atom_adjoint.size() < size_t(lmp->atom->nlocal + lmp->atom->nghost)))
+                  h_atom_adjoint.size() < size_t(engine.total_atom_count())))
         throw std::logic_error("STEIN_QL: forward communication data is not ready");
     for (int k = 0; k < n; ++k) {
         const int atom = first + k;
@@ -1079,77 +586,65 @@ void MetaD_zqc::STEIN_QL<L>::unpack_comm_forward_ubuf(
     }
 }
 
-template <int L>
-int MetaD_zqc::STEIN_QL<L>::get_comm_reverse_width() const {
-    return 9; // 六分量 virial、三分量坐标导数。
+// 引擎提交物理力，compute 仍可读取正号坐标梯度。提交时由适配器归并 ghost。
+// 梯度在 GPU 取负为力后直接提交 Cuda View，适配器返回后源缓冲可立即复用。
+template<int L> void STEIN_QL<L>::commit_coordinate_adjoint() {
+    output_gradient_ready=false;
+    const size_t total=engine.total_atom_count();
+    d_physical_force.grow_to(total*3, __FILE__, __LINE__);
+    if (total)
+        physical_force_from_gradient<<<(total*3+255)/256,256,0,my_env->execution.get()>>>(
+            d_dcvdx.ptr, d_physical_force.ptr, total*3);
+    const auto status = cudaGetLastError();
+    if (status != cudaSuccess) throw std::runtime_error(cudaGetErrorString(status));
+    auto force = d_physical_force.view(total, 3);
+    auto virial = d_a_virial.view(total, 9);
+    force.readiness = virial.readiness = device_readiness();
+    engine.commit_force_virial(force, {virial, VirialRepresentation::Full9});
 }
-
-template <int L>
-int MetaD_zqc::STEIN_QL<L>::pack_comm_reverse_ubuf(
-    int n, int first, double *buf, int offset, int stride) {
-    if (n > 0 && (!h_a_virial || !h_dcvdx))
-        throw std::logic_error("STEIN_QL: reverse communication data is not ready");
-    for (int k = 0; k < n; ++k) {
-        const int atom = first + k;
-        const int base = offset + k*stride;
-        for (int c = 0; c < 6; ++c) buf[base+c] = h_a_virial[6*atom+c];
-        for (int c = 0; c < 3; ++c) buf[base+6+c] = h_dcvdx[3*atom+c];
+template<int L> ArrayView<const double> STEIN_QL<L>::peratom_values(const std::string& property) {
+    const size_t total=engine.total_atom_count();
+    if(property=="stein_q") {
+        if (total) d_stein_ql.download_to(stein_q,total,my_env->execution.get());
+        return {stein_q,total,1,1,1,value_storage.size(),MemorySpace::Host};
     }
-    return get_comm_reverse_width();
-}
-
-template <int L>
-void MetaD_zqc::STEIN_QL<L>::unpack_comm_reverse_ubuf(
-    int n, int *list, double *buf, int offset, int stride) {
-    if (n > 0 && (!h_a_virial || !h_dcvdx))
-        throw std::logic_error("STEIN_QL: reverse communication data is not ready");
-    // 将各 ghost 镜像的贡献累加到对应 owner，供本轮偏置力使用。
-    for (int k = 0; k < n; ++k) {
-        const int atom = list[k];
-        const int base = offset + k*stride;
-        for (int c = 0; c < 6; ++c) h_a_virial[6*atom+c] += buf[base+c];
-        for (int c = 0; c < 3; ++c) h_dcvdx[3*atom+c] += buf[base+6+c];
+    int component=property=="dcvdx_x"?0:property=="dcvdx_y"?1:property=="dcvdx_z"?2:-1;
+    if(component<0) throw std::invalid_argument("STEINH: unknown per-atom property "+property);
+    if(!h_dcvdx) throw std::logic_error("STEINH: coordinate gradient is not ready");
+    if(!output_gradient_ready) {
+        if (total) d_dcvdx.download_to(h_dcvdx, total*3, my_env->execution.get());
+        output_gradient=gradient_storage;
+        engine.communicate_reverse(*this);
+        output_gradient_ready=true;
     }
+    if(!total) return {nullptr,0,1,3,1,0,MemorySpace::Host};
+    return {output_gradient.data()+component,total,1,3,1,output_gradient.size()-component,MemorySpace::Host};
 }
-
-template <int L>
-double* MetaD_zqc::STEIN_QL<L>::get_peratom_ptr(const std::string &prop_name) {
-    if (prop_name == "stein_q") return stein_q;
-
-    int axis;
-    if      (prop_name == "dcvdx_x") axis = 0;
-    else if (prop_name == "dcvdx_y") axis = 1;
-    else if (prop_name == "dcvdx_z") axis = 2;
-    else return nullptr;
-
-    if (h_dcvdx == nullptr) return nullptr;
-
-    double *&component = (axis == 0) ? h_dcvdx_x
-                       : (axis == 1) ? h_dcvdx_y : h_dcvdx_z;
-    lmp->memory->grow(component, lmp->atom->nmax, "STEIN_QL:dcvdx_component");
-
-    // Extract the requested component for every owned atom, in local-index order.
-    const int nlocal = lmp->atom->nlocal;
-    for (int i = 0; i < nlocal; ++i) {
-        component[i] = h_dcvdx[3*i + axis];
-    }
-    return component;
+template<int L> int STEIN_QL<L>::pack_comm_reverse_ubuf(int count,int first,double* buffer,int offset,int stride) {
+    for(int entry=0;entry<count;++entry)
+        for(int component=0;component<3;++component)
+            buffer[offset+entry*stride+component]=output_gradient[3*(first+entry)+component];
+    return 3;
 }
-
+template<int L> void STEIN_QL<L>::unpack_comm_reverse_ubuf(int count,int* ids,double* buffer,int offset,int stride) {
+    for(int entry=0;entry<count;++entry)
+        for(int component=0;component<3;++component)
+            output_gradient[3*ids[entry]+component]+=buffer[offset+entry*stride+component];
+}
 __global__ void get_environment_Steinhardt_Q(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
     int calc_count, int start_idx,
     double cutoff_r, double cut_sigma_eps,
     // in
-    int *d_group_indices, 
-    LAMMPS_NS::tagint *d_group_numneigh,
-    int *d_firstneigh_ptrs, double *d_x_flat,
-    LAMMPS_NS::tagint *d_full_to_half,
+    int *d_group_indices,
+    int *d_group_numneigh,
+    int *d_firstneigh_ptrs, MetaD_zqc::ArrayView<const double> d_x_flat,
+    int *d_full_to_half,
     // out
     int *d_neigh_in_cutoff_r, int *d_active_pair_mask,
     double *d_neigh_in_switching,
-    LAMMPS_NS::tagint *d_calculated_numneigh){
-        
+    int *d_calculated_numneigh){
+
     #define sw_f(r) (MetaD_zqc::SwitchFunction::f(sw_params_rij, (r)))
     // get_environment_Steinhardt_Q in GPU
     int c_atom = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1161,16 +656,16 @@ __global__ void get_environment_Steinhardt_Q(
         int temp_tag;
         d_neigh_in_cutoff_r[c_atom_calctag] = 0;
         // c_glob_tag = h_tag[c_atom_loctag];
-        double c_x = d_x_flat[c_atom_loctag*3];
-        double c_y = d_x_flat[c_atom_loctag*3+1];
-        double c_z = d_x_flat[c_atom_loctag*3+2];
+        double c_x = d_x_flat(c_atom_loctag,0);
+        double c_y = d_x_flat(c_atom_loctag,1);
+        double c_z = d_x_flat(c_atom_loctag,2);
         double sum_of_sigma_CNatoms = 0;
         int sum_of_numneigh = 0;
         int max_ii=0;
         //find curtoff_Natoms neigh
         int start_neigh = d_group_numneigh[c_atom];
-        for (int neigh_atom=start_neigh; 
-                neigh_atom<d_group_numneigh[c_atom+1]; 
+        for (int neigh_atom=start_neigh;
+                neigh_atom<d_group_numneigh[c_atom+1];
                 neigh_atom++){
             int neigh_loctag = d_firstneigh_ptrs[neigh_atom];
             double r2,sigma_r,r;
@@ -1179,9 +674,9 @@ __global__ void get_environment_Steinhardt_Q(
             double delt_x,delt_y,delt_z;
             // if (neigh_loctag < 0 ) continue;
             // int n_glob_tag = h_tag[neigh_loctag];
-            neigh_x = d_x_flat[neigh_loctag*3];
-            neigh_y = d_x_flat[neigh_loctag*3+1];
-            neigh_z = d_x_flat[neigh_loctag*3+2];
+            neigh_x = d_x_flat(neigh_loctag,0);
+            neigh_y = d_x_flat(neigh_loctag,1);
+            neigh_z = d_x_flat(neigh_loctag,2);
             delt_x = (neigh_x - c_x);
             delt_y = (neigh_y - c_y);
             delt_z = (neigh_z - c_z);
@@ -1217,10 +712,10 @@ __global__ void steinhardt_cv_kernel(
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
-    LAMMPS_NS::tagint *d_group_numneigh,
-    LAMMPS_NS::tagint *d_calculated_firstneigh_ptrs,
-    LAMMPS_NS::tagint *d_calculated_numneigh,
-    double *d_x_flat,
+    int *d_group_numneigh,
+    int *d_calculated_firstneigh_ptrs,
+    int *d_calculated_numneigh,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql) {
 
@@ -1228,12 +723,12 @@ __global__ void steinhardt_cv_kernel(
     #define sw_f(r) (MetaD_zqc::SwitchFunction::f(sw_params_rij, (r)))
     if (c_atom_calctag >= calc_count) return;
 
-    LAMMPS_NS::tagint c_atom_loctag = d_group_indices[c_atom_calctag]; // 当前原子在local原子列表中的标签
+    int c_atom_loctag = d_group_indices[c_atom_calctag]; // 当前原子在local原子列表中的标签
     constexpr int lm_size = (L + 1) * 2;
 
     // 【与导数核函数完美镜像】的近邻数读取与基础寻址逻辑
     int neigh_num = d_neigh_in_cutoff_r[c_atom_calctag];
-    LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size; // qlm 按 local 原子索引存储，便于通信
+    int stein_qlm_base_id = c_atom_loctag * lm_size; // qlm 按 local 原子索引存储，便于通信
 
     // 如果没有邻居，直接清零退出
     double NFb_i_check = d_neigh_in_switching[c_atom_loctag];
@@ -1243,21 +738,21 @@ __global__ void steinhardt_cv_kernel(
 
     // 在寄存器（栈）上初始化局部数组用于累加，避免频繁读写全局显存
     double local_qlm[lm_size] = {0.0};
-    double c_x = d_x_flat[c_atom_loctag*3];
-    double c_y = d_x_flat[c_atom_loctag*3+1];
-    double c_z = d_x_flat[c_atom_loctag*3+2];
+    double c_x = d_x_flat(c_atom_loctag,0);
+    double c_y = d_x_flat(c_atom_loctag,1);
+    double c_z = d_x_flat(c_atom_loctag,2);
 
-    LAMMPS_NS::tagint neigh_base = d_group_numneigh[c_atom_calctag];
+    int neigh_base = d_group_numneigh[c_atom_calctag];
 
     double qlm_value_weight = 0.0;
 
-    for (LAMMPS_NS::tagint neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
-        LAMMPS_NS::tagint neigh_loctag = d_calculated_numneigh[neigh_base + neigh_atom];
+    for (int neigh_atom = 0; neigh_atom < neigh_num; neigh_atom++) {
+        int neigh_loctag = d_calculated_numneigh[neigh_base + neigh_atom];
         double local_Ylm[lm_size] = {0.0};
-        
-        double neigh_x = d_x_flat[neigh_loctag*3];
-        double neigh_y = d_x_flat[neigh_loctag*3+1];
-        double neigh_z = d_x_flat[neigh_loctag*3+2];
+
+        double neigh_x = d_x_flat(neigh_loctag,0);
+        double neigh_y = d_x_flat(neigh_loctag,1);
+        double neigh_z = d_x_flat(neigh_loctag,2);
         double delt_x = (neigh_x - c_x);
         double delt_y = (neigh_y - c_y);
         double delt_z = (neigh_z - c_z);
@@ -1277,7 +772,7 @@ __global__ void steinhardt_cv_kernel(
     }
 
     // --- 循环外归一化与写回全局显存 ---
-    
+
     #pragma unroll
     for (int i = 0; i < lm_size; i++) {
         local_qlm[i] *= inv_neigh;
@@ -1301,10 +796,10 @@ template __global__ void steinhardt_cv_kernel<3>(
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
-    LAMMPS_NS::tagint *d_group_numneigh,
-    LAMMPS_NS::tagint *d_calculated_firstneigh_ptrs,
-    LAMMPS_NS::tagint *d_calculated_numneigh,
-    double *d_x_flat,
+    int *d_group_numneigh,
+    int *d_calculated_firstneigh_ptrs,
+    int *d_calculated_numneigh,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql);
 template __global__ void steinhardt_cv_kernel<4>(
@@ -1312,10 +807,10 @@ template __global__ void steinhardt_cv_kernel<4>(
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
-    LAMMPS_NS::tagint *d_group_numneigh,
-    LAMMPS_NS::tagint *d_calculated_firstneigh_ptrs,
-    LAMMPS_NS::tagint *d_calculated_numneigh,
-    double *d_x_flat,
+    int *d_group_numneigh,
+    int *d_calculated_firstneigh_ptrs,
+    int *d_calculated_numneigh,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql);
 template __global__ void steinhardt_cv_kernel<6>(
@@ -1323,10 +818,10 @@ template __global__ void steinhardt_cv_kernel<6>(
     int calc_count, double cutoff_r, double cutoff_eps,
     int *d_group_indices,
     int *d_neigh_in_cutoff_r,
-    LAMMPS_NS::tagint *d_group_numneigh,
-    LAMMPS_NS::tagint *d_calculated_firstneigh_ptrs,
-    LAMMPS_NS::tagint *d_calculated_numneigh,
-    double *d_x_flat,
+    int *d_group_numneigh,
+    int *d_calculated_firstneigh_ptrs,
+    int *d_calculated_numneigh,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_qlm, double *d_stein_Ylm, double *d_stein_ql);
 
@@ -1334,19 +829,19 @@ template __global__ void steinhardt_cv_kernel<6>(
 template <int L>
 __global__ void steinhardt_dcv_kernel(
     MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    LAMMPS_NS::tagint pair_all, int groupbit,
-    int *d_mask,
-    LAMMPS_NS::tagint *d_active_pair_ids,
-    LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
-    double *d_x_flat,
+    int pair_all, int groupbit,
+    MetaD_zqc::ArrayView<const int> d_mask,
+    int *d_active_pair_ids,
+    int *d_half_pair_i, int *d_half_pair_j,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_ql, double *d_stein_qlm,
     double *d_dcvdx, double *d_a_virial,
     const double *atom_adjoint) {
-    
+
     int pair_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (pair_id >= pair_all) return;
-    
+
     int pair_tag = d_active_pair_ids[pair_id];
 
     #define sw_f_r(r) (MetaD_zqc::SwitchFunction::f(sw_params_rij, (r)))
@@ -1355,17 +850,17 @@ __global__ void steinhardt_dcv_kernel(
     double pre_ij_ji = (L%2==0)? 1.0 : -1.0; // (-1)^L
     constexpr int lm_size = (L + 1) * 2 ;
 
-    LAMMPS_NS::tagint c_atom_loctag = d_half_pair_i[pair_tag];
-    LAMMPS_NS::tagint neigh_loctag = d_half_pair_j[pair_tag];
+    int c_atom_loctag = d_half_pair_i[pair_tag];
+    int neigh_loctag = d_half_pair_j[pair_tag];
 
     double scale = (4 * PI) / ((2 * L + 1));
-    
-    double c_x = d_x_flat[c_atom_loctag*3+0];
-    double c_y = d_x_flat[c_atom_loctag*3+1];
-    double c_z = d_x_flat[c_atom_loctag*3+2];
-    double neigh_x = d_x_flat[neigh_loctag*3+0];
-    double neigh_y = d_x_flat[neigh_loctag*3+1];
-    double neigh_z = d_x_flat[neigh_loctag*3+2];
+
+    double c_x = d_x_flat(c_atom_loctag,0);
+    double c_y = d_x_flat(c_atom_loctag,1);
+    double c_z = d_x_flat(c_atom_loctag,2);
+    double neigh_x = d_x_flat(neigh_loctag,0);
+    double neigh_y = d_x_flat(neigh_loctag,1);
+    double neigh_z = d_x_flat(neigh_loctag,2);
     double dx = (neigh_x - c_x);
     double dy = (neigh_y - c_y);
     double dz = (neigh_z - c_z);
@@ -1377,7 +872,7 @@ __global__ void steinhardt_dcv_kernel(
     const double nx = dx * inv_r, ny = dy * inv_r, nz = dz * inv_r;
 
     double catom_ql_timesN, neigh_ql_timesN;
-    if ((d_mask[c_atom_loctag]&groupbit) == 0) {
+    if ((d_mask(c_atom_loctag)&groupbit) == 0) {
         catom_ql_timesN = 0.0;
     } else {
         double qlc = d_stein_ql[c_atom_loctag];
@@ -1388,7 +883,7 @@ __global__ void steinhardt_dcv_kernel(
             catom_ql_timesN = scale / qlc / d_neigh_in_switching[c_atom_loctag] * value_adjoint;
         }
     }
-    if ((d_mask[neigh_loctag]&groupbit) == 0) {
+    if ((d_mask(neigh_loctag)&groupbit) == 0) {
         neigh_ql_timesN = 0.0;
     } else {
         double qln = d_stein_ql[neigh_loctag];
@@ -1402,8 +897,8 @@ __global__ void steinhardt_dcv_kernel(
 
     double local_Ylm[lm_size];
     double local_Ylmdr[3*2];
-    LAMMPS_NS::tagint stein_qlm_base_id = c_atom_loctag * lm_size;
-    LAMMPS_NS::tagint stein_qlm_neigh_id = neigh_loctag * lm_size;
+    int stein_qlm_base_id = c_atom_loctag * lm_size;
+    int stein_qlm_neigh_id = neigh_loctag * lm_size;
     // Share the unit-direction polynomial recurrence between Ylm and dYlm/dR.
     compute_Ylm_unit_and_gradient<L>(
         nx, ny, nz, inv_r, catom_ql_timesN * r_weight, neigh_ql_timesN * r_weight,
@@ -1439,22 +934,23 @@ __global__ void steinhardt_dcv_kernel(
     f[2] = (local_Ylmdr[ 2*2 + 0] + local_Ylmdr[ 2*2 + 1] + sum_of_sigma*nz);
     // if (isnan(fx) || isnan(fy) || isnan(fz)) {
     //     // 只有崩成 NaN 的线程才会触发打印，不影响整体速度
-    //     printf("[NaN Detected] c_atom_calctag = %d, neigh_tag = %d, Neigh_Nb=%d, d_stein_ql[neigh_tag]=%g, d_stein_qlm[stein_qlm_neigh_id + 0]=%g r = %f, dx = %f, dy = %f, dz = %f, sin_theta = %f\n", 
+    //     printf("[NaN Detected] c_atom_calctag = %d, neigh_tag = %d, Neigh_Nb=%d, d_stein_ql[neigh_tag]=%g, d_stein_qlm[stein_qlm_neigh_id + 0]=%g r = %f, dx = %f, dy = %f, dz = %f, sin_theta = %f\n",
     //             c_atom_calctag, neigh_tag, Neigh_Nb, d_stein_ql[neigh_tag],d_stein_qlm[stein_qlm_neigh_id + 0], r, dx, dy, dz, sin_theta);
     // }
-    
-    double tmpvirial[6] = {0.0};
+
+    double tmpvirial[9] = {0.0};
     tmpvirial[ 0 ] = dx*f[0]; // vxx
     tmpvirial[ 1 ] = dy*f[1]; // vyy
     tmpvirial[ 2 ] = dz*f[2]; // vzz
     tmpvirial[ 3 ] = dx*f[1]; // vxy
     tmpvirial[ 4 ] = dx*f[2]; // vxz
     tmpvirial[ 5 ] = dy*f[2]; // vyz
+    tmpvirial[6]=dy*f[0]; tmpvirial[7]=dz*f[0]; tmpvirial[8]=dz*f[1];
     #pragma unroll
-    for (int i = 0; i < 6; i++) {
-        atomicAdd(&d_a_virial[6*c_atom_loctag + i],-0.5*tmpvirial[i]);
-        atomicAdd(&d_a_virial[6*neigh_loctag + i], -0.5*tmpvirial[i]);
-        // d_a_virial[6*c_atom_loctag + i] += tmpvirial[i];
+    for (int i = 0; i < 9; i++) {
+        atomicAdd(&d_a_virial[9*c_atom_loctag + i],-0.5*tmpvirial[i]);
+        atomicAdd(&d_a_virial[9*neigh_loctag + i], -0.5*tmpvirial[i]);
+        // d_a_virial[9*c_atom_loctag + i] += tmpvirial[i];
     }
 
     // 【完全通用】最后的总偏导汇总
@@ -1465,29 +961,29 @@ __global__ void steinhardt_dcv_kernel(
     }
 }
 template __global__ void steinhardt_dcv_kernel<3>(    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    LAMMPS_NS::tagint pair_all, int groupbit,
-    int *d_mask,
-    LAMMPS_NS::tagint *d_active_pair_ids,
-    LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
-    double *d_x_flat,
+    int pair_all, int groupbit,
+    MetaD_zqc::ArrayView<const int> d_mask,
+    int *d_active_pair_ids,
+    int *d_half_pair_i, int *d_half_pair_j,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_ql, double *d_stein_qlm,
     double *d_dcvdx, double *d_a_virial, const double *atom_adjoint);
 template __global__ void steinhardt_dcv_kernel<4>(    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    LAMMPS_NS::tagint pair_all, int groupbit,
-    int *d_mask,
-    LAMMPS_NS::tagint *d_active_pair_ids,
-    LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
-    double *d_x_flat,
+    int pair_all, int groupbit,
+    MetaD_zqc::ArrayView<const int> d_mask,
+    int *d_active_pair_ids,
+    int *d_half_pair_i, int *d_half_pair_j,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_ql, double *d_stein_qlm,
     double *d_dcvdx, double *d_a_virial, const double *atom_adjoint);
 template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionRequest sw_params_rij,
-    LAMMPS_NS::tagint pair_all, int groupbit,
-    int *d_mask,
-    LAMMPS_NS::tagint *d_active_pair_ids,
-    LAMMPS_NS::tagint *d_half_pair_i, LAMMPS_NS::tagint *d_half_pair_j,
-    double *d_x_flat,
+    int pair_all, int groupbit,
+    MetaD_zqc::ArrayView<const int> d_mask,
+    int *d_active_pair_ids,
+    int *d_half_pair_i, int *d_half_pair_j,
+    MetaD_zqc::ArrayView<const double> d_x_flat,
     double *d_neigh_in_switching,
     double *d_stein_ql, double *d_stein_qlm,
     double *d_dcvdx, double *d_a_virial, const double *atom_adjoint);
@@ -1495,8 +991,8 @@ template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionR
 
 // __global__ void steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
 //                     int stein_l, int groupbit,
-//                     int *d_mask, LAMMPS_NS::tagint *d_group_indices,
-//                     LAMMPS_NS::tagint *d_calculated_numneigh, 
+//                     MetaD_zqc::ArrayView<const int> d_mask, int *d_group_indices,
+//                     int *d_calculated_numneigh,
 //                     int *d_neigh_both_in_r_N,
 //                     double *d_stein_qlm, double *d_stein_LQlm,
 //                     double *d_stein_ql){
@@ -1519,7 +1015,7 @@ template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionR
 //         }
 //         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
 //             neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
-//             if (d_mask[neigh_tag]&groupbit){
+//             if (d_mask(neigh_tag)&groupbit){
 //                 // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
 //                 // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
 //                 int left = 0;
@@ -1558,8 +1054,8 @@ template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionR
 
 // __global__ void dcv_steinhardt_param_calc_LOCAL_kernel(int group_count, int cutoff_Natoms,
 //                     int stein_l, int groupbit,
-//                     int *d_mask, LAMMPS_NS::tagint *d_group_indices,
-//                     LAMMPS_NS::tagint *d_calculated_numneigh, 
+//                     MetaD_zqc::ArrayView<const int> d_mask, int *d_group_indices,
+//                     int *d_calculated_numneigh,
 //                     int *d_neigh_both_in_r_N,
 //                     double *d_stein_qlm, double *d_stein_LQlm,
 //                     double *d_stein_ql){
@@ -1582,7 +1078,7 @@ template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionR
 //         }
 //         for(int neigh_atom=0; neigh_atom<neigh_num; neigh_atom++){
 //             neigh_tag = d_calculated_numneigh[c_atom*cutoff_Natoms + neigh_atom];
-//             if (d_mask[neigh_tag]&groupbit){
+//             if (d_mask(neigh_tag)&groupbit){
 //                 // TODO: 此处有问题，因为邻居原子可能不在cvgroup中，此时是找不到它的LQlm的
 //                 // 使用二分查找法找 neigh_tag 对应在 d_stein_ql 中的位置
 //                 int left = 0;
@@ -1620,3 +1116,6 @@ template __global__ void steinhardt_dcv_kernel<6>(    MetaD_zqc::SwitchFunctionR
 
 
 REGISTER_CV("STEINH", MetaD_zqc::Steinhardt::create);
+template class MetaD_zqc::STEIN_QL<3>;
+template class MetaD_zqc::STEIN_QL<4>;
+template class MetaD_zqc::STEIN_QL<6>;

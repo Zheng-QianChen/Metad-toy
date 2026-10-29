@@ -1,0 +1,938 @@
+[
+  {
+    "variant": "uploaded",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 3.63202,
+    "us_per_step": 1911.5894736842106,
+    "process_wall_seconds": 5.327944534947164,
+    "nvrtc_ms": 21.181415,
+    "load_ms": 0.314625,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180819,
+      0.0004942834878176301,
+      0.00040239518740569757,
+      0.0011606677915108352
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0013921,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0040851,
+        "percent": 0.11
+      },
+      "Comm": {
+        "seconds": 0.054194,
+        "percent": 1.49
+      },
+      "Output": {
+        "seconds": 7.4962e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.4696,
+        "percent": 95.53
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_uploaded_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "current",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 2.86077,
+    "us_per_step": 1505.6684210526316,
+    "process_wall_seconds": 4.5250860980013385,
+    "nvrtc_ms": 22.336141,
+    "load_ms": 0.256473,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180816,
+      0.0004942834878176303,
+      0.00040239518740569773,
+      0.0011606677915108352
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0011087,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.006086,
+        "percent": 0.21
+      },
+      "Comm": {
+        "seconds": 0.044914,
+        "percent": 1.57
+      },
+      "Output": {
+        "seconds": 4.8165e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 2.7252,
+        "percent": 95.26
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_current_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "uploaded",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 3.59141,
+    "us_per_step": 1890.2157894736843,
+    "process_wall_seconds": 5.278038688004017,
+    "nvrtc_ms": 22.844099,
+    "load_ms": 0.281862,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180819,
+      0.0004942834878176301,
+      0.00040239518740569746,
+      0.0011606677915108352
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0014552,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0042038,
+        "percent": 0.12
+      },
+      "Comm": {
+        "seconds": 0.05391,
+        "percent": 1.5
+      },
+      "Output": {
+        "seconds": 8.8954e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.4259,
+        "percent": 95.39
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_uploaded_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "current",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 2.85833,
+    "us_per_step": 1504.3842105263159,
+    "process_wall_seconds": 4.5257397829554975,
+    "nvrtc_ms": 22.945219,
+    "load_ms": 0.290541,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180816,
+      0.0004942834878176303,
+      0.00040239518740569773,
+      0.0011606677915108356
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0012157,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0061054,
+        "percent": 0.21
+      },
+      "Comm": {
+        "seconds": 0.046282,
+        "percent": 1.62
+      },
+      "Output": {
+        "seconds": 4.4962e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 2.7208,
+        "percent": 95.19
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_current_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "current",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 2.88546,
+    "us_per_step": 1518.6631578947367,
+    "process_wall_seconds": 4.57664536696393,
+    "nvrtc_ms": 24.175818,
+    "load_ms": 0.312461,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180816,
+      0.0004942834878176303,
+      0.0004023951874056978,
+      0.0011606677915108356
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0011802,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0066975,
+        "percent": 0.23
+      },
+      "Comm": {
+        "seconds": 0.046543,
+        "percent": 1.61
+      },
+      "Output": {
+        "seconds": 4.7533e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 2.746,
+        "percent": 95.17
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_current_r2",
+    "repeat": 2
+  },
+  {
+    "variant": "uploaded",
+    "case": "css",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 1,
+    "steps": 1900,
+    "loop_seconds": 3.41609,
+    "us_per_step": 1797.9421052631578,
+    "process_wall_seconds": 5.177427917020395,
+    "nvrtc_ms": 22.698368,
+    "load_ms": 0.307695,
+    "observables": [
+      0.2667231993471399,
+      0.05334463986942798,
+      0.09997661029949542,
+      -0.12185383053895336,
+      -0.14329121802906403,
+      -0.14303499460180819,
+      0.0004942834878176301,
+      0.00040239518740569746,
+      0.0011606677915108352
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0014392,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.004332,
+        "percent": 0.13
+      },
+      "Comm": {
+        "seconds": 0.047929,
+        "percent": 1.4
+      },
+      "Output": {
+        "seconds": 5.1042e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.2707,
+        "percent": 95.74
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/css_16_np1_uploaded_r2",
+    "repeat": 2
+  },
+  {
+    "variant": "current",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 3.14167,
+    "us_per_step": 3141.67,
+    "process_wall_seconds": 4.9767849770141765,
+    "nvrtc_ms": 23.166385,
+    "load_ms": 0.321602,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104047e-05,
+      -0.00011737932721988299,
+      -0.00010732838538981645,
+      -1.1965503192188697e-05,
+      -9.620885359636642e-06,
+      -6.492804998623986e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0012851,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.029856,
+        "percent": 0.95
+      },
+      "Output": {
+        "seconds": 5.17e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.0525,
+        "percent": 97.16
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_current_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "uploaded",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 3.74661,
+    "us_per_step": 3746.61,
+    "process_wall_seconds": 5.6792644310044125,
+    "nvrtc_ms": 24.039513,
+    "load_ms": 0.317958,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104044e-05,
+      -0.00011737932721988296,
+      -0.00010732838538981645,
+      -1.1965503192188688e-05,
+      -9.620885359636644e-06,
+      -6.492804998623986e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0011704,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.032938,
+        "percent": 0.88
+      },
+      "Output": {
+        "seconds": 6.011e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.6514,
+        "percent": 97.46
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_uploaded_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "current",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 3.29355,
+    "us_per_step": 3293.55,
+    "process_wall_seconds": 5.177609810954891,
+    "nvrtc_ms": 21.077601,
+    "load_ms": 0.357196,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104044e-05,
+      -0.00011737932721988299,
+      -0.00010732838538981645,
+      -1.1965503192188683e-05,
+      -9.620885359636639e-06,
+      -6.492804998623986e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0013084,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.035719,
+        "percent": 1.08
+      },
+      "Output": {
+        "seconds": 7.2706e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.191,
+        "percent": 96.89
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_current_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "uploaded",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 4.3836,
+    "us_per_step": 4383.6,
+    "process_wall_seconds": 6.331893061986193,
+    "nvrtc_ms": 25.048432,
+    "load_ms": 0.296714,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104044e-05,
+      -0.00011737932721988299,
+      -0.00010732838538981645,
+      -1.196550319218869e-05,
+      -9.62088535963664e-06,
+      -6.492804998623984e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0015837,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.04251,
+        "percent": 0.97
+      },
+      "Output": {
+        "seconds": 4.9078e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 4.2626,
+        "percent": 97.24
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_uploaded_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "current",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 3.39283,
+    "us_per_step": 3392.83,
+    "process_wall_seconds": 5.4288801909424365,
+    "nvrtc_ms": 25.293414,
+    "load_ms": 0.34106,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104041e-05,
+      -0.00011737932721988296,
+      -0.00010732838538981645,
+      -1.1965503192188683e-05,
+      -9.620885359636649e-06,
+      -6.492804998623988e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0014459,
+        "percent": 0.04
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.035977,
+        "percent": 1.06
+      },
+      "Output": {
+        "seconds": 5.2768e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.2877,
+        "percent": 96.9
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_current_r2",
+    "repeat": 2
+  },
+  {
+    "variant": "uploaded",
+    "case": "q6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 1000,
+    "loop_seconds": 3.82827,
+    "us_per_step": 3828.27,
+    "process_wall_seconds": 5.788998005911708,
+    "nvrtc_ms": 22.170785,
+    "load_ms": 0.334732,
+    "observables": [
+      0.5742326890309725,
+      0.1148465378061945,
+      0.09998860822554494,
+      -8.380618130104041e-05,
+      -0.00011737932721988299,
+      -0.00010732838538981645,
+      -1.1965503192188688e-05,
+      -9.620885359636646e-06,
+      -6.492804998623982e-05
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.0012296,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.034453,
+        "percent": 0.9
+      },
+      "Output": {
+        "seconds": 6.3232e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 3.7271,
+        "percent": 97.36
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/q6_16_np1_uploaded_r2",
+    "repeat": 2
+  },
+  {
+    "variant": "current",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 6.64512,
+    "us_per_step": 22150.4,
+    "process_wall_seconds": 10.797178069013171,
+    "nvrtc_ms": 24.01211,
+    "load_ms": 0.468203,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.00045223870595919306,
+      -0.000789924772469972,
+      -0.0009154322539415194,
+      3.564437820771316e-05,
+      0.00029471904743240586,
+      -0.0011699624571873107
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00057407,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.022642,
+        "percent": 0.34
+      },
+      "Output": {
+        "seconds": 8.024e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 6.5951,
+        "percent": 99.25
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_current_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "uploaded",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r0",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 1.77445,
+    "us_per_step": 5914.833333333333,
+    "process_wall_seconds": 4.074754439061508,
+    "nvrtc_ms": 24.055107,
+    "load_ms": 0.316779,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.0004522387059591931,
+      -0.0007899247724699722,
+      -0.0009154322539415199,
+      3.564437820771319e-05,
+      0.000294719047432406,
+      -0.0011699624571873104
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00050271,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.022053,
+        "percent": 1.24
+      },
+      "Output": {
+        "seconds": 5.7689e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 1.7248,
+        "percent": 97.2
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_uploaded_r0",
+    "repeat": 0
+  },
+  {
+    "variant": "current",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 6.57137,
+    "us_per_step": 21904.566666666666,
+    "process_wall_seconds": 10.444237957010046,
+    "nvrtc_ms": 21.436363,
+    "load_ms": 0.301543,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.0004522387059591929,
+      -0.0007899247724699723,
+      -0.0009154322539415196,
+      3.5644378207713174e-05,
+      0.00029471904743240586,
+      -0.0011699624571873102
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00050871,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.022227,
+        "percent": 0.34
+      },
+      "Output": {
+        "seconds": 0.00019186,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 6.5227,
+        "percent": 99.26
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_current_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "uploaded",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r1",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 1.74159,
+    "us_per_step": 5805.3,
+    "process_wall_seconds": 3.975269795046188,
+    "nvrtc_ms": 23.088365,
+    "load_ms": 0.331554,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.0004522387059591932,
+      -0.0007899247724699722,
+      -0.0009154322539415196,
+      3.564437820771314e-05,
+      0.000294719047432406,
+      -0.0011699624571873107
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00050312,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.023068,
+        "percent": 1.32
+      },
+      "Output": {
+        "seconds": 5.2794e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 1.6913,
+        "percent": 97.11
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_uploaded_r1",
+    "repeat": 1
+  },
+  {
+    "variant": "current",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 6.77104,
+    "us_per_step": 22570.133333333335,
+    "process_wall_seconds": 10.592342211981304,
+    "nvrtc_ms": 23.233469,
+    "load_ms": 0.300313,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.00045223870595919306,
+      -0.0007899247724699723,
+      -0.0009154322539415197,
+      3.564437820771316e-05,
+      0.000294719047432406,
+      -0.0011699624571873102
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00051779,
+        "percent": 0.01
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.021326,
+        "percent": 0.31
+      },
+      "Output": {
+        "seconds": 0.00011564,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 6.7236,
+        "percent": 99.3
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_current_r2",
+    "repeat": 2
+  },
+  {
+    "variant": "uploaded",
+    "case": "localq6",
+    "cells": 16,
+    "ranks": 1,
+    "tag": "r2",
+    "atoms": 16384,
+    "neighbor_rebuild": "displacement",
+    "pair_cutoff": 4.0,
+    "neighbor_builds": 0,
+    "steps": 300,
+    "loop_seconds": 1.66581,
+    "us_per_step": 5552.7,
+    "process_wall_seconds": 3.8740263379877433,
+    "nvrtc_ms": 21.065282,
+    "load_ms": 0.315167,
+    "observables": [
+      0.5722342920768081,
+      0.11444685841536162,
+      0.09997112747304336,
+      -0.0004522387059591932,
+      -0.0007899247724699722,
+      -0.0009154322539415197,
+      3.564437820771312e-05,
+      0.000294719047432406,
+      -0.0011699624571873104
+    ],
+    "lammps_timing": {
+      "Pair": {
+        "seconds": 0.00049717,
+        "percent": 0.03
+      },
+      "Neigh": {
+        "seconds": 0.0,
+        "percent": 0.0
+      },
+      "Comm": {
+        "seconds": 0.020205,
+        "percent": 1.21
+      },
+      "Output": {
+        "seconds": 5.3391e-05,
+        "percent": 0.0
+      },
+      "Modify": {
+        "seconds": 1.6212,
+        "percent": 97.32
+      }
+    },
+    "directory": "/home/zqc/work/Metad-toy/build/performance/uploaded_comparison_single_cvs/localq6_16_np1_uploaded_r2",
+    "repeat": 2
+  }
+]

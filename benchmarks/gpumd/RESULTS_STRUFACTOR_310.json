@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-23",
+  "host": "310_right",
+  "gpumd_version": "5.9.1",
+  "cuda_version": "12.5",
+  "tests_passed": 6,
+  "gpumd_executable_unchanged": true,
+  "abi_version": 1,
+  "base_cutoff_A": 2.0,
+  "cv_cutoff_A": 4.3,
+  "neighbor_memcheck_errors": 0,
+  "real_gpumd_nvrtc_memcheck_errors": 0,
+  "gpumd_sha256": "3c8dbfaa63e30c6c6f28911cb87eb36173f26bc0d900e08ef1fe13439c00211a",
+  "checks": {
+    "mean": {
+      "value": 8.881784197001252e-16,
+      "energy": 2.6645352591003757e-15,
+      "force": 7.105427357601002e-15,
+      "virial": 8.881784197001252e-15
+    },
+    "group": {
+      "value": 1.3322676295501878e-15,
+      "energy": 4.440892098500626e-15,
+      "force": 3.552713678800501e-15,
+      "virial": 5.329070518200751e-15
+    },
+    "mixed": {
+      "value": 0.0,
+      "energy": 0.0,
+      "force": 5.329070518200751e-15,
+      "virial": 1.4210854715202004e-14
+    },
+    "raw": {
+      "value": 3.552713678800501e-15,
+      "energy": 2.842170943040401e-14,
+      "force": 4.263256414560601e-14,
+      "virial": 8.526512829121202e-14
+    },
+    "finite_difference_force": 7.273193602941319e-09,
+    "finite_difference_diagonal_virial": 2.7860266982315807e-08,
+    "nonperiodic": {
+      "value": 2.220446049250313e-16,
+      "energy": 8.881784197001252e-16,
+      "force": 1.7763568394002505e-15,
+      "virial": 2.220446049250313e-16
+    },
+    "mixed_pbc": {
+      "value": 2.220446049250313e-16,
+      "energy": 8.881784197001252e-16,
+      "force": 3.552713678800501e-15,
+      "virial": 3.552713678800501e-15
+    },
+    "cache": {
+      "max_colvar_difference": 0.0,
+      "cached_rebuilds": 1,
+      "uncached_rebuilds": 201
+    }
+  },
+  "raw_checks_path": "/home/saitang/work/MetadToy-gpumd-20261023/build/gpumd/src/adapters/gpumd/gpumd-strufactor-qhuh1vg9/checks.json"
+}

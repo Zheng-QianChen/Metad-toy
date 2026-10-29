@@ -1,0 +1,9 @@
+CMake Error at work/MetadToy-kokkos-20261027/plugin/cmake/LammpsTrimCompatibility.cmake:21 (message):
+  LAMMPS has the legacy zero-cutoff trim bug in
+  npair_halffull.cpp;npair_trim.cpp;npair_skip.cpp.  A pair half list derived
+  from a larger CV full list can become empty.  Update LAMMPS, or apply
+  benchmarks/kokkos/patches/lammps-29Aug2024-trim.patch to matching 29Aug2024
+  sources and rebuild liblammps before building this plugin.  See
+  benchmarks/kokkos/README.md.
+
+

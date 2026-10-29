@@ -1,0 +1,5 @@
+# 可选模型验证依赖，建议安装在独立虚拟环境。
+-r requirements-numerical.txt
+tensorflow==2.17.0
+onnx==1.17.0
+onnxruntime==1.20.1

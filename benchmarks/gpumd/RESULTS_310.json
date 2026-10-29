@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-23",
+  "host": "310_right / excelsior",
+  "gpu": "RTX 4090 D",
+  "cuda": "12.5.40",
+  "driver": "550.144.03",
+  "compiler": "GCC 9.3.1",
+  "cmake": "3.22.5",
+  "gpumd": "v5.9.1",
+  "cuda_module_loading": "EAGER",
+  "sampling": {
+    "seed": 73517,
+    "steps": 2000000,
+    "hills": 19800,
+    "seconds": 205.11274402961135,
+    "ms_per_step": 0.10255637201480568,
+    "distance_min_A": 1.016030434503808,
+    "distance_max_A": 1.675841556041101,
+    "hills_sha256": "512512fb9ec17dd487e273f8531d7510959d8451f7a412541bd4353c5ea3f656",
+    "colvar_sha256": "b8bc328110ae78135ea615f9cdc98d565d715210d34df74b27f79768ee510267"
+  },
+  "fes_validation": {
+    "comparison_A": [
+      1.05,
+      1.6
+    ],
+    "rmse_eV": 0.009659444659972467,
+    "max_error_eV": 0.04263762921982436,
+    "coverage": true,
+    "inferred_minimum_A": 1.211,
+    "passed": true
+  },
+  "ctest": {
+    "passed": 3,
+    "total": 3,
+    "tests": [
+      "zqc_gpumd_engine",
+      "zqc_gpumd_distance_smoke",
+      "zqc_production_cv_views"
+    ]
+  },
+  "same_seed_smoke_hills_sha256": "36c53f8a8816fc31669f09d18e3112941a19ca23808db83888e518aa6d61bd70"
+}

@@ -1,0 +1,316 @@
+{
+  "protocol": {
+    "model": "coupled quartic double well; kBT=mass=friction=1",
+    "physical_cv": [
+      "x",
+      "y"
+    ],
+    "total_bias": "(u(x)+u(y))/2",
+    "deposition_seed": 187210,
+    "deposition_duration": 200.0,
+    "height": 0.02,
+    "sigma": 0.12,
+    "deposition_pace": 0.5,
+    "deposition_hills": 800,
+    "deposition_transitions": 5,
+    "table_energy_error": 4.5187187325268496e-11,
+    "table_gradient_error": 9.446083293340735e-08,
+    "force_fd_max": 6.26784384394341e-08,
+    "burn_continuation_bitwise": true,
+    "table_sha256": "c0afb4a04e9e9b1deb9a7dd5d27959cd881748656715ec5399c2d4b1879ceda2",
+    "step": 0.0005,
+    "burn": 500.0,
+    "duration": 10000.0,
+    "replicas": 16,
+    "record_interval": 0.1,
+    "production_seeds": [
+      931840,
+      931841,
+      931842,
+      931843,
+      931844,
+      931845,
+      931846,
+      931847,
+      931848,
+      931849,
+      931850,
+      931851,
+      931852,
+      931853,
+      931854,
+      931855
+    ],
+    "quadrants": [
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3
+    ],
+    "reference_used_by_cv_or_deposition": false,
+    "criteria": {
+      "fes_rmse_kbt": 0.12,
+      "covered_reference_mass": 0.98,
+      "bin_weight_ess": 60,
+      "total_variation": 0.035,
+      "moment_max_abs": 0.035,
+      "moment_max_sem": 0.01,
+      "confidence_multiplier": 4.0,
+      "confidence_abs_floor": 0.003
+    },
+    "frozen_wall_seconds": 15.865411054342985,
+    "unbiased_wall_seconds": 13.197675809264183,
+    "frozen_table_unchanged": true,
+    "wall_seconds": 29.554662477225065
+  },
+  "criteria": {
+    "fes_rmse_kbt": 0.12,
+    "covered_reference_mass": 0.98,
+    "bin_weight_ess": 60,
+    "total_variation": 0.035,
+    "moment_max_abs": 0.035,
+    "moment_max_sem": 0.01,
+    "confidence_multiplier": 4.0,
+    "confidence_abs_floor": 0.003
+  },
+  "reference": {
+    "quadrature_mass_max_error": 1.8041124150158794e-16,
+    "partition": 0.4359183263242807,
+    "moments": {
+      "P(x>0)": 0.5000000000000001,
+      "P(y>0)": 0.49999999999999994,
+      "P(x*y>0)": 0.9469150581289609,
+      "<xy>": 0.8117714463726132,
+      "<x^2>": 0.9104209707101515,
+      "<y^2>": 0.9104209707101513
+    }
+  },
+  "reconstruction": {
+    "cli_probability_max_error": 3.4833247397614286e-15,
+    "frames": 1600000,
+    "reference_used": false,
+    "weight_formula": "exp(B/kBT), full frame bias B"
+  },
+  "records": {
+    "frozen_raw": {
+      "fes_rmse_kbt": 0.6899132395462695,
+      "marginal_fes_rmse_kbt": [
+        0.5571062643421716,
+        0.5587831413140462
+      ],
+      "covered_reference_mass": 0.9997865260615996,
+      "total_variation": 0.2683343537514336,
+      "moments": [
+        0.669668125,
+        0.669844375,
+        0.9105025,
+        0.7059208941853665,
+        0.8386643049826498,
+        0.838022909421036
+      ],
+      "moment_sem": [
+        0.005055331115000448,
+        0.005157316887099176,
+        0.0014692936227997451,
+        0.0018547380034986138,
+        0.0008154382197835729,
+        0.0005974575689735942
+      ],
+      "moment_95ci": [
+        [
+          0.660347015625,
+          0.6798302187499999
+        ],
+        [
+          0.66005284375,
+          0.6800316875
+        ],
+        [
+          0.90766896875,
+          0.9131604375
+        ],
+        [
+          0.702310761433832,
+          0.709335010764026
+        ],
+        [
+          0.8370571774396655,
+          0.8401192709968104
+        ],
+        [
+          0.8369014440982946,
+          0.8390926269688798
+        ]
+      ],
+      "moment_max_abs": 0.1698443750000001,
+      "weight_ess": 1600000.0,
+      "transitions": 3334,
+      "kinetic_temperature": 1.002256415417716,
+      "temperature_sem": 0.0023655112954700627,
+      "first_half_P_x_positive": 0.660385,
+      "second_half_P_x_positive": 0.67895125,
+      "half_distributions_TV": 0.0210175,
+      "criteria_pass": {
+        "fes_rmse": false,
+        "coverage": true,
+        "total_variation": false,
+        "moment_accuracy": false,
+        "moment_precision": true,
+        "moment_consistency": false,
+        "temperature": true
+      },
+      "passed": false
+    },
+    "frozen_weighted": {
+      "fes_rmse_kbt": 0.014319617882592102,
+      "marginal_fes_rmse_kbt": [
+        0.005837453379354853,
+        0.00799588625258599
+      ],
+      "covered_reference_mass": 0.9997729754426277,
+      "total_variation": 0.004780830876394649,
+      "moments": [
+        0.4980382162138924,
+        0.4978567149688313,
+        0.9467900923082665,
+        0.8113905862238815,
+        0.9103490847572095,
+        0.9100908127419708
+      ],
+      "moment_sem": [
+        0.00606574514564117,
+        0.006222533135143313,
+        0.0010405729985069902,
+        0.001644710032856032,
+        0.0006156957827309011,
+        0.00037551072897703327
+      ],
+      "moment_95ci": [
+        [
+          0.4869637417872128,
+          0.5103807714328408
+        ],
+        [
+          0.4862163843651814,
+          0.5100116498595983
+        ],
+        [
+          0.9447973766091661,
+          0.9487290632271826
+        ],
+        [
+          0.8081907709120503,
+          0.8145259068610017
+        ],
+        [
+          0.9092370726094718,
+          0.9115094123537733
+        ],
+        [
+          0.9093447736719026,
+          0.9107491584432956
+        ]
+      ],
+      "moment_max_abs": 0.002143285031168618,
+      "weight_ess": 968022.7198530454,
+      "transitions": 3334,
+      "kinetic_temperature": 1.002256415417716,
+      "temperature_sem": 0.0023655112954700627,
+      "first_half_P_x_positive": 0.487191610075805,
+      "second_half_P_x_positive": 0.5090058737567329,
+      "half_distributions_TV": 0.02283029566959103,
+      "criteria_pass": {
+        "fes_rmse": true,
+        "coverage": true,
+        "total_variation": true,
+        "moment_accuracy": true,
+        "moment_precision": true,
+        "moment_consistency": true,
+        "temperature": true
+      },
+      "passed": true
+    },
+    "unbiased_raw": {
+      "fes_rmse_kbt": 0.03478457081963679,
+      "marginal_fes_rmse_kbt": [
+        0.028342790734033643,
+        0.027579377313164493
+      ],
+      "covered_reference_mass": 0.9992948613336676,
+      "total_variation": 0.015594955807543973,
+      "moments": [
+        0.486144375,
+        0.4864525,
+        0.944161875,
+        0.8080515671282612,
+        0.9099988017220075,
+        0.9098611271412896
+      ],
+      "moment_sem": [
+        0.017154856187310105,
+        0.016467937623859685,
+        0.00227254010209391,
+        0.0036041425411841633,
+        0.0008227179088579944,
+        0.0009124635277214569
+      ],
+      "moment_95ci": [
+        [
+          0.45243121875,
+          0.5163844843750001
+        ],
+        [
+          0.454822546875,
+          0.5165101562500001
+        ],
+        [
+          0.939783453125,
+          0.9482619531250001
+        ],
+        [
+          0.8009803981124481,
+          0.8145867069093304
+        ],
+        [
+          0.9084083350835057,
+          0.9115411564809565
+        ],
+        [
+          0.9081154440643125,
+          0.9115523024442961
+        ]
+      ],
+      "moment_max_abs": 0.013855625000000094,
+      "weight_ess": 1600000.0,
+      "transitions": 844,
+      "kinetic_temperature": 0.9996305631559284,
+      "temperature_sem": 0.0018219628337061353,
+      "first_half_P_x_positive": 0.49685500000000005,
+      "second_half_P_x_positive": 0.4754337500000001,
+      "half_distributions_TV": 0.0261925,
+      "criteria_pass": {
+        "fes_rmse": true,
+        "coverage": true,
+        "total_variation": true,
+        "moment_accuracy": true,
+        "moment_precision": false,
+        "moment_consistency": true,
+        "temperature": true
+      },
+      "passed": false
+    }
+  },
+  "uncertainty": "independent-trajectory cluster bootstrap; weight ESS excludes time autocorrelation"
+}

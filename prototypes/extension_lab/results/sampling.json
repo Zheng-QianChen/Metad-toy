@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "umbrella_gradient_max_error": 2.780353725029272e-11,
+  "metad_gradient_max_error": 3.20209414539363e-11,
+  "restart_exact": true,
+  "samples": 540000,
+  "wham_rmse_kbt": 0.020617851124151296,
+  "wham_iterations": 401,
+  "minimum_neighbor_overlap": 0.5439,
+  "acceptance": 0.6205822916666667
+}
