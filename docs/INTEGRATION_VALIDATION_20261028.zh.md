@@ -1,5 +1,11 @@
 # 统一源码验收（2026-10-28）
 
+本页保留早期整合的历史记录。`final-weave-ctest/ctest.log` 的 34/34 对应
+2026-10-28 17:24 的测试清单，早于 21:28 的旧功能恢复提交，不包含后来新增的
+`zqc_graph_sum_safe_div_mpi_{1,2,4}`，不能作为这三条的验收证据。
+2026-10-29 的失败复现、上传就绪契约修正和当前重复验证另见
+[SUM/safe_div 跨流复验](STREAM_READINESS_20261029.zh.md)。
+
 本轮三个构建配置均来自同一份源码，源码文件指纹为 `875f3cc6093d06c086b0dd30e143d5cf301bb27f7c78537e5dbdf674ddd9f168`。
 逐文件 SHA256、插件 SHA256、结果路径见 `integration-validation-20261028.json`。
 Git 提交号另随主目录 `build/unified-20261028/manifest.json` 记录，避免把旧 HEAD 的历史测试归给新源码。
@@ -7,7 +13,7 @@ Git 提交号另随主目录 `build/unified-20261028/manifest.json` 记录，避
 | 验收 | 结果 | 覆盖范围 |
 | --- | --- | --- |
 | 构建 | 3/3 | Weave+Kokkos、普通 Kokkos、普通 LAMMPS；可选 ML 关闭。 |
-| CTest | 34/34 | Host 接口、Graph/CUDA/流、MPI 1/2/4 rank、CV、冻结表、GPUMD 适配/runtime。 |
+| 早期 CTest（10-28 17:24） | 34/34 | 当时的 Host/Graph/CUDA/流、MPI、CV、冻结表、GPUMD 测试清单；不包含后加的 SUM/safe_div 三条。 |
 | 全局 CV 有限差分 | 14/14 | Q6、LocalQL6、传统 DISTANCE/线性组合、Graph DISTANCE、混合域、非线性图；1/2 rank，两个步长。 |
 | Al3Sc 固定表 | 18/18 运行 | Weave 下 1/2 rank，原始乘积/开关乘积、空中心、选择集刷新、NVE、读写 restart；三条回退配置各 4 个运行。 |
 | 真实适配器批次 | 4/4 运行 | 1/2 rank × 普通/单中心；每 rank 12 种 Host/CUDA/混合、AoS/SoA、6/9 分量组合；取消、空批次、复用、一次 reverse/写回。 |

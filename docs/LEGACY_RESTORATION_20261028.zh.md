@@ -20,10 +20,14 @@
 使用及迁移见 [LocalGeom](manuals/CVs_LocalGeom.zh.md) 和 [Steinhardt](manuals/CVs_Steinhardt.zh.md)。
 恢复功能不代表恢复含糊的旧语法；旧 AVE/NSOLID 等 CV 内部轴继续提示迁移到 Graph。
 
-## 验收
+## 2026-10-28 的历史验收记录
 
 运行宿主：WSL RTX4080SUPER，LAMMPS 22Jul2025；与上一轮一致的 CUDA/MPI/Weave 安装。
-以下为最终实现的验证，日志根目录为 `build/restoration-20261028/`：
+以下为当时留下的记录，日志根目录为 `build/restoration-20261028/`。
+它们与“当前可重复通过”分开表述：2026-10-29 独立复验发现 SUM/safe_div 测试的
+Host→Device 上传未正确声明跨流就绪，旧二进制在默认并发下失败。
+本轮已复现并定位该夹具问题；修正与当前 CTest/稳定性结果见
+[跨流复验](STREAM_READINESS_20261029.zh.md)。不能用早于恢复提交的 34/34 覆盖这三条。
 
 | 验证 | 结果 | 日志子目录 |
 | --- | --- | --- |
@@ -32,7 +36,7 @@
 | 显式多组 SUM，变化中心组及差分 × 1/2/4 rank | 3/3 | explicit-family |
 | Host 适配插件，COORD/TET/空集 × 1/2 rank | 6/6 | localgeom-host-final |
 | Kokkos 无 Weave 插件，同上 | 6/6 | localgeom-kokkos-final |
-| 完整 CTest（含 SUM/safe_div 的 1/2/4 rank） | 37/37 | ../integration-weave/Testing/Temporary/LastTest.log |
+| 当晚完整 CTest（含 SUM/safe_div 的 1/2/4 rank） | 当时 37/37；不单独作为当前复现证明 | ctest-37.log，文件内记录 10-28 21:17 三条 SUM_SAFE_DIV_PASS |
 
 LocalGeom 包含独立 CPU 公式、周期边界、类型筛选、排除、孤立原子、全局空组、空 rank、
 选择集更新、迁移和 NPT。坐标力差分最大约 4.8e-11；六分量应变差分最大约 1.1e-6。

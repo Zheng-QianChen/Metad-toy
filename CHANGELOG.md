@@ -1,5 +1,13 @@
 # 更新日志
 
+## Graph 测试跨流就绪修正 — 2026-10-29
+
+- 复现 SUM/safe_div MPI 三条失败；仅同步测试 H2D、链接原 STATIC 库的隔离版本通过 15/15。
+- SUM/safe_div 与 AVE 测试改用 GpuBuffer 上传/下载契约；新增交替默认流/非阻塞流的延迟生产者回归。
+- 标准及全新 Graph 预设均 36/36；默认环境 SUM/safe_div 重复 150 次、AVE 60 次、流契约 20 次通过，
+  MAX_CONNECTIONS=32 附加 SUM 对照 60 次通过；Host 6/6。生产计算代码及数值容差未改。
+- 区分早期 34 项、恢复当晚 37 项与当前复验记录，见 [完整证据](docs/STREAM_READINESS_20261029.zh.md)。
+
 ## 普通 LAMMPS 兼容验收 — 2026-10-29
 
 - host 构建/验证不再强制提供 Weave；仅 Kokkos/Weave 构建传入 Kokkos_DIR。

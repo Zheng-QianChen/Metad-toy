@@ -15,14 +15,15 @@ void close(double actual, double expected, const char* message) {
         throw std::runtime_error(std::string(message) + ": " + std::to_string(actual) +
                                  " != " + std::to_string(expected));
 }
-std::vector<double> read(const double* ptr, int count) {
+std::vector<double> read(const GpuBuffer<double>& buffer, int count) {
     std::vector<double> values(count);
-    if (count) graph_check_cuda(cudaMemcpy(values.data(), ptr, count * sizeof(double), cudaMemcpyDeviceToHost));
+    if (count) buffer.download_to(values.data(), values.size());
     return values;
 }
-void put(double* ptr, const std::vector<double>& values) {
-    if (!values.empty())
-        graph_check_cuda(cudaMemcpy(ptr, values.data(), values.size() * sizeof(double), cudaMemcpyHostToDevice));
+void put(GpuBuffer<double>& buffer, const std::vector<double>& values) {
+    // Pageable cudaMemcpy(H2D) may return before DMA finishes. The blocking
+    // buffer upload completes its stream before the nonblocking Graph consumes it.
+    if (!values.empty()) buffer.upload_from(values.data(), values.size());
 }
 
 // 模拟 CV.SUM：只累加指定 leaf 槽位，组外 padding 不参与。
@@ -61,7 +62,7 @@ void mean_solid_nested_sum() {
     GpuBuffer<double> values_buffer(3),gradient_buffer(3);
     Leaf q(values_buffer,gradient_buffer,3);
     const std::vector<double> baseline{0.2,0.8,0.5};
-    put(values_buffer.ptr,baseline);
+    put(values_buffer,baseline);
     Graph solid(Graph::Symbols{{"q", &q}});
     solid.parse_expr("safe_div(SUM(q*fermi(q,0.45,12)), SUM(fermi(q,0.45,12)), 1e-12)");
     GraphExecution solid_run(solid);
@@ -74,13 +75,13 @@ void mean_solid_nested_sum() {
     }
     close(values[0], sum_qf / sum_f, "MEAN_SOLID via SUM/safe_div");
     solid_run.backward({1.0});
-    const auto analytic=read(gradient_buffer.ptr,3);
+    const auto analytic=read(gradient_buffer,3);
     constexpr double step=1e-5;
     for(int i=0;i<3;++i) {
         auto plus=baseline,minus=baseline;
         plus[i]+=step; minus[i]-=step;
-        put(values_buffer.ptr,plus); const double vp=solid_run.forward()[0];
-        put(values_buffer.ptr,minus); const double vm=solid_run.forward()[0];
+        put(values_buffer,plus); const double vp=solid_run.forward()[0];
+        put(values_buffer,minus); const double vm=solid_run.forward()[0];
         require(std::abs((vp-vm)/(2*step)-analytic[i])<2e-8,"MEAN_SOLID gradient finite difference");
     }
 }
@@ -144,8 +145,8 @@ void per_atom_and_broadcast(MPI_Comm comm) {
         local_x[i] = x_all[ids[i]];
         local_y[i] = 0.25 + 0.1 * ids[i];
     }
-    put(vx.ptr, local_x);
-    put(vy.ptr, local_y);
+    put(vx, local_x);
+    put(vy, local_y);
 
     Graph same(Graph::Symbols{{"x", &x}, {"y", &y}}, {}, sum);
     same.parse_expr("SUM(safe_div(x, y, 1e-12))");
@@ -155,10 +156,10 @@ void per_atom_and_broadcast(MPI_Comm comm) {
         expect_sum += x_all[i] / (0.25 + 0.1 * i);
     close(same_run.forward()[0], expect_sum, "PerAtom safe_div inside SUM");
     same_run.backward({1.0});
-    const auto dx = read(gx.ptr, n);
+    const auto dx = read(gx, n);
     for (int i = 0; i < n; ++i) close(dx[i], 1.0 / local_y[i], "PerAtom safe_div d/dx");
 
-    put(gx.ptr, std::vector<double>(n + 2, 0.0));
+    put(gx, std::vector<double>(n + 2, 0.0));
     Graph broadcast(Graph::Symbols{{"x", &x}, {"c", &scale}}, {}, sum);
     broadcast.parse_expr("SUM(safe_div(x, c, 1e-12))");
     GraphExecution broadcast_run(broadcast);
@@ -166,7 +167,7 @@ void per_atom_and_broadcast(MPI_Comm comm) {
     for (double xi : x_all) broadcast_sum += xi / 0.5;
     close(broadcast_run.forward()[0], broadcast_sum, "broadcast safe_div SUM");
     broadcast_run.backward({1.0});
-    const auto dxb = read(gx.ptr, n);
+    const auto dxb = read(gx, n);
     for (int i = 0; i < n; ++i) close(dxb[i], 1.0 / 0.5, "broadcast d/dx");
     // Every rank must receive the same Global adjoint, including an empty rank.
     const double db = *scale.adj;
@@ -193,7 +194,7 @@ void empty_ranks_and_global_empty(MPI_Comm comm) {
     Leaf x(values, gradients, n);
     std::vector<double> local(n);
     for (int i = 0; i < n; ++i) local[i] = samples[ids[i]];
-    put(values.ptr, local);
+    put(values, local);
 
     Graph graph(Graph::Symbols{{"x", &x}}, {}, sum);
     graph.parse_expr("SUM(x)");
@@ -203,7 +204,7 @@ void empty_ranks_and_global_empty(MPI_Comm comm) {
     close(out[0], 10.0, "SUM with possible empty local rank");
     close(out[1], 2.5, "AVE preserved beside SUM");
     run.backward({1.0, 0.0});
-    for (double g : read(gradients.ptr, n)) close(g, 1.0, "SUM seed is identity");
+    for (double g : read(gradients, n)) close(g, 1.0, "SUM seed is identity");
 
     Leaf empty(std::vector<double>{});
     Graph empty_graph(Graph::Symbols{{"x", &empty}}, {}, sum);
@@ -237,7 +238,7 @@ void family_exclusion_and_finite_difference(MPI_Comm comm) {
     Leaf x(values, gradients, leaf_n);
     auto fill = [&](const std::vector<double>& host) {
         if (leaf_n) {
-            put(values.ptr, host);
+            put(values, host);
             x.refresh_buffers();
         }
     };
@@ -252,10 +253,10 @@ void family_exclusion_and_finite_difference(MPI_Comm comm) {
     const double base = run.forward()[0];
     close(base, global, "family SUM excludes padding");
 
-    if (leaf_n) put(gradients.ptr, std::vector<double>(leaf_n, 0.0));
+    if (leaf_n) put(gradients, std::vector<double>(leaf_n, 0.0));
     run.backward({1.0});
     if (leaf_n) {
-        const auto analytic = read(gradients.ptr, leaf_n);
+        const auto analytic = read(gradients, leaf_n);
         close(analytic[0], 1.0, "family SUM d slot0");
         close(analytic[2], 1.0, "family SUM d slot2");
     }
@@ -300,7 +301,7 @@ void multi_output_nsolid_pattern(MPI_Comm comm) {
     Leaf q(vq, gq, n);
     std::vector<double> local(n);
     for (int i = 0; i < n; ++i) local[i] = q_all[ids[i]];
-    put(vq.ptr, local);
+    put(vq, local);
 
     Graph graph(Graph::Symbols{{"q", &q}}, {}, sum);
     // NSOLID + MEAN_SOLID 双输出；AVE 并存确认未改语义。

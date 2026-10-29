@@ -213,10 +213,63 @@ void verify_buffer_write_chain() {
         require(downloaded==expected,"buffer write/scan/download lost readiness across streams");
     }
 }
+
+// SUM/AVE and nested safe_div cross the same device -> Host reduction boundary.
+// Alternate delayed default/nonblocking producers and reuse their write events.
+// This exercises real graph dependencies, rather than serializing the device.
+void verify_sum_ave_reduction_dependencies() {
+    CudaExecutionStream producer,download_stream;
+    GpuBuffer<double> values(3),gradients(3);
+    Leaf leaf(values,gradients,3);
+    Graph graph({{"x",&leaf}});
+    graph.parse_expr("SUM(x)");
+    graph.parse_expr("AVE(x)");
+    graph.parse_expr("safe_div(SUM(x*x),SUM(x),1e-12)");
+    GraphExecution execution(graph);
+    // Warm up the writer, graph and reusable completion events before the gates.
+    write_value<<<1,32,0,producer.get()>>>(values.ptr,3,1,1);
+    write_value<<<1,32,0,producer.get()>>>(gradients.ptr,3,1,99);
+    execution_check(cudaGetLastError());
+    values.record_write(producer.get());gradients.record_write(producer.get());
+    producer.synchronize();execution.forward();execution.backward({.5,.25,1.0});
+    for(int iteration=0;iteration<6;++iteration) {
+        const cudaStream_t stream=iteration%2 ? producer.get() : nullptr;
+        ProducerGate gate(stream);
+        execution_check(cudaLaunchHostFunc(stream,ProducerGate::wait,&gate));
+        values.wait_on(stream);gradients.wait_on(stream);
+        write_value<<<1,32,0,stream>>>(values.ptr,3,1,2+iteration);
+        write_value<<<1,32,0,stream>>>(gradients.ptr,3,1,99);
+        execution_check(cudaGetLastError());
+        values.record_write(stream);gradients.record_write(stream);
+        const bool asynchronous=!gate.timed_out;
+        auto release=std::async(std::launch::async,[&gate] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));gate.release();
+        });
+        const auto output=execution.forward();release.get();
+        require(asynchronous,"reduction input publication blocked on the producer");
+        double sum=0,squares=0;
+        for(int i=0;i<3;++i) { const double x=2+iteration+i;sum+=x;squares+=x*x; }
+        require(std::abs(output[0]-sum)<1e-12,"SUM read stale producer values");
+        require(std::abs(output[1]-sum/3)<1e-12,"AVE read stale producer values");
+        require(std::abs(output[2]-squares/sum)<1e-12,"nested SUM/safe_div lost readiness");
+        execution.backward({.5,.25,1.0});
+        std::vector<double> host(3);
+        gradients.download_to(host.data(),host.size(),download_stream.get());
+        for(int i=0;i<3;++i) {
+            const double x=2+iteration+i;
+            const double expected=.5+.25/3+(2*x*sum-squares)/(sum*sum);
+            require(std::abs(host[i]-expected)<1e-12,"SUM/AVE reduction gradient race");
+        }
+        leaf.clear();
+        gradients.download_to(host.data(),host.size(),download_stream.get());
+        for(double value:host) require(value==0,"Leaf clear did not complete its writes");
+    }
+}
 }
 int main() {
     try {
         verify_stream_isolation();verify_buffer_reassembly();verify_buffer_write_chain();verify_graph_dependencies();
-        std::cout<<"PASS: producer wait, buffer reassembly/rebind, adjoint gather, independent streams and strided Graph\n";
+        verify_sum_ave_reduction_dependencies();
+        std::cout<<"PASS: producer wait, buffer reassembly/rebind, adjoint gather, independent streams, strided Graph and SUM/AVE/safe_div reductions\n";
     } catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

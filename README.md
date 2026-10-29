@@ -7,6 +7,10 @@
 普通 LAMMPS（不编译 Kokkos/Weave）同样受支持：2026-10-29 已在独立普通宿主上验收，
 见 [普通版构建、数据路径与回归范围](docs/PLAIN_LAMMPS_20261029.zh.md)。MetaDtoy CV 仍使用 CUDA。
 
+2026-10-29 独立复验后的 SUM/safe_div 测试就绪修正：标准 Graph 预设 36/36，
+默认并发下 1/2/4 ranks 各重复 50 次全部通过；历史验收与当前证据见
+[跨流就绪复验](docs/STREAM_READINESS_20261029.zh.md)。
+
 **Metad-toy** 是一个基于 LAMMPS 插件机制开发的元动力学 (Metadynamics) 插件。它允许用户在 CUDA 加速的环境下，通过自定义集体变量 (CVs) 来驱动复杂系统的相变或化学反应模拟。
 
 ---

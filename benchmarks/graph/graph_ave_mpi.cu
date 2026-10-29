@@ -12,13 +12,14 @@ void close(double actual, double expected, const char* message) {
     if (!std::isfinite(actual) || std::abs(actual-expected) > 2e-11*(1+std::abs(expected)))
         throw std::runtime_error(std::string(message)+": "+std::to_string(actual)+" != "+std::to_string(expected));
 }
-std::vector<double> read(const double* ptr, int count) {
+std::vector<double> read(const GpuBuffer<double>& buffer, int count) {
     std::vector<double> values(count);
-    if (count) graph_check_cuda(cudaMemcpy(values.data(), ptr, count*sizeof(double), cudaMemcpyDeviceToHost));
+    if (count) buffer.download_to(values.data(), values.size());
     return values;
 }
-void put(double* ptr, const std::vector<double>& values) {
-    if (!values.empty()) graph_check_cuda(cudaMemcpy(ptr, values.data(), values.size()*sizeof(double), cudaMemcpyHostToDevice));
+void put(GpuBuffer<double>& buffer, const std::vector<double>& values) {
+    // The Graph stream is nonblocking; finish the test upload before publishing it.
+    if (!values.empty()) buffer.upload_from(values.data(), values.size());
 }
 
 void host_only() {
@@ -61,14 +62,14 @@ void host_callback_reducer() {
 
 void borrowed_global_scalar() {
     GpuBuffer<double> values(1), gradients(1);
-    put(values.ptr, {.6});
+    put(values, {.6});
     Leaf x(values, gradients, 1, {ValueDomain::Global, 1});
     Graph graph(Graph::Symbols{{"x", &x}});
     graph.parse_expr("x*x");
     GraphExecution run(graph);
     close(run.forward()[0], .36, "borrowed Global value");
     run.backward({2});
-    close(read(gradients.ptr,1)[0], 2.4, "borrowed Global gradient");
+    close(read(gradients,1)[0], 2.4, "borrowed Global gradient");
 }
 
 // 同一套全局样本按不均匀数量划分；np>1 时 rank 0 故意没有样本。
@@ -103,8 +104,8 @@ void distributed_graph(MPI_Comm comm) {
     for (double offset : {0.0, .1}) {
         std::vector<double> local_x(n+3, guard), local_y(n+3, guard);
         for (int i = 0; i < n; ++i) { local_x[i]=x_all[ids[i]]+offset; local_y[i]=y_all[ids[i]]; }
-        put(vx.ptr, local_x); put(vy.ptr, local_y);
-        put(gx.ptr, std::vector<double>(n+3, guard)); put(gy.ptr, std::vector<double>(n+3, guard));
+        put(vx, local_x); put(vy, local_y);
+        put(gx, std::vector<double>(n+3, guard)); put(gy, std::vector<double>(n+3, guard));
         *coefficient.val = .75+offset;
         double expected_u=0, expected_v=0;
         for (size_t i=0; i<x_all.size(); ++i) {
@@ -117,7 +118,7 @@ void distributed_graph(MPI_Comm comm) {
         require(u->global_count == 5 && v->global_count == 5, "global count is wrong");
         for (double seed : {-.2, .3}) {
             run.backward({.7, seed});
-            const auto dx=read(gx.ptr,n+3), dy=read(gy.ptr,n+3);
+            const auto dx=read(gx,n+3), dy=read(gy,n+3);
             const double du=.7+seed*(*coefficient.val)*std::exp(expected_v);
             const double dv=1.4+seed*(*coefficient.val)*expected_u*std::exp(expected_v);
             for (int i=0;i<n;++i) {
@@ -134,7 +135,7 @@ void distributed_graph(MPI_Comm comm) {
     const auto output=parsed_run.forward();
     close(output[0], 2*(*u->val)+1+std::exp(*v->val), "parsed AVE output");
     parsed_run.backward({1});
-    const auto dx=read(gx.ptr,n);
+    const auto dx=read(gx,n);
     for (int i=0;i<n;++i) close(dx[i], (2*y_all[ids[i]]+std::exp(*v->val))/5, "parsed AVE gradient");
     Leaf empty(std::vector<double>{});
     AVE empty_mean(&empty, sum);
@@ -159,7 +160,7 @@ void resize_and_logging(MPI_Comm comm) {
         for (int phase : {1, 0, 7}) {
             const int n = phase ? phase : (rank == 0 ? 1 : 0);
             x.n = n;
-            put(values.ptr, std::vector<double>(n, 2.0));
+            put(values, std::vector<double>(n, 2.0));
             x.refresh_buffers();
             run.resize_inputs();
             bool rejected = false;
@@ -168,7 +169,7 @@ void resize_and_logging(MPI_Comm comm) {
             close(run.forward()[0], 4.0, "resized average");
             run.backward({1});
             int total = 0; MPI_Allreduce(&n, &total, 1, MPI_INT, MPI_SUM, comm);
-            for (double value : read(gradients.ptr, n)) close(value, 4.0/total, "resized gradient");
+            for (double value : read(gradients, n)) close(value, 4.0/total, "resized gradient");
         }
     }
     graph.kernel_source += "\n#error deliberate_NVRTC_log_test\n";

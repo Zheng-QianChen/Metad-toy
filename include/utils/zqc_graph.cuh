@@ -481,6 +481,8 @@ class GraphExecution {
         GraphExecution& operator=(const GraphExecution&) = delete;
 
         // 返回所有 Global 输出（按输出中的 Global 顺序）；PerAtom 用 per_atom_output 借用。
+        // 外部生产者须先完成写入，或通过 View/GpuBuffer::record_write 发布事件。
+        // pageable cudaMemcpy(H2D) 的返回不保证 DMA 已结束；空 readiness 不隐式等待默认流。
         std::vector<double> forward();
         // 每个 rank 传入同一组全局输出种子，不再对这些种子做跨进程求和。
         void backward(const std::vector<double>& seeds,
