@@ -4,6 +4,9 @@
 旧功能恢复、LocalQL 优化、Q/Half 设备路径、共享 SUM/在线 WT 与 A100 多卡续算已完成相应验收；
 真实 Al3Sc 形核及 FES 收敛仍需独立科学证据。
 
+普通 LAMMPS（不编译 Kokkos/Weave）同样受支持：2026-10-29 已在独立普通宿主上验收，
+见 [普通版构建、数据路径与回归范围](docs/PLAIN_LAMMPS_20261029.zh.md)。MetaDtoy CV 仍使用 CUDA。
+
 **Metad-toy** 是一个基于 LAMMPS 插件机制开发的元动力学 (Metadynamics) 插件。它允许用户在 CUDA 加速的环境下，通过自定义集体变量 (CVs) 来驱动复杂系统的相变或化学反应模拟。
 
 ---

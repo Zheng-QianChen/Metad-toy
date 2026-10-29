@@ -2,6 +2,8 @@
 
 当前统一候选版：[使用入口](RELEASE_20261028.zh.md)、[A100 生产验收](PRODUCTION_ACCEPTANCE_20261028.zh.md)、[科学与环境复验](SCIENCE_ENV_20261028.zh.md)。
 
+普通 LAMMPS：[无 Kokkos/Weave 宿主的构建与验收](PLAIN_LAMMPS_20261029.zh.md)。
+
 欢迎查阅 **MetaD-toy** 官方技术文档！这是一个专为 LAMMPS 分子动力学框架设计的非侵入式加速扩展插件。
 
 当前功能与验收：[版本整合](VERSION_CONSOLIDATION_20261028.zh.md)、

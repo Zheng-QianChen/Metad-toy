@@ -51,6 +51,51 @@ Build profiles `kokkos` and `host` do not link Weave. Validation profile
 `al3sc.py --raw-product` checks the same local product used by the large fixed-bias
 run; default mode checks the additional product switch.
 
+Ordinary LAMMPS is a supported host profile. It may be built with
+`PKG_KOKKOS=OFF`, `PKG_GPU=OFF` and without Weave; the plugin still requires CUDA
+for its CV kernels. Build against that host's matching source, shared library,
+integer sizes and MPI ABI. `--weave-source` and `--weave-library` are required
+only for the `weave` build profile; `Kokkos_DIR` is supplied only for `kokkos`
+and `weave`. Use a separate output directory for each profile:
+
+```bash
+python benchmarks/integration/build.py \
+  --profile host --output "$PWD/build/plain-plugin" \
+  --lammps-source /home/zqc/apps/lammps/lammps-22Jul2025 \
+  --host-build "$PWD/build/plain-lammps-20261029/lammps" \
+  --cuda /usr/local/cuda --mpi-prefix /home/zqc/apps/deepmd \
+  --cmake /home/zqc/apps/deepmd/bin/cmake \
+  --ninja /home/zqc/apps/deepmd/bin/ninja --arch 89 --jobs 4
+
+# Pin the Python wrapper to this exact library in a fresh local package.
+# This avoids another installed liblammps winning the Python executable's RPATH.
+python - <<'PY'
+from pathlib import Path
+import shutil
+package = Path('build/plain-python')
+shutil.copytree('/home/zqc/apps/lammps/lammps-22Jul2025/python/lammps',
+                package / 'lammps', ignore=shutil.ignore_patterns('__pycache__'))
+(package / 'lammps/liblammps.so').symlink_to(
+    Path('build/plain-lammps-20261029/lammps/liblammps.so').resolve())
+PY
+
+python benchmarks/integration/validate.py \
+  --phase al3sc --profile host --np 1 2 \
+  --build "$PWD/build/plain-plugin" \
+  --output "$PWD/build/plain-validation" \
+  --host-build "$PWD/build/plain-lammps-20261029/lammps" \
+  --mpi-prefix /home/zqc/apps/deepmd \
+  --python-package "$PWD/build/plain-python" \
+  --assets /home/zqc/work/Al3Sc-kokkos-shared-20261028/assets
+```
+
+The `host` validator passes no `-k on`, `-sf kk` or Weave plugin. Host coordinates
+are uploaded for CV evaluation; Host neighbor CSR is uploaded when its contents
+change, and force/virial results return through the ordinary LAMMPS adapter.
+LocalQL borrows this uploaded device CSR through the same interface as the Kokkos
+path. Removing its unused pair-harmonic cache benefits both paths. This profile
+does not provide CPU-only CV kernels or the Kokkos path's transfer performance.
+
 The result directories keep command lines, exit codes, plugin SHA256, independent
 energy references, finite differences and states for cross-backend comparison.
 See [the consolidation record](../../docs/VERSION_CONSOLIDATION_20261028.zh.md)

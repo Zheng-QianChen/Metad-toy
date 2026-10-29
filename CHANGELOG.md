@@ -1,5 +1,12 @@
 # 更新日志
 
+## 普通 LAMMPS 兼容验收 — 2026-10-29
+
+- host 构建/验证不再强制提供 Weave；仅 Kokkos/Weave 构建传入 Kokkos_DIR。
+- 全新关闭 Kokkos/GPU package 的普通宿主通过 1/2/4 ranks CV、ghost/cache、真实 MEAM、
+  共享在线 WT/续算及原生 lmp 加载测试。明确区分 CPU LAMMPS 宿主与 CUDA CV 计算。
+- 构建命令、Python 库固定方法与实际验收范围见 [普通版说明](docs/PLAIN_LAMMPS_20261029.zh.md)。
+
 ## 统一候选版 — 2026-10-28 开始，2026-10-29 收口
 
 - 按 5→3→4→2→1→6 完成受测工程项；A100 10 万步、9 次续算与真实 1/2/4 GPU、跨两节点通过。

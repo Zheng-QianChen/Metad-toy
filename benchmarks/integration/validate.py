@@ -16,8 +16,9 @@ import time
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--source',type=Path,default=Path(__file__).resolve().parents[2])
-    for name in ('build','output','host-build','mpi-prefix','python-package','weave-library','assets'):
+    for name in ('build','output','host-build','mpi-prefix','python-package','assets'):
         p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--weave-library',type=Path)
     p.add_argument('--cuda',type=Path,default=Path('/usr/local/cuda'))
     p.add_argument('--cmake',default='cmake')
     p.add_argument('--ctest',default='ctest')
@@ -27,11 +28,15 @@ def main():
     p.add_argument('--fixture',type=Path,help='Existing Al3Sc input directory for probe phase')
     p.add_argument('--np',type=int,nargs='+',default=[1,2])
     a=p.parse_args()
+    if a.profile in ('weave','fallback') and a.weave_library is None:
+        p.error('--profile weave/fallback requires --weave-library')
     a.output.mkdir(parents=True,exist_ok=False)
     plugin=a.build/'fix_crystallize_plugin.so'
     env=os.environ.copy()
+    library_dirs=[str(a.host_build),str(a.mpi_prefix/'lib'),str(a.cuda/'lib64')]
+    if a.profile in ('weave','fallback'):library_dirs.insert(0,str(a.weave_library.parent))
     env.update(PATH=f'{a.cuda}/bin:{a.mpi_prefix}/bin:'+env.get('PATH',''),
-        LD_LIBRARY_PATH=f'{a.weave_library.parent}:{a.host_build}:{a.mpi_prefix}/lib:{a.cuda}/lib64',
+        LD_LIBRARY_PATH=':'.join(library_dirs),
         PYTHONPATH=str(a.python_package),LAMMPS_LIBRARY_PATH=str(a.host_build),
         OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',OMPI_MCA_btl='self,tcp',OMPI_MCA_pml='ob1',
         OMPI_MCA_opal_cuda_support='true',WEAVE_METAD_DEVICE_COMMIT='0' if a.profile=='fallback' else '1')
