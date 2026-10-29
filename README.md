@@ -1,6 +1,18 @@
-# Metad-toy: LAMMPS Metadynamics Plugin
+# MetaDtoy: Metadynamics for LAMMPS and GPUMD
 
-2026-10-28 统一版本（2026-10-29 收口）：[当前使用入口与验收边界](docs/RELEASE_20261028.zh.md)。
+**v0.1.0 — 2026-10-29**。本版本支持普通 LAMMPS、LAMMPS Kokkos/CUDA，
+并提供部分 GPUMD 接入。功能范围和验证边界见 [正式版本说明](RELEASE_NOTES.md)。
+
+| 宿主 / 后端 | 本版本支持范围 | 构建与使用 |
+|---|---|---|
+| 普通 LAMMPS | 不依赖 Kokkos 或 Weave；CV/Graph 仍需 CUDA GPU | [普通版说明](docs/PLAIN_LAMMPS_20261029.zh.md) |
+| LAMMPS Kokkos/CUDA | 借用设备坐标与邻居表，CV 前后向及偏置力回写；Weave 为可选优化 | [Kokkos 指南](benchmarks/kokkos/README.md)、[集成构建](benchmarks/integration/README.md) |
+| GPUMD v5.9.1（部分支持） | 单进程，DISTANCE、StruFactor、Graph 表达式、一维 WTMetaD；共享运行库/C ABI | [GPUMD 指南与限制](benchmarks/gpumd/README.md) |
+
+当前运行内核需要 NVIDIA CUDA。普通 LAMMPS 宿主可在 CPU 上运行；本版本未提供纯 CPU CV
+后端，也未验证其他 Kokkos 设备后端。GPUMD 的 NPT、完整 MD 重启及 LocalQL 尚未接入。
+
+2026-10-28 统一工作（2026-10-29 收口）：[版本来源与阶段验收](docs/RELEASE_20261028.zh.md)。
 旧功能恢复、LocalQL 优化、Q/Half 设备路径、共享 SUM/在线 WT 与 A100 多卡续算已完成相应验收；
 真实 Al3Sc 形核及 FES 收敛仍需独立科学证据。
 
@@ -11,7 +23,8 @@
 默认并发下 1/2/4 ranks 各重复 50 次全部通过；历史验收与当前证据见
 [跨流就绪复验](docs/STREAM_READINESS_20261029.zh.md)。
 
-**Metad-toy** 是一个基于 LAMMPS 插件机制开发的元动力学 (Metadynamics) 插件。它允许用户在 CUDA 加速的环境下，通过自定义集体变量 (CVs) 来驱动复杂系统的相变或化学反应模拟。
+**MetaDtoy** 通过 LAMMPS 插件或 GPUMD 桥接运行元动力学 (Metadynamics)，
+复用 CUDA 集体变量 (CV)、表达式图和偏势实现。不同宿主的可用功能以上方支持范围为准。
 
 ---
 

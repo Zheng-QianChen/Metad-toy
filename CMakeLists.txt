@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" METADTOY_VERSION LIMIT_COUNT 1)
 option(ZQC_CLI_ONLY "Configure only the offline Python CLI" OFF)
 if(ZQC_CLI_ONLY)
-    project(MetadToy LANGUAGES NONE)
+    project(MetadToy VERSION ${METADTOY_VERSION} LANGUAGES NONE)
     add_subdirectory(tools)
     return()
 endif()
-project(MetadToy LANGUAGES CXX)
+project(MetadToy VERSION ${METADTOY_VERSION} LANGUAGES CXX)
 option(ZQC_BUILD_CLI "Package and install the offline Python CLI" OFF)
 
 # 基础接口仅需 C++；CUDA、宿主插件和测试按选项加载各自的依赖。
